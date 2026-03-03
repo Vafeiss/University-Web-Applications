@@ -8,6 +8,11 @@
   Outputs: Advisor's /Student's/SuperUser's informations
   Error Messages: Database failure , filehandler error , filepath error.
   Files in Use: Add_Advisor.php / <delete_Advisor / admin_dashboard.php
+
+  03-Mar-2026 v0.2
+  Added Student / SuperUser add deletion its the same principle as advisors but with the info of students
+  superuser its much simpler as it has only a user account ad we dont store personal information
+  Paraskevas Vafeiadis
 */
 require_once __DIR__ . '/UsersClass.php';
 
