@@ -113,7 +113,11 @@ class Admin extends Users
             return false;
         }
 
-        // check if advisor already exists by email
+        if ($externalid === null || trim($externalid) === '' || (int)$externalid <= 0) {
+            return false;
+        }
+
+        // check if user already exists by email
         $stmt1 = $this->conn->prepare('SELECT User_ID FROM users WHERE Uni_Email = ? LIMIT 1');
         $stmt1->bind_param('s', $email);
         $stmt1->execute();
@@ -122,11 +126,20 @@ class Admin extends Users
             return false;
         }
 
+        // avoid unique key violation on External_ID
+        $external_id_int = (int)$externalid;
+        $stmt2 = $this->conn->prepare('SELECT User_ID FROM users WHERE External_ID = ? LIMIT 1');
+        $stmt2->bind_param('i', $external_id_int);
+        $stmt2->execute();
+        $resultExternal = $stmt2->get_result();
+        if ($resultExternal && $resultExternal->num_rows > 0) {
+            return false;
+        }
+
         // generate temporary password and create users record (store all student fields in users table)
         $TempPassword = $this->generateTempPassword(12);
         $hashedTempPassword = password_hash($TempPassword, PASSWORD_DEFAULT);
 
-        $external_id_int = (int)$externalid;
         $stmt = $this->conn->prepare('INSERT INTO users (Uni_Email, Password, Role, External_ID, First_name, Last_Name, Year) VALUES (?, ?, "Student", ?, ?, ?, ?)');
         $stmt->bind_param('ssisss', $email, $hashedTempPassword, $external_id_int, $first, $last, $year);
         if (!$stmt->execute()) {
@@ -270,8 +283,9 @@ class Admin extends Users
         //HAVE TO SEND THEM THE TempPassword
         $TempPassword = $this->generateTempPassword(12);
         $hashedTempPassword = password_hash($TempPassword, PASSWORD_DEFAULT);
-        $stmt = $this->conn->prepare('INSERT INTO users (Uni_Email, Password, Role , First_Name , Last_Name) VALUES (?, ?, "SuperUser", "SuperUser" , "SuperUser" )');
-        $stmt->bind_param('ss', $email, $hashedTempPassword);
+        $externalId = $this->getNextExternalId();
+        $stmt = $this->conn->prepare('INSERT INTO users (External_ID, Uni_Email, Password, Role , First_Name , Last_Name) VALUES (?, ?, ?, "SuperUser", "SuperUser" , "SuperUser")');
+        $stmt->bind_param('iss', $externalId, $email, $hashedTempPassword);
         if (!$stmt->execute()) {
             return false;
         }
@@ -301,5 +315,16 @@ class Admin extends Users
             $password .= $chars[ord($bytes[$i]) % $charLen];
         }
         return $password;
+    }
+
+
+    private function getNextExternalId(): int
+    {
+        $result = $this->conn->query('SELECT COALESCE(MAX(External_ID), 0) + 1 AS next_external_id FROM users');
+        if ($result && ($row = $result->fetch_assoc()) && isset($row['next_external_id'])) {
+            return (int)$row['next_external_id'];
+        }
+
+        return random_int(100000, 999999);
     }
 }

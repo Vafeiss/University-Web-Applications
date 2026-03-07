@@ -23,7 +23,8 @@ if (!isset($_SESSION["UserID"])) {
 <div class="card shadow p-4" style="width:400px;">
 <h3 class="text-center mb-4">Change Password</h3>
 
-<form method="POST" action="../backend/controllers/changepassword_controller.php">
+<form method="POST" action="../backend/modules/dispatcher.php">
+    <input type="hidden" name="action" value="/password/change">
 
     <div class="mb-3">
         <label>Current Password</label>

@@ -14,7 +14,7 @@ $user->Check_Session("Student");
     <h1>Welcome to the Student Dashboard</h1>
     <button onclick="location.href='changepassword.php'">Change Password</button>
     <form action="../backend/modules/dispatcher.php" method="POST">
-        <input type="hidden" name="action" value="logout">
+        <input type="hidden" name="action" value="/logout">
         <button type="submit">Logout</button>
     </form>
 </body>
