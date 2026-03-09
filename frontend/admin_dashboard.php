@@ -123,7 +123,10 @@ $superusers = $user->getSuperUsers();
             </div>
 
             <div class="col-md-6">
-              <input type="text" name="department" class="form-control" placeholder="Department" required>
+              <select  name="department" class="form-control" required>
+                <option value selected disabled> Select Department</option>
+                <option value = "HMMHY" > ΗΜΜΗΥ </option>
+              </select>
             </div>
 
             <div class="col-12">
