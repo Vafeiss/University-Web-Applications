@@ -35,7 +35,7 @@ $superusers = $user->getSuperUsers();
     <span class="navbar-brand fw-bold">Administrator Portal</span>
 
     <form action="../backend/modules/dispatcher.php" method="POST">
-      <input type="hidden" name="action" value="logout">
+      <input type="hidden" name="action" value="/logout">
       <button class="btn btn-outline-danger">Logout</button>
     </form>
   </div>
@@ -99,7 +99,8 @@ $superusers = $user->getSuperUsers();
         <div class="card-header">Add Advisor</div>
         <div class="card-body">
 
-          <form action="../backend/controllers/add_advisor.php" method="post" class="row g-3" enctype="multipart/form-data">
+          <form action="../backend/modules/dispatcher.php" method="post" class="row g-3" enctype="multipart/form-data">
+            <input type="hidden" name="action" value="/advisor/add">
 
 
             <div class="col-md-6">
@@ -151,7 +152,8 @@ $superusers = $user->getSuperUsers();
                 <?php endif; ?>
               </div>
 
-              <form action="../backend/controllers/delete_advisor.php" method="post">
+              <form action="../backend/modules/dispatcher.php" method="post">
+                <input type="hidden" name="action" value="/advisor/delete">
                 <input type="hidden" name="advisor_id" value="<?= $advisor['Advisor_ID'] ?>">
                 <button class="btn btn-sm btn-danger">Delete</button>
               </form>
@@ -177,7 +179,8 @@ $superusers = $user->getSuperUsers();
               <?= htmlspecialchars($student['StuExternal_ID'] . ' ' . $student['First_name'] . ' ' . $student['Last_Name']) ?>
               Advisor's ID: <?= htmlspecialchars($student['Advisor_ID']) ?>
 
-              <form action="../backend/controllers/delete_student.php" method="post">
+              <form action="../backend/modules/dispatcher.php" method="post">
+                <input type="hidden" name="action" value="/student/delete">
                 <input type="hidden" name="student_ID" value="<?= $student['Student_ID'] ?>">
                 <button class="btn btn-sm btn-danger">Delete</button>
               </form>
@@ -193,7 +196,8 @@ $superusers = $user->getSuperUsers();
         <div class="card-header">Add Students</div>
           <div class="card-body">
 
-          <form action="../backend/controllers/add_student.php" method="post" class="row g-3" enctype="multipart/form-data">
+          <form action="../backend/modules/dispatcher.php" method="post" class="row g-3" enctype="multipart/form-data">
+            <input type="hidden" name="action" value="/student/add">
 
 
             <div class="col-md-6">
@@ -201,7 +205,7 @@ $superusers = $user->getSuperUsers();
             </div>
 
             <div class="col-md-6">
-              <input type="text" name="external_id" class="form-control" placeholder="Student ID">
+              <input type="text" name="external_id" class="form-control" placeholder="Student ID" required>
             </div>
             <div class="col-md-6">
               <input type="text" name="last_name" class="form-control" placeholder="Last Name" required>
@@ -212,7 +216,14 @@ $superusers = $user->getSuperUsers();
             </div>
 
             <div class="col-md-6">
-              <input type="text" name="year" class="form-control" placeholder="Year">
+              <select name="year" class="form-control" required>
+                <option value="" selected disabled>Select Year</option>
+                <option value="First">First</option>
+                <option value="Second">Second</option>
+                <option value="Third">Third</option>
+                <option value="Fourth">Fourth</option>
+                <option value="Fifth">Fifth</option>
+              </select>
             </div>
 
             <div class="col-md-6">
@@ -229,7 +240,8 @@ $superusers = $user->getSuperUsers();
       <div class="card mb-3">
         <div class="card-header">Students' CSV File</div>
         <div class="card-body">
-          <form action="../backend/controllers/add_student.php" method="post" class="row g-3" enctype="multipart/form-data">
+          <form action="../backend/modules/dispatcher.php" method="post" class="row g-3" enctype="multipart/form-data">
+            <input type="hidden" name="action" value="/student/add">
             <div class="col-12">
               <label for="csv_file" class="form-label">Upload Multiple Students in a .csv Format</label>
               <small class="form-text text-muted d-block mb-2">CSV columns: student_id, first_name, last_name, email, year (required); advisor_id (optional)</small>
@@ -249,7 +261,8 @@ $superusers = $user->getSuperUsers();
             <div class="card-header">Add SuperUser</div>
               <div class="card-body">
 
-            <form action="../backend/controllers/add_superuser.php" method="post" class="row g-3" enctype="multipart/form-data">
+            <form action="../backend/modules/dispatcher.php" method="post" class="row g-3" enctype="multipart/form-data">
+            <input type="hidden" name="action" value="/superuser/add">
 
             <div class="col-12">
               <input type="text" name="email" class="form-control" placeholder="Enter Email" required>
@@ -271,7 +284,8 @@ $superusers = $user->getSuperUsers();
                 <strong><?= htmlspecialchars($superuser['Email']) ?></strong>
               </div>
 
-              <form action="../backend/controllers/delete_superuser.php" method="post">
+              <form action="../backend/modules/dispatcher.php" method="post">
+                <input type="hidden" name="action" value="/superuser/delete">
                 <input type="hidden" name="User_ID" value="<?= $superuser['User_ID'] ?>">
                 <button class="btn btn-sm btn-danger">Delete</button>
               </form>

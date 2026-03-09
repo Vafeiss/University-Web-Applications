@@ -6,18 +6,15 @@ Paraskevas Vafeiadis
 Inputs: action (string)
 Outputs: None
 Error Messages: None
-Files in use: logoutcontroller.php where the log out process is handled.
+Files in use: AdminController.php and UsersController.php through the router.
 */
-declare(strict_types=1);
 
-        $action = $_POST['action'] ?? '';
-        switch($action){
-            case 'logout':
-                // the controller resides in ../controllers relative to this file
-                require_once __DIR__ . '/../controllers/logoutcontroller.php';
-                break;
-            default:
-                echo "Invalid action";
-        }
+require_once __DIR__ . '/../core/router.php';
+require_once __DIR__ . '/../controllers/AdminController.php';
+require_once __DIR__ . '/../controllers/UsersController.php';
 
-?>
+$router = new Router();
+
+require_once __DIR__ . '/../core/routes.php';
+
+$router->resolve();
