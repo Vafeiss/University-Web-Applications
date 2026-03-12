@@ -1,5 +1,6 @@
 <?php
 
+$router->post('/login', ['UsersController','Authentication']);
 $router->post('/logout', ['UsersController','logout']);
 $router->post('/password/change', ['UsersController','changePassword']);
 

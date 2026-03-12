@@ -13,15 +13,10 @@ Files in use: Bootstrap CSS from the web
 24-feb-2026: changed the where the form is sent to the backend to validate if the inputs are correct.
 Paraskevas Vafeiadis
 */
-
-$error = " ";
-$password = '1234';
-$hashpassword = password_hash($password , PASSWORD_DEFAULT );
-echo $hashpassword;
 ?>
 
 <!DOCTYPE html>
-<html>
+<html lang="en">
     <head>
         <meta charset="UTF-8">
         <title>AdviCut Login Page</title>
@@ -33,7 +28,8 @@ echo $hashpassword;
         <div class="card shadow p-4" style="width:400px;">
         <h3 class="text-center mb-4">Welcome to AdviCUT!</h3>
         <img src="imgs/cut_tepak_image.png" class="card-img-top mb-4" alt="AdviCut Logo">
-        <form method = "POST" action = "../backend/controllers/authentication.php">
+        <form method = "POST" action = "../backend/modules/dispatcher.php">
+            <input type="hidden" name="action" value="login">
             <div class="mb-3">
                 <label for="Email" class="form-label">University Email</label>
                 <input type="text" class="form-control" id="Email" name="email" required>
