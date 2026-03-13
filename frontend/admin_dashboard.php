@@ -9,9 +9,10 @@ Error Messages: If the fields are empty , if not a csv file
 Files in Use: AdminClass.php
 
 */
-require_once('init.php');
-require_once('../backend/modules/AdminClass.php');
-require_once('../backend/modules/ParticipantsClass.php');
+require_once 'init.php';
+require_once '../backend/modules/AdminClass.php';
+require_once '../backend/modules/ParticipantsClass.php';
+
 $user = new Admin();
 $user->Check_Session("Admin");
 
@@ -28,7 +29,6 @@ $participants = new Participants_Processing();
 $assignmentMap = $participants->Get_Student_Advisor();
 $studentAssignmentMap = $participants->Assign_Students_Advisors();
 ?>
-
 
 <!DOCTYPE html>
 <html lang="en">
@@ -141,7 +141,7 @@ $studentAssignmentMap = $participants->Assign_Students_Advisors();
             <div class="col-md-6">
               <select  name="department" class="form-control" required>
                 <option value selected disabled> Select Department</option>
-                <option value = "HMMHY" > ΗΜΜΗΥ </option>
+                <option value = "1" > ΗΜΜΗΥ </option>
               </select>
             </div>
 
@@ -162,7 +162,7 @@ $studentAssignmentMap = $participants->Assign_Students_Advisors();
             <li class="list-group-item d-flex justify-content-between align-items-center">
 
               <div>
-                <strong><?= htmlspecialchars($advisor['External_ID'] . ' ' . $advisor['First_name'] . ' ' . $advisor['Last_Name']) ?></strong>
+                <strong><?= htmlspecialchars($advisor['Advisor_ID'] . ' ' . $advisor['First_name'] . ' ' . $advisor['Last_Name']) ?></strong>
                 <br>
                 <small><?= htmlspecialchars($advisor['Department_Name']) ?></small>
                 <?php if (!empty($advisor['Phone'])): ?>
@@ -237,6 +237,13 @@ $studentAssignmentMap = $participants->Assign_Students_Advisors();
 
             <div class="col-md-6">
               <input type="email" name="email" class="form-control" placeholder="Email" required>
+            </div>
+
+            <div class="col-md-6">
+              <select name="Degree" class="form-control" required>
+                <option value="" selected disabled>Degree</option>
+                <option value="1"> Computer Engineer And Infomartics</option>
+              </select>
             </div>
 
             <div class="col-md-6">
@@ -330,15 +337,15 @@ $studentAssignmentMap = $participants->Assign_Students_Advisors();
             <div class="accordion" id="assignAdvisorAccordion">
               <?php foreach ($assignAdvisors as $advisor): ?>
                 <?php
-                  $advisorUserId = (int)$advisor['Advisor_ID'];
-                  $advisorExternalId = (int)$advisor['External_ID'];
+                  $advisorUserId = (int)$advisor['User_ID'];
+                  $advisorExternalId = (int)$advisor['Advisor_ID'];
                   $collapseId = 'assignAdvisor' . $advisorUserId;
                   $headingId = 'assignHeading' . $advisorUserId;
                 ?>
                 <div class="accordion-item">
                   <h2 class="accordion-header" id="<?= $headingId ?>">
                     <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#<?= $collapseId ?>" aria-expanded="false" aria-controls="<?= $collapseId ?>">
-                      <?= htmlspecialchars($advisor['External_ID'] . ' ' . $advisor['First_name'] . ' ' . $advisor['Last_Name']) ?>
+                      <?= htmlspecialchars($advisor['Advisor_ID'] . ' ' . $advisor['First_name'] . ' ' . $advisor['Last_Name']) ?>
                     </button>
                   </h2>
                   <div id="<?= $collapseId ?>" class="accordion-collapse collapse" aria-labelledby="<?= $headingId ?>" data-bs-parent="#assignAdvisorAccordion">

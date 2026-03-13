@@ -54,11 +54,12 @@ class AdminController {
             $first = $_POST['first_name'] ?? '';
             $last = $_POST['last_name'] ?? '';
             $email = $_POST['email'] ?? '';
+            $degree = (int)$_POST['Degree'] ?? '';
             $year = $_POST['year'] ?? '';
             $advisorinput = $_POST['advisor_id'] ?? ($_POST['advisors_id'] ?? '');
             $advisorID = ($advisorinput === '' ? null : (int)$advisorinput);
 
-            $added = $this->admin->addStudent($externalId, $first, $last, $email, $year, $advisorID);
+            $added = $this->admin->addStudent($externalId, $first, $last, $email, $degree, $year, $advisorID);
             if (!$added) {
                 header("Location: ../../frontend/admin_dashboard.php?error=student_add_failed");
                 exit();
@@ -98,16 +99,16 @@ class AdminController {
             exit();
         }
 
-       $external_id = trim($_POST['external_id'] ?? '');
-       $first_name = trim($_POST['first_name'] ?? '');
-       $last_name  = trim($_POST['last_name'] ?? '');
-       $email      = trim($_POST['email'] ?? ''); 
-       $phone      = trim($_POST['phone'] ?? '');
-       if (strlen($phone) < 8) {
+        $external_id = trim($_POST['external_id'] ?? '');
+        $first_name = trim($_POST['first_name'] ?? '');
+        $last_name  = trim($_POST['last_name'] ?? '');
+        $email      = trim($_POST['email'] ?? '');
+        $phone      = trim($_POST['phone'] ?? '');
+        if (strlen($phone) < 8) {
         $this->errors[] = "Phone number must be at least 8 digits long";
         header("Location: ../../frontend/admin_dashboard.php?error=invalid_phone");
         exit();}
-       $department = trim($_POST['department'] ?? '');
+        $department = (int)trim($_POST['department'] ?? '');
 
         $this->admin->addAdvisor($external_id, $first_name, $last_name, $email, $phone, $department);
 

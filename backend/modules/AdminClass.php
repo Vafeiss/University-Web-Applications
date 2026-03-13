@@ -42,20 +42,20 @@ class Admin extends Users
     // Get all the advisors and their details
     public function getAdvisors()
     {
-        return $this->conn->query("SELECT User_ID AS Advisor_ID, External_ID, First_name, Last_Name, Department_Name, Phone FROM users WHERE Role = 'Advisor'");
+        return $this->conn->query("SELECT users.User_ID , users.External_ID as Advisor_ID, users.First_name, users.Last_Name, degree.Department_Name, users.Phone FROM users JOIN degree ON users.Department_ID = degree.DegreeID WHERE users.Role = 'Advisor'");
     }
 
     // Get all the students and their details
     public function getStudents()
     {
-        return $this->conn->query("SELECT User_ID AS Student_ID, External_ID AS StuExternal_ID, First_name, Last_Name, Year FROM users WHERE Role = 'Student'");
+        return $this->conn->query("SELECT users.User_ID AS Student_ID, users.External_ID AS StuExternal_ID, users.First_name, users.Last_Name, users.Year , degree.Department_Name FROM users JOIN degree ON users.Department_ID = degree.DegreeID WHERE users.Role = 'Student'");
     }
 
     public function getSuperUsers(){
         return $this->conn->query("SELECT Uni_Email as Email , User_ID FROM users WHERE Role = 'SuperUser'");
     }
     // Add an advisor to the database, also create a user account with a temp password.
-    public function addAdvisor(?string $externalId, string $first, string $last, string $email, string $phone, string $department): bool
+    public function addAdvisor(?string $externalId, string $first, string $last, string $email, string $phone, int $department): bool
     {
         if ($first === '' || $last === '' || $email === '' || $department === '') {
             return false;
@@ -66,8 +66,8 @@ class Admin extends Users
         }
 
         // check if advisor already exists by email
-        $check = $this->conn->prepare('SELECT User_ID FROM users WHERE Uni_Email = ? LIMIT 1');
-        $check->bind_param('s', $email);
+        $check = $this->conn->prepare('SELECT User_ID FROM users WHERE Uni_Email = ? OR External_ID = ? LIMIT 1');
+        $check->bind_param('si', $email, $externalId);
         $check->execute();
         $Result = $check->get_result();
         if ($Result && $Result->num_rows > 0) {
@@ -79,8 +79,8 @@ class Admin extends Users
         $hashedTempPassword = password_hash($TempPassword, PASSWORD_DEFAULT);
 
         $externalId_int = (int)$externalId;
-        $stmt = $this->conn->prepare('INSERT INTO users (Uni_Email, Password, Role, External_ID, First_name, Last_Name, Phone, Department_Name) VALUES (?, ?, "Advisor", ?, ?, ?, ?, ?)');
-        $stmt->bind_param('ssissss', $email, $hashedTempPassword, $externalId_int, $first, $last, $phone, $department);
+        $stmt = $this->conn->prepare('INSERT INTO users (Uni_Email, Password, Role, External_ID, First_name, Last_Name, Phone, Department_ID) VALUES (?, ?, "Advisor", ?, ?, ?, ?, ?)');
+        $stmt->bind_param('ssisssi', $email, $hashedTempPassword, $externalId_int, $first, $last, $phone, $department);
         if (!$stmt->execute()) {
             return false;
         }
@@ -103,7 +103,7 @@ class Admin extends Users
         return ['added' => $added, 'skipped' => $skipped, 'errors' => $errors];
     }
 
-    public function addStudent(?string $externalid, string $first, string $last, string $email, string $year, ?int $advisorID = null): bool
+    public function addStudent(?string $externalid, string $first, string $last, string $email, int $degree, string $year, ?int $advisorID = null): bool
     {
         if ($first === '' || $last === '' || $email === '' || $year === '') {
             return false;
@@ -140,8 +140,8 @@ class Admin extends Users
         $TempPassword = $this->generateTempPassword(12);
         $hashedTempPassword = password_hash($TempPassword, PASSWORD_DEFAULT);
 
-        $stmt = $this->conn->prepare('INSERT INTO users (Uni_Email, Password, Role, External_ID, First_name, Last_Name, Year) VALUES (?, ?, "Student", ?, ?, ?, ?)');
-        $stmt->bind_param('ssisss', $email, $hashedTempPassword, $external_id_int, $first, $last, $year);
+        $stmt = $this->conn->prepare('INSERT INTO users (Uni_Email, Password, Role, External_ID, First_name, Last_Name, Department_ID, Year) VALUES (?, ?, "Student", ?, ?, ?, ?, ?)');
+        $stmt->bind_param('ssissis', $email, $hashedTempPassword, $external_id_int, $first, $last, $degree, $year);
         if (!$stmt->execute()) {
             return false;
         }
