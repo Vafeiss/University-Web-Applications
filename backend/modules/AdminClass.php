@@ -22,6 +22,11 @@
   04-Mar-2026 v0.4
   Finialise CSV addition for the students added Delete/Add supervisor
   Paraskevas Vafeiadis
+
+  13-Mar-2026 v0.5
+  Added some error handling and some new validation for the csv inputs in the normalizeYear
+  Paraskevas Vafeiadis
+
 */
 require_once __DIR__ . '/UsersClass.php';
 
@@ -39,22 +44,46 @@ class Admin extends Users
         $this->conn->set_charset("utf8mb4");
     }
 
-    // Get all the advisors and their details
-    public function getAdvisors()
+    private function normalizeYear(string $yearInput): string
     {
-        return $this->conn->query("SELECT users.User_ID , users.External_ID as Advisor_ID, users.First_name, users.Last_Name, degree.Department_Name, users.Phone FROM users JOIN degree ON users.Department_ID = degree.DegreeID WHERE users.Role = 'Advisor'");
+        $value = strtolower(trim($yearInput));
+        $map = [
+            '1' => 'First',
+            'year 1' => 'First',
+            'first' => 'First',
+            '2' => 'Second',
+            'year 2' => 'Second',
+            'second' => 'Second',
+            '3' => 'Third',
+            'year 3' => 'Third',
+            'third' => 'Third',
+            '4' => 'Fourth',
+            'year 4' => 'Fourth',
+            'fourth' => 'Fourth',
+            '5' => 'Fifth',
+            'year 5' => 'Fifth',
+            'fifth' => 'Fifth',
+        ];
+
+        return $map[$value] ?? '';
     }
 
-    // Get all the students and their details
+    //get all the advisors and their details
+    public function getAdvisors()
+    {
+        return $this->conn->query("SELECT users.User_ID, users.External_ID AS Advisor_ID, users.First_name, users.Last_Name, users.Uni_Email AS Email, users.Department_ID, degree.Department_Name AS Department, users.Phone FROM users JOIN degree ON users.Department_ID = degree.DegreeID WHERE users.Role = 'Advisor'");
+    }
+
+    //get all the students and their details
     public function getStudents()
     {
-        return $this->conn->query("SELECT users.User_ID AS Student_ID, users.External_ID AS StuExternal_ID, users.First_name, users.Last_Name, users.Year , degree.Department_Name FROM users JOIN degree ON users.Department_ID = degree.DegreeID WHERE users.Role = 'Student'");
+        return $this->conn->query("SELECT users.User_ID AS Student_ID, users.External_ID AS StuExternal_ID, users.First_name, users.Last_Name, users.Uni_Email AS Email, users.Department_ID AS Degree_ID, users.Year, degree.Department_Name AS Degree, sa.Advisor_ID FROM users JOIN degree ON users.Department_ID = degree.DegreeID LEFT JOIN student_advisors sa ON sa.Student_ID = users.External_ID WHERE users.Role = 'Student'");
     }
 
     public function getSuperUsers(){
         return $this->conn->query("SELECT Uni_Email as Email , User_ID FROM users WHERE Role = 'SuperUser'");
     }
-    // Add an advisor to the database, also create a user account with a temp password.
+    //add an advisor to the database, also create a user account with a temp password.
     public function addAdvisor(?string $externalId, string $first, string $last, string $email, string $phone, int $department): bool
     {
         if ($first === '' || $last === '' || $email === '' || $department === '') {
@@ -65,7 +94,7 @@ class Admin extends Users
             return false;
         }
 
-        // check if advisor already exists by email
+        //check if advisor already exists by email
         $check = $this->conn->prepare('SELECT User_ID FROM users WHERE Uni_Email = ? OR External_ID = ? LIMIT 1');
         $check->bind_param('si', $email, $externalId);
         $check->execute();
@@ -94,13 +123,9 @@ class Admin extends Users
             return false;
         }
 
-        $stmt = $this->conn->prepare('DELETE FROM users WHERE User_ID = ?');
+        $stmt = $this->conn->prepare('DELETE FROM users WHERE External_ID = ? AND Role = "Advisor"');
         $stmt->bind_param('i', $advisorID);
         return $stmt->execute();
-    
-    
-        fclose($handle);
-        return ['added' => $added, 'skipped' => $skipped, 'errors' => $errors];
     }
 
     public function addStudent(?string $externalid, string $first, string $last, string $email, int $degree, string $year, ?int $advisorID = null): bool
@@ -115,6 +140,15 @@ class Admin extends Users
 
         if ($externalid === null || trim($externalid) === '' || (int)$externalid <= 0) {
             return false;
+        }
+
+        $normalizedYear = $this->normalizeYear($year);
+        if ($normalizedYear === '') {
+            return false;
+        }
+
+        if ($degree <= 0) {
+            $degree = 1;
         }
 
         // check if user already exists by email
@@ -141,9 +175,21 @@ class Admin extends Users
         $hashedTempPassword = password_hash($TempPassword, PASSWORD_DEFAULT);
 
         $stmt = $this->conn->prepare('INSERT INTO users (Uni_Email, Password, Role, External_ID, First_name, Last_Name, Department_ID, Year) VALUES (?, ?, "Student", ?, ?, ?, ?, ?)');
-        $stmt->bind_param('ssissis', $email, $hashedTempPassword, $external_id_int, $first, $last, $degree, $year);
+        $stmt->bind_param('ssissis', $email, $hashedTempPassword, $external_id_int, $first, $last, $degree, $normalizedYear);
         if (!$stmt->execute()) {
             return false;
+        }
+
+        if ($advisorID !== null && $advisorID > 0) {
+            $advisorCheck = $this->conn->prepare('SELECT External_ID FROM users WHERE External_ID = ? AND Role = "Advisor" LIMIT 1');
+            $advisorCheck->bind_param('i', $advisorID);
+            $advisorCheck->execute();
+            $advisorResult = $advisorCheck->get_result();
+            if ($advisorResult && $advisorResult->num_rows > 0) {
+                $linkStmt = $this->conn->prepare('INSERT INTO student_advisors (Student_ID, Advisor_ID) VALUES (?, ?) ON DUPLICATE KEY UPDATE Advisor_ID = VALUES(Advisor_ID)');
+                $linkStmt->bind_param('ii', $external_id_int, $advisorID);
+                $linkStmt->execute();
+            }
         }
 
         return true;
@@ -193,38 +239,44 @@ class Admin extends Users
             $rows[] = $row;
         }
 
-        //get each row read data then create an advisor.
-        //  ***NEED TO CHANGE NAMES WITH THE COLUMNS OF MERIMNA THIS IS FOR TESTING***
+        //get each row read data then create students.
         foreach ($rows as $r) {
-            $r = array_pad($r, 6, '');
+            $r = array_pad($r, 7, '');
 
             if ($isHeader && !empty($header)) {
                 $map = array_combine($header, $r);
-                $external_id = $map['student_id'] ?? $map['id'] ?? '';
+                $external_id = $map['student_id'] ?? $map['student_external_id'] ?? $map['external_id'] ?? $map['id'] ?? '';
                 $first = $map['first_name'] ?? $map['first'] ?? $map['firstname'] ?? '';
                 $last = $map['last_name'] ?? $map['last'] ?? $map['lastname'] ?? '';
                 $email = $map['email'] ?? $map['uni_email'] ?? '';
-                $year = $map['year'] ?? ' ';
+                $degree = $map['degree'] ?? $map['degree_id'] ?? $map['department'] ?? '1';
+                $year = $map['year'] ?? '';
                 $advisorid = $map['advisor'] ?? $map['advisor_id'] ?? $map['advisorid'] ?? '';
             } else {
-                [$external_id, $first, $last, $email, $year, $advisorid] = $r;
+                [$external_id, $first, $last, $email, $degree, $year, $advisorid] = $r;
             }
         
+            $external_id = trim((string)$external_id);
             $first = trim((string)$first);
             $last = trim((string)$last);
             $email = trim((string)$email);
+            $degree = (int)trim((string)$degree);
+            if ($degree <= 0) {
+                $degree = 1;
+            }
             $year = trim((string)$year);
-            $advisorid = (int)trim((string)$advisorid);
+            $advisoridRaw = trim((string)$advisorid);
+            $advisorid = ($advisoridRaw === '' ? null : (int)$advisoridRaw);
 
-            if ($first === '' || $last === '' || $email === '' || $external_id <= 0) {
+            if ($first === '' || $last === '' || $email === '' || $external_id === '' || (int)$external_id <= 0) {
                 $skipped++;
                 continue;
             }
 
            // verify advisor if provided
-            if (!empty($advisorid) && $advisorid > 0) {
+            if (!is_null($advisorid) && $advisorid > 0) {
 
-                $advisorCheck = $this->conn->prepare('SELECT User_ID FROM users WHERE User_ID = ? AND Role = "Advisor"');
+                $advisorCheck = $this->conn->prepare('SELECT External_ID FROM users WHERE External_ID = ? AND Role = "Advisor"');
                 $advisorCheck->bind_param('i', $advisorid);
                 $advisorCheck->execute();
                 $advisorResult = $advisorCheck->get_result();
@@ -239,7 +291,7 @@ class Admin extends Users
             }
 
             //call addstudents and start adding each row
-            $success = $this->addStudent($external_id, $first, $last, $email, $year, is_null($advisorid) ? null : $advisorid);
+            $success = $this->addStudent($external_id, $first, $last, $email, $degree, $year, $advisorid);
             if ($success) {
                 $added++;
             } else {
@@ -327,4 +379,50 @@ class Admin extends Users
 
         return random_int(100000, 999999);
     }
+
+        public function editAdvisor(?string $externalId, string $first, string $last, string $email, string $phone, int $department): bool {
+          if ($first === '' || $last === '' || $email === '' || $department === '') {
+            return false;
+        }
+
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            return false;
+        }
+
+        if ($externalId === null || trim($externalId) === '' || (int)$externalId <= 0) {
+            return false;
+        }
+
+        $externalIdInt = (int)$externalId;
+
+        //get the id of the advisor to update
+        $getid = $this->conn->prepare('SELECT User_ID FROM users WHERE External_ID = ? AND Role = "Advisor" LIMIT 1');
+        $getid->bind_param('i', $externalIdInt);
+        $getid->execute();
+        $getidResult = $getid->get_result();
+        if (!$getidResult || $getidResult->num_rows === 0) {
+            return false;
+        }
+        $Userid = (int)$getidResult->fetch_assoc()['User_ID'];
+
+        // Prevent collision with another advisor's email.
+        $check = $this->conn->prepare('SELECT User_ID FROM users WHERE Uni_Email = ? AND User_ID <> ? LIMIT 1');
+        $check->bind_param('si', $email, $Userid);
+        $check->execute();
+        $Result = $check->get_result();
+        if ($Result && $Result->num_rows > 0) {
+            return false;
+        }
+
+        $stmt = $this->conn->prepare('UPDATE users SET Uni_Email = ?, First_name = ?, Last_Name = ?, Phone = ?, Department_ID = ? WHERE User_ID = ? AND Role = "Advisor"');
+        $stmt->bind_param('ssssii', $email, $first, $last, $phone, $department, $Userid);
+        if (!$stmt->execute()) {
+            return false;
+        }
+
+        return true;
+    }
+
+    
+
 }
