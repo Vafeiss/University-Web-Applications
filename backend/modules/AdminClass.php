@@ -24,7 +24,11 @@
   Paraskevas Vafeiadis
 
   13-Mar-2026 v0.5
-  Added some error handling and some new validation for the csv inputs in the normalizeYear
+  Added some error handling and some new validation for the csv inputs in the normalizeYear and editStudent/advisor
+  Paraskevas Vafeiadis
+
+  15-Mar-2026 v0.6
+  made some changes in the getadvisor/getstudents queries to adjust to the admindashboard to client needs
   Paraskevas Vafeiadis
 
 */
@@ -77,7 +81,7 @@ class Admin extends Users
     //get all the students and their details
     public function getStudents()
     {
-        return $this->conn->query("SELECT users.User_ID AS Student_ID, users.External_ID AS StuExternal_ID, users.First_name, users.Last_Name, users.Uni_Email AS Email, users.Department_ID AS Degree_ID, users.Year, degree.DegreeName AS Degree, sa.Advisor_ID FROM users JOIN degree ON users.Department_ID = degree.DegreeID LEFT JOIN student_advisors sa ON sa.Student_ID = users.External_ID WHERE users.Role = 'Student'");
+        return $this->conn->query("SELECT users.User_ID AS Student_ID, users.External_ID AS StuExternal_ID, users.First_name, users.Last_Name, users.Uni_Email AS Email, users.Department_ID AS Degree_ID, users.Year, degree.DegreeName AS Degree, sa.Advisor_ID FROM users JOIN degree ON users.Department_ID = degree.DegreeID LEFT JOIN student_advisors sa ON sa.Student_ID = users.External_ID WHERE users.Role = 'Student' ORDER BY users.Year ASC");
     }
 
     public function getSuperUsers(){

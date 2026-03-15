@@ -14,3 +14,4 @@ $router->post('/advisor/edit', ['AdminController','editAdvisor']);
 $router->post('/superuser/add', ['AdminController','addSuperUser']);
 $router->post('/superuser/delete', ['AdminController','deleteSuperUser']);
 $router->post('/advisor/students/assign', ['AdminController','assignStudentsToAdvisor']);
+$router->post('/advisor/students/random', ['AdminController','randomAssignment']);

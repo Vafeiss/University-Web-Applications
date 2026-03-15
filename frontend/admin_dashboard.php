@@ -6,11 +6,14 @@ Paraskevas Vafeiadis
 Inputs: CSV file , Information of advisors
 Outputs: Successful messages
 Error Messages: If the fields are empty , if not a csv file
-Files in Use: AdminClass.php
+Files in Use: AdminClass.php , ParticipantsClass.php , routes.php , dispatcher.php
 
 13-Mar-2026 v0.2
 Made new admin_dashboard using the figma prototype example and bootstrap 5 for styling and added statistics feature
 Paraskevas Vafeiadis
+
+15-Mar-2026 v0.3
+added random assignment feature that works with a roundrobin function 
 */
 
 require_once 'init.php';
@@ -386,10 +389,19 @@ $activeSection = $_GET['section'] ?? 'advisors';
 
   <!-- Assignment tab -->
   <div class="section-panel <?= $activeSection === 'assignstudents' ? 'active' : '' ?>" id="section-assignstudents">
-
     <div class="section-card">
-      <h5 class="fw-semibold mb-1">Assign Students to Advisors</h5>
-      <p class="text-muted mb-4" style="font-size:.85rem;">Expand an advisor to select which students to assign</p>
+      <div class="d-flex align-items-center justify-content-between mb-4">
+        <div>
+          <h5 class="mb-0 fw-semibold">Assign Students to Advisors</h5>
+          <p class="text-muted mb-0" style="font-size:.85rem;">Expand an advisor to select which students to assign</p>
+        </div>
+        <form action="../backend/modules/dispatcher.php" method="POST" class="mb-0" onsubmit="return confirm('Run random assignment for all students?');">
+          <input type="hidden" name="action" value="/advisor/students/random">
+          <button type="submit" class="btn btn-primary btn-sm">
+            <i class="bi bi-person-plus me-1"></i> Random Assignment
+          </button>
+        </form>
+      </div>
 
       <div class="accordion" id="assignAdvisorAccordion">
         <?php foreach ($assignAdvisors as $advisor):
@@ -399,7 +411,7 @@ $activeSection = $_GET['section'] ?? 'advisors';
           $advisorName      = htmlspecialchars($advisor['First_name'] . ' ' . $advisor['Last_Name']);
           $initials         = strtoupper(substr($advisor['First_name'], 0, 1) . substr($advisor['Last_Name'], 0, 1));
 
-          // Count currently assigned students for badge
+          //count currently assigned students for badge
           $assignedToThisAdvisor = 0;
           if (isset($assignmentMap[$advisorExternalId]) && is_array($assignmentMap[$advisorExternalId])) {
             $assignedToThisAdvisor = count($assignmentMap[$advisorExternalId]);
@@ -431,6 +443,7 @@ $activeSection = $_GET['section'] ?? 'advisors';
                   <?php foreach ($assignStudents as $student):
                     $sName = htmlspecialchars($student['First_name'] . ' ' . $student['Last_Name']);
                     $sId   = htmlspecialchars($student['StuExternal_ID']);
+                    $sYear = htmlspecialchars($student['Year'] ?? '');
                   ?>
                   <div class="form-check assign-student-row py-1 border-bottom">
                         <?php $isChecked = isset($assignmentMap[$advisorExternalId]) && isset($assignmentMap[$advisorExternalId][(int)$sId]); ?>
@@ -443,6 +456,9 @@ $activeSection = $_GET['section'] ?? 'advisors';
                     <label class="form-check-label" for="stu_<?= $advisorUserId ?>_<?= $sId ?>">
                       <span class="fw-medium"><?= $sName ?></span>
                       <span class="text-muted ms-1" style="font-size:.8rem;">(<?= $sId ?>)</span>
+                      <?php if ($sYear): ?>
+                        <span class="badge bg-secondary ms-2" style="font-size:.72rem;"><?= $sYear ?></span>
+                      <?php endif; ?>
                     </label>
                   </div>
                   <?php endforeach; ?>
@@ -676,7 +692,7 @@ $activeSection = $_GET['section'] ?? 'advisors';
             <div class="col-12">
               <label class="form-label">Assign Advisor <span class="text-muted">(optional)</span></label>
               <select name="advisor_id" id="editStudentAdvisor" class="form-select">
-                <option value="">No advisor</option>
+                <option value=" ">No advisor</option>
                 <?php foreach ($allAdvisors as $adv): ?>
                 <option value="<?= htmlspecialchars($adv['Advisor_ID']) ?>">
                   <?= htmlspecialchars($adv['First_name'] . ' ' . $adv['Last_Name']) ?>
@@ -747,7 +763,7 @@ $activeSection = $_GET['section'] ?? 'advisors';
             <div class="col-12">
               <label class="form-label">Assign Advisor <span class="text-muted">(optional)</span></label>
               <select name="advisor_id" class="form-select">
-                <option value="">No advisor</option>
+                <option value=" " selected>No advisor</option>
                 <?php foreach ($allAdvisors as $adv): ?>
                 <option value="<?= htmlspecialchars($adv['Advisor_ID']) ?>">
                   <?= htmlspecialchars($adv['First_name'] . ' ' . $adv['Last_Name']) ?>

@@ -5,7 +5,17 @@
    08-Mar-2026 v0.1
    Inputs: Depends on the functions but mostly arrays of IDs
    Outputs: Depends on the functions but mostly arrays of IDs or boolean values
-   Files in Use: routes.php, AdminController.php, admin_dashboard.php*/
+   Files in Use: routes.php, AdminController.php, admin_dashboard.php
+   
+   15-Mar-2026 v0.2
+   added random assignment feature that works with a roundrobin function
+   Paraskevas Vafeiadis
+
+   
+   */
+
+
+
 
 class Participants_Processing{
     private $conn;
@@ -114,6 +124,65 @@ class Participants_Processing{
             }
         }
 
+
+        public function RandomAssignment(): bool {
+            $this->conn->begin_transaction();
+
+            try {
+                // Select only students that do not have an advisor yet.
+                $sql = "SELECT u.External_ID FROM users u LEFT JOIN student_advisors sa ON sa.Student_ID = u.External_ID WHERE u.Role = 'Student' AND u.External_ID IS NOT NULL AND sa.Student_ID IS NULL ORDER BY u.External_ID ASC";
+                $stmt = $this->conn->prepare($sql);
+                $stmt->execute();
+                $result = $stmt->get_result();
+                $students = [];
+                while ($row = $result->fetch_assoc()) {
+                    $students[] = (int)$row['External_ID'];
+                }
+
+                //select all advisors inside the database
+                $sql = "SELECT External_ID FROM users WHERE Role = 'Advisor' AND External_ID IS NOT NULL ORDER BY External_ID ASC";
+                $stmt = $this->conn->prepare($sql);
+                $stmt->execute();
+                $result = $stmt->get_result();
+                $advisors = [];
+                while ($row = $result->fetch_assoc()) {
+                    $advisors[] = (int)$row['External_ID'];
+                }
+
+                // If no advisors exist, we cannot assign anybody.
+                if (empty($advisors)) {
+                    throw new Exception('Missing students or advisors for random assignment');
+                }
+
+                // Nothing new to assign 
+                if (empty($students)) {
+                    $this->conn->commit();
+                    return true;
+                }
+
+                //shuffle all students and advisors to create a random order
+                shuffle($students);
+                shuffle($advisors);
+
+                // Assign only unassigned students in round robin fashion.
+                $advisorCount = count($advisors);
+                $insertStmt = $this->conn->prepare("INSERT INTO student_advisors (Student_ID, Advisor_ID) VALUES (?, ?) ON DUPLICATE KEY UPDATE Advisor_ID = Advisor_ID");
+                for ($i = 0; $i < count($students); $i++) {
+                    $studentId = $students[$i];
+                    $advisorId = $advisors[$i % $advisorCount];
+                    $insertStmt->bind_param("ii", $studentId, $advisorId);
+                    if (!$insertStmt->execute()) {
+                        throw new Exception('Failed to save random assignment row');
+                    }
+                }
+
+                $this->conn->commit();
+                return true;
+            } catch (Throwable $e) {
+                $this->conn->rollback();
+                return false;
+            }
+        }
 }
 ?>
 

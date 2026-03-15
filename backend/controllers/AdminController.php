@@ -309,6 +309,25 @@ class AdminController {
         exit();
     }
 
+    public function randomAssignment()
+    {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            header('Location: ../../frontend/admin_dashboard.php');
+            exit();
+        }
+
+        $participants = new Participants_Processing();
+        $assigned = $participants->RandomAssignment();
+
+        if (!$assigned) {
+            header("Location: ../../frontend/admin_dashboard.php?error=random_assignment_failed&section=assignstudents");
+            exit();
+        }
+
+        header("Location: ../../frontend/admin_dashboard.php?success=random_assignment_done&section=assignstudents");
+        exit();
+    }
+
     public function editAdvisor(){
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             header('Location: ../../frontend/admin_dashboard.php');
