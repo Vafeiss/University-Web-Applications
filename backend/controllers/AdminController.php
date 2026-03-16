@@ -14,12 +14,18 @@
   13-Mar-2026 v0.3
   CSV import functionality for students
   Paraskevas Vafeiadis
+
+  16-Mar-2026 v0.4
+  Added error handling and success messages for all functions using the notifications class added new function to normalize the year input for csv
+  and phone number validation for the add/edit advisor functions
+  Paraskevas Vafeiadis
 */
 
 declare(strict_types=1);
 
 require_once __DIR__ . '/../modules/AdminClass.php';
 require_once __DIR__ . '/../modules/ParticipantsClass.php';
+require_once __DIR__ . '/../modules/NotificationsClass.php';
 
 class AdminController {
 
@@ -28,8 +34,6 @@ class AdminController {
 
     public function __construct()
     {
-        session_start();
-
         $this->admin = new Admin();
         $this->admin->Check_Session('Admin');
     }
@@ -58,6 +62,7 @@ class AdminController {
         return $map[$value] ?? '';
     }
 
+    //get an array of values and return an array of positive integers 
     private function toIntList($value): array
     {
         if (!is_array($value)) {
@@ -75,23 +80,28 @@ class AdminController {
         return array_keys($ids);
     }
 
+    private function isValidPhone(string $phone): bool
+    {
+        if ($phone === '') {
+            return true;
+        }
+
+        if (!preg_match('/^[0-9+()\-\s]+$/', $phone)) {
+            return false;
+        }
+
+        $digitsOnly = preg_replace('/\D/', '', $phone);
+        $digitsLength = strlen($digitsOnly);
+
+        return $digitsLength >= 8 && $digitsLength <= 15;
+    }
+
     //get the post request from the frontend and call the function from adminclass
     public function addStudent()
     {
 
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             header('Location: ../../frontend/admin_dashboard.php');
-            exit();
-        }
-
-        if (isset($_FILES['csv_file']) && is_uploaded_file($_FILES['csv_file']['tmp_name'])) {
-            $result = $this->admin->addStudentByCSV($_FILES['csv_file']['tmp_name']);
-            if ($result === false) {
-                header("Location: ../../frontend/admin_dashboard.php?error=student_csv_failed");
-                exit();
-            }
-
-            header("Location: ../../frontend/admin_dashboard.php");
             exit();
         }
 
@@ -106,17 +116,21 @@ class AdminController {
             $degree = 1;
         }
 
-        $year = $this->normalizeYear((string)($_POST['year'] ?? ''));
+        $year = trim((string)($_POST['year'] ?? ''));
+        
         $advisorinput = $_POST['advisor_id'] ?? ($_POST['advisors_id'] ?? '');
         $advisorID = ($advisorinput === '' ? null : (int)$advisorinput);
 
         $added = $this->admin->addStudent($externalId, $first, $last, $email, $degree, $year, $advisorID);
+
         if (!$added) {
-            header("Location: ../../frontend/admin_dashboard.php?error=student_add_failed");
+            Notifications::error("Failed to add student.");
+            header("Location: ../../frontend/admin_dashboard.php?tab=students");
             exit();
         }
 
-        header("Location: ../../frontend/admin_dashboard.php");
+        Notifications::success("Student added successfully.");
+        header("Location: ../../frontend/admin_dashboard.php?tab=students");
         exit();
     }
 
@@ -128,17 +142,20 @@ class AdminController {
         }
 
         if (!isset($_FILES['csv_file']) || !is_uploaded_file($_FILES['csv_file']['tmp_name'])) {
-            header("Location: ../../frontend/admin_dashboard.php?error=missing_csv_file");
+            Notifications::error("Failed to upload CSV file.");
+            header("Location: ../../frontend/admin_dashboard.php?tab=students");
             exit();
         }
 
         $result = $this->admin->addStudentByCSV($_FILES['csv_file']['tmp_name']);
         if ($result === false) {
-            header("Location: ../../frontend/admin_dashboard.php?error=student_csv_failed");
+            Notifications::error("Failed to add students.");
+            header("Location: ../../frontend/admin_dashboard.php?tab=students");
             exit();
         }
 
-        header("Location: ../../frontend/admin_dashboard.php");
+        Notifications::success("Students added successfully.");
+        header("Location: ../../frontend/admin_dashboard.php?tab=students");
         exit();
     }
 
@@ -166,7 +183,8 @@ class AdminController {
             $this->admin->deleteStudent($studentId);
         }
 
-        header("Location: ../../frontend/admin_dashboard.php");
+        Notifications::success("Students deleted successfully.");
+        header("Location: ../../frontend/admin_dashboard.php?tab=students");
         exit();
     }
 
@@ -183,16 +201,19 @@ class AdminController {
         $first_name = trim($_POST['first_name'] ?? '');
         $last_name  = trim($_POST['last_name'] ?? '');
         $email      = trim($_POST['email'] ?? '');
-        $phone      = trim($_POST['phone'] ?? '');
-        if ($phone !== '' && strlen($phone) < 8) {
-        $this->errors[] = "Phone number must be at least 8 digits long";
-        header("Location: ../../frontend/admin_dashboard.php?error=invalid_phone");
-        exit();}
+        $phone      = trim((string)($_POST['phone'] ?? ''));
+        if (!$this->isValidPhone($phone)) {
+        $this->errors[] = "Phone number must contain 8 to 15 digits and only valid phone characters.";
+        Notifications::error("Invalid phone number. Use 8-15 digits (spaces, +, -, parentheses allowed).");
+        header("Location: ../../frontend/admin_dashboard.php?tab=advisors");
+        exit();
+        }
         $department = (int)trim($_POST['department'] ?? '');
 
         $this->admin->addAdvisor($external_id, $first_name, $last_name, $email, $phone, $department);
 
-        header("Location: ../../frontend/admin_dashboard.php");
+        Notifications::success("Advisor added successfully.");
+        header("Location: ../../frontend/admin_dashboard.php?tab=advisors");
         exit();
     }
 
@@ -220,7 +241,8 @@ class AdminController {
             $this->admin->deleteAdvisor($advisorId);
         }
 
-        header("Location: ../../frontend/admin_dashboard.php");
+        Notifications::success("Advisor deleted successfully.");
+        header("Location: ../../frontend/admin_dashboard.php?tab=advisors");
         exit();
     }
 
@@ -236,11 +258,13 @@ class AdminController {
 
         $added = $this->admin->addSuperUser($email);
         if (!$added) {
-            header("Location: ../../frontend/admin_dashboard.php?error=superuser_add_failed");
-            exit();
+           Notifications::error("Failed to add Super user.");
+           header("Location: ../../frontend/admin_dashboard.php?tab=superusers");
+           exit();
         }
 
-        header("Location: ../../frontend/admin_dashboard.php");
+        Notifications::success("Super user added successfully.");
+        header("Location: ../../frontend/admin_dashboard.php?tab=superusers");
         exit();
     }
 
@@ -269,7 +293,8 @@ class AdminController {
             $this->admin->deleteSuperUser($superUserId);
         }
 
-        header("Location: ../../frontend/admin_dashboard.php");
+        Notifications::success("Super user deleted successfully.");
+        header("Location: ../../frontend/admin_dashboard.php?tab=superusers");
         exit();
     }
 
@@ -286,8 +311,9 @@ class AdminController {
         $advisorExternalId = ($advisorInput === null ? 0 : (int)$advisorInput);
 
         if ($advisorExternalId <= 0) {
-            header("Location: ../../frontend/admin_dashboard.php?error=invalid_advisor");
-            exit();
+           Notifications::error("Failed to assign students to advisor.");
+           header("Location: ../../frontend/admin_dashboard.php?tab=assignstudents");
+           exit();
         }
 
         //get student ID
@@ -301,11 +327,13 @@ class AdminController {
         $saved = $participants->Replace_Advisor_Students($advisorExternalId, $studentIds);
 
         if (!$saved) {
-            header("Location: ../../frontend/admin_dashboard.php?error=assign_students_failed");
+            Notifications::error("Failed to assign students to advisor.");
+            header("Location: ../../frontend/admin_dashboard.php?tab=assignstudents");
             exit();
         }
 
-        header("Location: ../../frontend/admin_dashboard.php?success=students_assigned");
+        Notifications::success("Students assigned to advisor successfully.");
+        header("Location: ../../frontend/admin_dashboard.php?tab=assignstudents");
         exit();
     }
 
@@ -320,11 +348,13 @@ class AdminController {
         $assigned = $participants->RandomAssignment();
 
         if (!$assigned) {
-            header("Location: ../../frontend/admin_dashboard.php?error=random_assignment_failed&section=assignstudents");
+            Notifications::error("Failed to perform random assignment.");
+            header("Location: ../../frontend/admin_dashboard.php?tab=assignstudents");
             exit();
         }
 
-        header("Location: ../../frontend/admin_dashboard.php?success=random_assignment_done&section=assignstudents");
+        Notifications::success("Random assignment completed successfully.");
+        header("Location: ../../frontend/admin_dashboard.php?tab=assignstudents");
         exit();
     }
 
@@ -338,20 +368,23 @@ class AdminController {
         $first_name = trim($_POST['first_name'] ?? '');
         $last_name  = trim($_POST['last_name'] ?? '');
         $email      = trim($_POST['email'] ?? '');
-        $phone      = trim($_POST['phone'] ?? '');
-        if ($phone !== '' && strlen($phone) < 8) {
-        $this->errors[] = "Phone number must be at least 8 digits long";
-        header("Location: ../../frontend/admin_dashboard.php?error=invalid_phone");
+        $phone      = trim((string)($_POST['phone'] ?? ''));
+        if (!$this->isValidPhone($phone)) {
+        $this->errors[] = "Phone number must contain 8 to 15 digits and only valid phone characters.";
+        Notifications::error("Invalid phone number.");
+        header("Location: ../../frontend/admin_dashboard.php?tab=advisors");
         exit();}
         $department = (int)trim($_POST['department'] ?? '');
 
         $saved = $this->admin->editAdvisor($external_id, $first_name, $last_name, $email, $phone, $department);
         if (!$saved) {
-            header("Location: ../../frontend/admin_dashboard.php?error=advisor_edit_failed");
+            Notifications::error("Failed to edit advisor.");
+            header("Location: ../../frontend/admin_dashboard.php?tab=advisors");
             exit();
         }
 
-        header("Location: ../../frontend/admin_dashboard.php");
+        Notifications::success("Advisor edited successfully.");
+        header("Location: ../../frontend/admin_dashboard.php?tab=advisors");
         exit();
     }
 
@@ -378,11 +411,13 @@ class AdminController {
 
         $saved = $this->admin->editStudent($external_id, $first_name, $last_name, $email, $degree, $year, $advisorID);
         if (!$saved) {
-            header("Location: ../../frontend/admin_dashboard.php?error=student_edit_failed");
+            Notifications::error("Failed to edit student.");
+            header("Location: ../../frontend/admin_dashboard.php?tab=students");
             exit();
         }
 
-        header("Location: ../../frontend/admin_dashboard.php");
+        Notifications::success("Student edited successfully.");
+        header("Location: ../../frontend/admin_dashboard.php?tab=students");
         exit();
     }
 

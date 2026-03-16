@@ -13,15 +13,23 @@ Made new admin_dashboard using the figma prototype example and bootstrap 5 for s
 Paraskevas Vafeiadis
 
 15-Mar-2026 v0.3
-added random assignment feature that works with a roundrobin function 
+added random assignment feature that works with a roundrobin function
+Paraskevas Vafeiadis
+
+16-Mar-2026 v0.4
+added show messages for each action inside the dashboard using the notifications class.
+Paraskevas Vafeiadis
 */
 
 require_once 'init.php';
 require_once '../backend/modules/AdminClass.php';
 require_once '../backend/modules/ParticipantsClass.php';
+require_once '../backend/modules/NotificationsClass.php';
 
 $user = new Admin();
 $user->Check_Session('Admin');
+
+$activeTab = $_GET['tab'] ?? 'advisors';
 
 //get result sets
 $advisors        = $user->getAdvisors();
@@ -71,6 +79,7 @@ unset($_SESSION['flash'], $_SESSION['flash_type']);
 
 // Active section (default: advisors)
 $activeSection = $_GET['section'] ?? 'advisors';
+Notifications::createNotification();
 
 ?>
 <!DOCTYPE html>
@@ -83,6 +92,10 @@ $activeSection = $_GET['section'] ?? 'advisors';
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
   <style>
     body { background-color: #f8f9fa; font-family: system-ui, -apple-system, sans-serif; }
+
+    .stat-card {
+    text-align: center;
+    }
 
     /*navbar css*/
     .top-navbar { background: #fff; border-bottom: 1px solid #e5e7eb; padding: 0 1.5rem; height: 64px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; box-shadow: 0 1px 3px rgba(0,0,0,.06); }
@@ -849,15 +862,45 @@ $activeSection = $_GET['section'] ?? 'advisors';
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script>
 
-//Tab switching script
-document.querySelectorAll('.tab-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    const section = btn.dataset.section;
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-    document.querySelectorAll('.section-panel').forEach(p => p.classList.remove('active'));
-    btn.classList.add('active');
-    document.getElementById('section-' + section).classList.add('active');
+//script to maintain active tab on page reload and handle tab switching with URL
+document.addEventListener("DOMContentLoaded", () => {
+
+  const params = new URLSearchParams(window.location.search);
+  const tab = params.get("tab");
+
+  if (tab) {
+    const btn = document.querySelector(`.tab-btn[data-section="${tab}"]`);
+    const panel = document.getElementById("section-" + tab);
+
+    if (btn && panel) {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.section-panel').forEach(p => p.classList.remove('active'));
+
+      btn.classList.add('active');
+      panel.classList.add('active');
+    }
+  }
+
+  //Tab switching script
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+
+      const section = btn.dataset.section;
+
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.section-panel').forEach(p => p.classList.remove('active'));
+
+      btn.classList.add('active');
+      document.getElementById('section-' + section).classList.add('active');
+
+      // update URL without reload
+      const url = new URL(window.location);
+      url.searchParams.set('tab', section);
+      window.history.replaceState({}, '', url);
+
+    });
   });
+
 });
 
 //searching advisors script

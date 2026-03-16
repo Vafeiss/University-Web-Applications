@@ -10,7 +10,8 @@
 
 //Auto load class from backend
 spl_autoload_register(function($class){
-    require_once __DIR__ . '/../backend/modules/' . $class . '.php';
+require_once __DIR__ . '/../backend/modules/' . $class . '.php';
+
 });
 //check if session is expired and if last activity is more than 30 minutes ago then kill
 if (isset($_SESSION['LAST_ACTIVITY']) && (time() - $_SESSION['LAST_ACTIVITY'] > 1800)) {

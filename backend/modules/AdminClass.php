@@ -31,6 +31,11 @@
   made some changes in the getadvisor/getstudents queries to adjust to the admindashboard to client needs
   Paraskevas Vafeiadis
 
+  16-Mar-2026 v0.7
+  added some changes to the addstudent for errorhandling it had some issues with the advisor linking
+  added is validphonenumber function and used to for add/edit advisor and also some error handling for it in the admincontroller.
+  Paraskevas Vafeiadis
+
 */
 require_once __DIR__ . '/UsersClass.php';
 
@@ -72,6 +77,22 @@ class Admin extends Users
         return $map[$value] ?? '';
     }
 
+    private function isValidPhone(string $phone): bool
+    {
+        if ($phone === '') {
+            return true;
+        }
+
+        if (!preg_match('/^[0-9+()\-\s]+$/', $phone)) {
+            return false;
+        }
+
+        $digitsOnly = preg_replace('/\D/', '', $phone);
+        $digitsLength = strlen($digitsOnly);
+
+        return $digitsLength >= 8 && $digitsLength <= 15;
+    }
+
     //get all the advisors and their details
     public function getAdvisors()
     {
@@ -95,6 +116,10 @@ class Admin extends Users
         }
 
         if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            return false;
+        }
+
+        if (!$this->isValidPhone($phone)) {
             return false;
         }
 
@@ -147,6 +172,7 @@ class Admin extends Users
         }
 
         $normalizedYear = $this->normalizeYear($year);
+        
         if ($normalizedYear === '') {
             return false;
         }
@@ -178,25 +204,50 @@ class Admin extends Users
         $TempPassword = $this->generateTempPassword(12);
         $hashedTempPassword = password_hash($TempPassword, PASSWORD_DEFAULT);
 
-        $stmt = $this->conn->prepare('INSERT INTO users (Uni_Email, Password, Role, External_ID, First_name, Last_Name, Department_ID, Year) VALUES (?, ?, "Student", ?, ?, ?, ?, ?)');
-        $stmt->bind_param('ssissis', $email, $hashedTempPassword, $external_id_int, $first, $last, $degree, $normalizedYear);
-        if (!$stmt->execute()) {
+        $this->conn->begin_transaction();
+
+        try {
+            $stmt = $this->conn->prepare('INSERT INTO users (Uni_Email, Password, Role, External_ID, First_name, Last_Name, Department_ID, Year) VALUES (?, ?, "Student", ?, ?, ?, ?, ?)');
+            if ($stmt === false) {
+                throw new RuntimeException('Failed to prepare student insert statement.');
+            }
+
+            $stmt->bind_param('ssissis', $email, $hashedTempPassword, $external_id_int, $first, $last, $degree, $normalizedYear);
+            if (!$stmt->execute()) {
+                throw new RuntimeException('Failed to insert student record.');
+            }
+
+            if ($advisorID !== null && $advisorID > 0) {
+                $advisorCheck = $this->conn->prepare('SELECT External_ID FROM users WHERE External_ID = ? AND Role = "Advisor" LIMIT 1');
+                if ($advisorCheck === false) {
+                    throw new RuntimeException('Failed to prepare advisor lookup statement.');
+                }
+
+                $advisorCheck->bind_param('i', $advisorID);
+                if (!$advisorCheck->execute()) {
+                    throw new RuntimeException('Failed to validate advisor record.');
+                }
+
+                $advisorResult = $advisorCheck->get_result();
+                if ($advisorResult && $advisorResult->num_rows > 0) {
+                    $linkStmt = $this->conn->prepare('INSERT INTO student_advisors (Student_ID, Advisor_ID) VALUES (?, ?) ON DUPLICATE KEY UPDATE Advisor_ID = VALUES(Advisor_ID)');
+                    if ($linkStmt === false) {
+                        throw new RuntimeException('Failed to prepare advisor link statement.');
+                    }
+
+                    $linkStmt->bind_param('ii', $external_id_int, $advisorID);
+                    if (!$linkStmt->execute()) {
+                        throw new RuntimeException('Failed to save student advisor link.');
+                    }
+                }
+            }
+
+            $this->conn->commit();
+            return true;
+        } catch (Throwable $exception) {
+            $this->conn->rollback();
             return false;
         }
-
-        if ($advisorID !== null && $advisorID > 0) {
-            $advisorCheck = $this->conn->prepare('SELECT External_ID FROM users WHERE External_ID = ? AND Role = "Advisor" LIMIT 1');
-            $advisorCheck->bind_param('i', $advisorID);
-            $advisorCheck->execute();
-            $advisorResult = $advisorCheck->get_result();
-            if ($advisorResult && $advisorResult->num_rows > 0) {
-                $linkStmt = $this->conn->prepare('INSERT INTO student_advisors (Student_ID, Advisor_ID) VALUES (?, ?) ON DUPLICATE KEY UPDATE Advisor_ID = VALUES(Advisor_ID)');
-                $linkStmt->bind_param('ii', $external_id_int, $advisorID);
-                $linkStmt->execute();
-            }
-        }
-
-        return true;
     }
 
         public function addStudentByCSV(string $filePath){
@@ -391,6 +442,10 @@ class Admin extends Users
         }
 
         if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            return false;
+        }
+
+        if (!$this->isValidPhone($phone)) {
             return false;
         }
 
