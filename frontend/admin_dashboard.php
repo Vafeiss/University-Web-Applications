@@ -33,28 +33,21 @@ $activeTab = $_GET['tab'] ?? 'advisors';
 
 //get result sets
 $advisors = $user->getAdvisors();
-$selectedStudentYear = trim((string)($_GET['student_year'] ?? ''));
-$selectedStudentDegree = (int)($_GET['Student_Degree'] ?? '');
+$selectedStudentsYear =  trim((string)($_GET['student_year'] ?? ''));
+$selectedStudentsDegree = (int)($_GET['Student_Degree'] ?? '');
 
-
-
-if ($selectedStudentYear !== '') {
-    $students = $user->getStudentsByYear($selectedStudentYear);
-} else {
-    $students = $user->getStudents();
+if($selectedStudentsYear !== '' && $selectedStudentsDegree !== 0){
+  $students = $user->FilterStudents($selectedStudentsDegree, $selectedStudentsYear);
 }
-
-if ($students === false) {
-  $students = $user->getStudents();
-  $selectedStudentYear = '';
+else if($selectedStudentsYear !== '' && $selectedStudentsDegree === 0){
+  $students = $user->getStudentsByYear($selectedStudentsYear);
 }
-
-if($selectedStudentDegree !== 0) {
-  $students = $user->getStudentsByDegree($selectedStudentDegree);
-} else{
+else if($selectedStudentsDegree !== 0 && $selectedStudentsYear === ''){
+  $students = $user->getStudentsByDegree($selectedStudentsDegree);
+}
+else{
   $students = $user->getStudents();
 }
-
 
 $superusers = $user->getSuperUsers();
 
@@ -103,7 +96,7 @@ unset($_SESSION['flash'], $_SESSION['flash_type']);
 $activeSection = $_GET['section'] ?? 'advisors';
 Notifications::createNotification();
 
-$studentYearOptions = [
+$YearOptions = [
   '1' => 'Year 1',
   '2' => 'Year 2',
   '3' => 'Year 3',
@@ -111,7 +104,7 @@ $studentYearOptions = [
   '5' => 'Year 5',
 ];
 
-$studentDegreeOptions = [
+$DegreeOptions = [
   '1' => 'Computer Engineer & Informatics',
   '2' => 'Electrical Engineering',
 ]
@@ -325,17 +318,20 @@ $studentDegreeOptions = [
       </div>
 
       <!-- filters -->
-      <!--<button class="btn btn-outline-primary mb-3" type="button" data-bs-toggle="collapse" data-bs-target="#filterSection">
-        <i class="bi bi-funnel"></i> Filters </button> -->
-      <form method="GET" class="row g-2 align-items-end mb-3">
-        <input type="hidden" name="tab" value="students">
-            
+      <button class="btn btn-outline-primary mb-3" type="button" data-bs-toggle="collapse" data-bs-target="#filterSection">
+        <i class="bi bi-funnel"></i> Filters </button>
+   
+
+        <div class="collapse" id="filterSection">
+          <form method="GET" class="row g-2 align-items-end mb-3">
+              <input type="hidden" name="tab" value="students">
+      
         <div class="col-sm-4 col-md-3">
           <label for="studentYearFilter" class="form-label mb-1">Filter By Year</label>
           <select class="form-select" id="studentYearFilter" name="student_year" onchange="this.form.submit()">
-            <option value="" <?= $selectedStudentYear === '' ? 'selected' : '' ?>>All Years</option>
-            <?php foreach ($studentYearOptions as $yearValue => $yearLabel): ?>
-            <option value="<?= htmlspecialchars($yearValue) ?>" <?= (string)$selectedStudentYear === (string)$yearValue ? 'selected' : '' ?>>
+            <option value="" <?= $YearOptions === '' ? 'selected' : '' ?>>All Years</option>
+            <?php foreach ($YearOptions as $yearValue => $yearLabel): ?>
+            <option value="<?= htmlspecialchars($yearValue) ?>" <?= (string)$selectedStudentsYear === (string)$yearValue ? 'selected' : '' ?>>
               <?= htmlspecialchars($yearLabel) ?>
             </option>
             <?php endforeach; ?>
@@ -345,15 +341,17 @@ $studentDegreeOptions = [
         <div class="col-sm-4 col-md-3">
           <label for="studentDegreeFilter" class="form-label mb-1">Filter By Degree</label>
           <select class="form-select" id="studentDegreeFilter" name="Student_Degree" onchange="this.form.submit()">
-            <option value="" <?= $selectedStudentDegree === '' ? 'selected' : '' ?>>All Degrees</option>
-            <?php foreach ($studentDegreeOptions as $degreeValue => $degreeLabel): ?>
-            <option value="<?= htmlspecialchars($degreeValue) ?>" <?= (string)$selectedStudentDegree === (string)$degreeValue ? 'selected' : '' ?>>
+            <option value="" <?= $DegreeOptions === '' ? 'selected' : '' ?>>All Degrees</option>
+            <?php foreach ($DegreeOptions as $degreeValue => $degreeLabel): ?>
+            <option value="<?= htmlspecialchars($degreeValue) ?>" <?= (string)$selectedStudentsDegree === (string)$degreeValue ? 'selected' : '' ?>>
               <?= htmlspecialchars($degreeLabel) ?>
             </option>
             <?php endforeach; ?>
           </select>
         </div>
       </form>
+            </div>
+  
 
       <input class="form-control mb-3" id="studentSearch" placeholder="Search students…">
 
@@ -1100,6 +1098,27 @@ if (editStudentBtn) {
     }
   });
 });
+
+//script for maintaining filter collapse state using localstorage
+document.addEventListener("DOMContentLoaded", function () {
+  const filter = document.getElementById("filterSection");
+
+  // Restore state
+  if (localStorage.getItem("filtersOpen") === "true") {
+    filter.classList.add("show");
+  }
+
+  // Listen for open
+  filter.addEventListener("shown.bs.collapse", function () {
+    localStorage.setItem("filtersOpen", "true");
+  });
+
+  // Listen for close
+  filter.addEventListener("hidden.bs.collapse", function () {
+    localStorage.setItem("filtersOpen", "false");
+  });
+});
+
 </script>
 
 </body>

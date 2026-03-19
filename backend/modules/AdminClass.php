@@ -57,21 +57,22 @@ class Admin extends Users
     {
         $value = strtolower(trim($yearInput));
         $map = [
-            '1' => 'First',
-            'year 1' => 'First',
-            'first' => 'First',
-            '2' => 'Second',
-            'year 2' => 'Second',
-            'second' => 'Second',
-            '3' => 'Third',
-            'year 3' => 'Third',
-            'third' => 'Third',
-            '4' => 'Fourth',
-            'year 4' => 'Fourth',
-            'fourth' => 'Fourth',
-            '5' => 'Fifth',
-            'year 5' => 'Fifth',
-            'fifth' => 'Fifth',
+            
+            '1' => '1',
+            'year 1' => '1',
+            'first' => '1',
+            '2' => '2',
+            'year 2' => '2',
+            'second' => '2',
+            '3' => '3',
+            'year 3' => '3',
+            'third' => '3',
+            '4' => '4',
+            'year 4' => '4',
+            'fourth' => '4',
+            '5' => '5',
+            'year 5' => '5',
+            'fifth' => '5',
         ];
 
         return $map[$value] ?? '';
@@ -94,15 +95,76 @@ class Admin extends Users
     }
 
 
-    public function getStudentsByDegree(int $degree){
+    public function FilterStudents(int $degree,String $year){
+
+        $normalizedYear = $this->normalizeYear($year);
+        if ($normalizedYear === '') {
+            return false;
+        }
 
         $stmt = $this->conn->prepare(
-            'SELECT users.User_ID AS Student_ID, users.External_ID AS StuExternal_ID, users.First_name, users.Last_Name, users.Uni_Email AS Email, users.Department_ID AS Degree_ID, users.Year, degree.DegreeName AS Degree, sa.Advisor_ID
+            'SELECT users.User_ID AS Student_ID, users.External_ID AS StuExternal_ID, users.First_name, users.Last_Name, users.Uni_Email AS Email, users.Department_ID AS Degree_ID, students.Year, degree.DegreeName AS Degree, sa.Advisor_ID
             FROM users
             JOIN degree ON users.Department_ID = degree.DegreeID
+            JOIN students ON users.User_ID = students.User_ID
+            LEFT JOIN student_advisors sa ON sa.Student_ID = users.External_ID
+            WHERE users.Role = "Student" AND degree.DegreeID = ? AND students.Year = ?
+            ORDER BY students.Year ASC'
+        );
+
+        if ($stmt === false) {
+            return false;
+        }
+
+        $stmt->bind_param('is', $degree, $normalizedYear);
+        if (!$stmt->execute()) {
+            return false;
+        }
+
+        return $stmt->get_result();
+
+    }
+
+     public function getStudentsByYear(String $yearInput){
+
+        $normalizedYear = $this->normalizeYear($yearInput);
+        if ($normalizedYear === '') {
+            return false;
+        }
+
+        $stmt = $this->conn->prepare(
+            'SELECT users.User_ID AS Student_ID, users.External_ID AS StuExternal_ID, users.First_name, users.Last_Name, users.Uni_Email AS Email, users.Department_ID AS Degree_ID, students.Year, degree.DegreeName AS Degree, sa.Advisor_ID
+            FROM users
+            JOIN degree ON users.Department_ID = degree.DegreeID
+            JOIN students ON users.User_ID = students.User_ID
+            LEFT JOIN student_advisors sa ON sa.Student_ID = users.External_ID
+            WHERE users.Role = "Student" AND students.Year = ?
+            ORDER BY students.Year ASC'
+        );
+
+        if ($stmt === false) {
+            return false;
+        }
+
+        $stmt->bind_param('s', $normalizedYear);
+        if (!$stmt->execute()) {
+            return false;
+        }
+
+        return $stmt->get_result();
+
+    }
+
+     public function getStudentsByDegree(int $degree){
+
+        $stmt = $this->conn->prepare(
+            'SELECT users.User_ID AS Student_ID, users.External_ID AS StuExternal_ID, users.First_name, users.Last_Name, users.Uni_Email AS Email, users.Department_ID AS Degree_ID, students.Year, degree.DegreeName AS Degree, sa.Advisor_ID
+            FROM users
+            JOIN degree ON users.Department_ID = degree.DegreeID
+            JOIN students ON users.User_ID = students.User_ID
             LEFT JOIN student_advisors sa ON sa.Student_ID = users.External_ID
             WHERE users.Role = "Student" AND degree.DegreeID = ?
-            ORDER BY users.Year ASC'
+            ORDER BY students.Year ASC'
         );
 
         if ($stmt === false) {
@@ -117,34 +179,6 @@ class Admin extends Users
         return $stmt->get_result();
 
     }
-    
-    public function getStudentsByYear(string $yearInput)
-    {
-        $normalizedYear = $this->normalizeYear($yearInput);
-        if ($normalizedYear === '') {
-            return false;
-        }
-
-        $stmt = $this->conn->prepare(
-            'SELECT users.User_ID AS Student_ID, users.External_ID AS StuExternal_ID, users.First_name, users.Last_Name, users.Uni_Email AS Email, users.Department_ID AS Degree_ID, users.Year, degree.DegreeName AS Degree, sa.Advisor_ID
-            FROM users
-            JOIN degree ON users.Department_ID = degree.DegreeID
-            LEFT JOIN student_advisors sa ON sa.Student_ID = users.External_ID
-            WHERE users.Role = "Student" AND users.Year = ?
-            ORDER BY users.Year ASC'
-        );
-
-        if ($stmt === false) {
-            return false;
-        }
-
-        $stmt->bind_param('s', $normalizedYear);
-        if (!$stmt->execute()) {
-            return false;
-        }
-
-        return $stmt->get_result();
-    }
 
     //get all the advisors and their details
     public function getAdvisors()
@@ -155,7 +189,7 @@ class Admin extends Users
     //get all the students and their details
     public function getStudents()
     {
-        return $this->conn->query("SELECT users.User_ID AS Student_ID, users.External_ID AS StuExternal_ID, users.First_name, users.Last_Name, users.Uni_Email AS Email, users.Department_ID AS Degree_ID, users.Year, degree.DegreeName AS Degree, sa.Advisor_ID FROM users JOIN degree ON users.Department_ID = degree.DegreeID LEFT JOIN student_advisors sa ON sa.Student_ID = users.External_ID WHERE users.Role = 'Student' ORDER BY users.Year ASC");
+        return $this->conn->query("SELECT users.User_ID AS Student_ID, users.External_ID AS StuExternal_ID, users.First_name, users.Last_Name, users.Uni_Email AS Email, users.Department_ID AS Degree_ID, students.Year, degree.DegreeName AS Degree, sa.Advisor_ID FROM users JOIN degree ON users.Department_ID = degree.DegreeID LEFT JOIN student_advisors sa ON sa.Student_ID = users.External_ID LEFT JOIN students ON users.User_ID = students.User_ID WHERE users.Role = 'Student' ORDER BY students.Year ASC");
     }
 
     public function getSuperUsers(){
@@ -260,14 +294,23 @@ class Admin extends Users
         $this->conn->begin_transaction();
 
         try {
-            $stmt = $this->conn->prepare('INSERT INTO users (Uni_Email, Password, Role, External_ID, First_name, Last_Name, Department_ID, Year) VALUES (?, ?, "Student", ?, ?, ?, ?, ?)');
+            $stmt = $this->conn->prepare('INSERT INTO users (Uni_Email, Password, Role, External_ID, First_name, Last_Name, Department_ID) VALUES (?, ?, "Student", ?, ?, ?, ?)');
             if ($stmt === false) {
                 throw new RuntimeException('Failed to prepare student insert statement.');
             }
+            $stmt2 = $this->conn->prepare('INSERT INTO students (User_ID, Year) VALUES (LAST_INSERT_ID(), ?)');
+            if ($stmt2 === false) {
+                throw new RuntimeException('Failed to prepare student info insert statement.');
+            }
 
-            $stmt->bind_param('ssissis', $email, $hashedTempPassword, $external_id_int, $first, $last, $degree, $normalizedYear);
+            $stmt->bind_param('ssissi', $email, $hashedTempPassword, $external_id_int, $first, $last, $degree);
             if (!$stmt->execute()) {
                 throw new RuntimeException('Failed to insert student record.');
+            }
+
+            $stmt2->bind_param('i', $normalizedYear);
+            if (!$stmt2->execute()) {
+                throw new RuntimeException('Failed to insert student info record.');
             }
 
             if ($advisorID !== null && $advisorID > 0) {

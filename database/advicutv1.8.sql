@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Mar 14, 2026 at 01:39 PM
+-- Generation Time: Mar 19, 2026 at 05:09 PM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -75,6 +75,29 @@ INSERT INTO `degree` (`DegreeID`, `Department_Name`, `DegreeName`) VALUES
 -- --------------------------------------------------------
 
 --
+-- Table structure for table `students`
+--
+
+CREATE TABLE `students` (
+  `User_ID` int(11) NOT NULL,
+  `year` int(11) DEFAULT NULL,
+  `last_promoted_year` int(11) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `students`
+--
+
+INSERT INTO `students` (`User_ID`, `year`, `last_promoted_year`) VALUES
+(42, 3, NULL),
+(51, 1, NULL),
+(55, 4, NULL),
+(59, 2, NULL),
+(67, 5, NULL);
+
+-- --------------------------------------------------------
+
+--
 -- Table structure for table `student_advisors`
 --
 
@@ -82,6 +105,34 @@ CREATE TABLE `student_advisors` (
   `Student_ID` int(11) NOT NULL,
   `Advisor_ID` int(11) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `student_advisors`
+--
+
+INSERT INTO `student_advisors` (`Student_ID`, `Advisor_ID`) VALUES
+(24503, 30080),
+(89760, 30080),
+(22222, 44556),
+(30405, 44556);
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `system_settings`
+--
+
+CREATE TABLE `system_settings` (
+  `setting_key` varchar(50) NOT NULL,
+  `setting_value` varchar(50) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `system_settings`
+--
+
+INSERT INTO `system_settings` (`setting_key`, `setting_value`) VALUES
+('academic_year', '2025');
 
 -- --------------------------------------------------------
 
@@ -98,20 +149,25 @@ CREATE TABLE `users` (
   `First_name` varchar(50) NOT NULL,
   `Last_Name` varchar(50) NOT NULL,
   `Phone` varchar(20) DEFAULT NULL,
-  `Department_ID` int(11) DEFAULT NULL,
-  `Year` enum('First','Second','Third','Fourth','Fifth') DEFAULT NULL
+  `Department_ID` int(11) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- Dumping data for table `users`
 --
 
-INSERT INTO `users` (`User_ID`, `External_ID`, `Uni_Email`, `Password`, `Role`, `First_name`, `Last_Name`, `Phone`, `Department_ID`, `Year`) VALUES
-(1, 1, 'admin@cut.ac.cy', '$2y$10$46bh2IXiYsStGwDSNr5zoernaZ7.ZYjHJqJeMtF4SXPlHRCvgzKoe', 'Admin', 'admin', 'admin', '', 0, NULL),
-(3, 30080, 'test@cut.ac.cy', '$2y$10$xGMjYptph0okQ8Xcsk1RjOX0Uvjkaz5Xj9yvAiN/cnovEI7mDm7Qi', 'Advisor', 'test', 'test2', '97854623', 1, NULL),
-(12, 27407, 'pt.vafeiadis@edu.cut.ac.cy', '$2y$10$uzvkyxLDiO2A4OAcCxvslemzveVcg.tsw3VxKAaUfcRrhw/dfyxSO', 'Student', 'paraskevas', 'vafeiadis', NULL, 1, 'Third'),
-(27, NULL, 'superuser@cut.ac.cy', '$2y$10$qV7TKVylCHp94RZ2JZp18Ow2OVVa8/QAPTv3jz3augluaWpchdfmy', 'SuperUser', 'SuperUser', 'SuperUser', NULL, 0, NULL),
-(42, 24503, 'b@edu.cut.ac.cy', '$2y$10$DKWfoubG8oTfoKRlVhM9jev3nOUx7SGtYNJjAyUNaEmLadaOKOhwK', 'Student', 'b', 'Test2', NULL, 1, 'Third');
+INSERT INTO `users` (`User_ID`, `External_ID`, `Uni_Email`, `Password`, `Role`, `First_name`, `Last_Name`, `Phone`, `Department_ID`) VALUES
+(1, 1, 'admin@cut.ac.cy', '$2y$10$46bh2IXiYsStGwDSNr5zoernaZ7.ZYjHJqJeMtF4SXPlHRCvgzKoe', 'Admin', 'admin', 'admin', '', 0),
+(3, 30080, 'test@cut.ac.cy', '$2y$10$xGMjYptph0okQ8Xcsk1RjOX0Uvjkaz5Xj9yvAiN/cnovEI7mDm7Qi', 'Advisor', 'test', 'test2', '97854623', 1),
+(27, NULL, 'superuser@cut.ac.cy', '$2y$10$qV7TKVylCHp94RZ2JZp18Ow2OVVa8/QAPTv3jz3augluaWpchdfmy', 'SuperUser', 'SuperUser', 'SuperUser', NULL, 0),
+(42, 24503, 'b@edu.cut.ac.cy', '$2y$10$DKWfoubG8oTfoKRlVhM9jev3nOUx7SGtYNJjAyUNaEmLadaOKOhwK', 'Student', 'andreas', 'Test2', NULL, 1),
+(43, 44556, 'test2@gmail.com', '$2y$10$uIRDeO6ANa9lQYBxh4qMpeeEeR6Ddan/hA.j5eWIQKOlEoNiMSaQK', 'Advisor', 'test2', 'test2', '96751099', 1),
+(44, 23232, 'test3@gmail.com', '$2y$10$683alx37Nbd4Vho1Bi64IOZwiz6Iwmrj/N78ck5rfGJM1j0drBGAu', 'Advisor', 'test3ad', 'test3ad', '99786720', 1),
+(51, 30405, 'a.ab@edu.cut.ac.cy', '$2y$10$DAh.I5YVoDMqe0R1LhuVDu1DtQddSO5dijh.T5O9Tyx1Zr4X.eRNe', 'Student', 'student', 'student1', NULL, 2),
+(55, 22222, 'a.kyriakou@edu.cut.ac.cy', '$2y$10$GnssS31HIi.YXoRLgCsqf.xV/f4EeC2KDL9SaZYj3BU42DHZW80Mi', 'Student', 'andreas', 'Kyriakoy', NULL, 1),
+(59, 89760, 'pn.panas@edu.cut.ac.cy', '$2y$10$IibB9D4ealImGp.nkAmHFuJ4d1hcawH4mMqSbHw.QUOoSwcs0G7ca', 'Student', 'student2', 'student2', NULL, 2),
+(60, 2000, 'test4@cut.ac.cy', '$2y$10$OEn5rHQme53GuQa.Pnwi6u47whJ4ub/r0Eeo1d1X0yHOKE9csZEDC', 'Advisor', 'test4', 'test4ad', '99875049', 1),
+(67, 12234, 'student@edu.cut.ac.cy', '$2y$10$urXHjKD6/7k6wYCfE2RL2.jWizrfrw9T7X2S.HlimGf5P9X1SA30S', 'Student', 'student3', 'student3', NULL, 1);
 
 --
 -- Indexes for dumped tables
@@ -140,11 +196,23 @@ ALTER TABLE `degree`
   ADD PRIMARY KEY (`DegreeID`);
 
 --
+-- Indexes for table `students`
+--
+ALTER TABLE `students`
+  ADD PRIMARY KEY (`User_ID`);
+
+--
 -- Indexes for table `student_advisors`
 --
 ALTER TABLE `student_advisors`
   ADD PRIMARY KEY (`Student_ID`),
   ADD KEY `fk_advisor` (`Advisor_ID`);
+
+--
+-- Indexes for table `system_settings`
+--
+ALTER TABLE `system_settings`
+  ADD PRIMARY KEY (`setting_key`);
 
 --
 -- Indexes for table `users`
@@ -175,7 +243,7 @@ ALTER TABLE `communication_history`
 -- AUTO_INCREMENT for table `users`
 --
 ALTER TABLE `users`
-  MODIFY `User_ID` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=47;
+  MODIFY `User_ID` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=68;
 
 --
 -- Constraints for dumped tables
@@ -194,6 +262,12 @@ ALTER TABLE `appointment_history`
 ALTER TABLE `communication_history`
   ADD CONSTRAINT `fk_comm_advisor` FOREIGN KEY (`Advisor_ID`) REFERENCES `users` (`User_ID`) ON DELETE CASCADE,
   ADD CONSTRAINT `fk_comm_student` FOREIGN KEY (`Student_ID`) REFERENCES `users` (`User_ID`) ON DELETE CASCADE;
+
+--
+-- Constraints for table `students`
+--
+ALTER TABLE `students`
+  ADD CONSTRAINT `students_ibfk_1` FOREIGN KEY (`User_ID`) REFERENCES `users` (`User_ID`) ON DELETE CASCADE;
 
 --
 -- Constraints for table `student_advisors`
