@@ -93,6 +93,59 @@ class Admin extends Users
         return $digitsLength >= 8 && $digitsLength <= 15;
     }
 
+
+    public function getStudentsByDegree(int $degree){
+
+        $stmt = $this->conn->prepare(
+            'SELECT users.User_ID AS Student_ID, users.External_ID AS StuExternal_ID, users.First_name, users.Last_Name, users.Uni_Email AS Email, users.Department_ID AS Degree_ID, users.Year, degree.DegreeName AS Degree, sa.Advisor_ID
+            FROM users
+            JOIN degree ON users.Department_ID = degree.DegreeID
+            LEFT JOIN student_advisors sa ON sa.Student_ID = users.External_ID
+            WHERE users.Role = "Student" AND degree.DegreeID = ?
+            ORDER BY users.Year ASC'
+        );
+
+        if ($stmt === false) {
+            return false;
+        }
+
+        $stmt->bind_param('i', $degree);
+        if (!$stmt->execute()) {
+            return false;
+        }
+
+        return $stmt->get_result();
+
+    }
+    
+    public function getStudentsByYear(string $yearInput)
+    {
+        $normalizedYear = $this->normalizeYear($yearInput);
+        if ($normalizedYear === '') {
+            return false;
+        }
+
+        $stmt = $this->conn->prepare(
+            'SELECT users.User_ID AS Student_ID, users.External_ID AS StuExternal_ID, users.First_name, users.Last_Name, users.Uni_Email AS Email, users.Department_ID AS Degree_ID, users.Year, degree.DegreeName AS Degree, sa.Advisor_ID
+            FROM users
+            JOIN degree ON users.Department_ID = degree.DegreeID
+            LEFT JOIN student_advisors sa ON sa.Student_ID = users.External_ID
+            WHERE users.Role = "Student" AND users.Year = ?
+            ORDER BY users.Year ASC'
+        );
+
+        if ($stmt === false) {
+            return false;
+        }
+
+        $stmt->bind_param('s', $normalizedYear);
+        if (!$stmt->execute()) {
+            return false;
+        }
+
+        return $stmt->get_result();
+    }
+
     //get all the advisors and their details
     public function getAdvisors()
     {

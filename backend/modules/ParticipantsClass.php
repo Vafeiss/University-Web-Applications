@@ -154,7 +154,7 @@ class Participants_Processing{
                     throw new Exception('Missing students or advisors for random assignment');
                 }
 
-                // Nothing new to assign 
+                // Nothing new to assign
                 if (empty($students)) {
                     $this->conn->commit();
                     return true;

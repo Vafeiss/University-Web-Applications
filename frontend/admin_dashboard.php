@@ -32,9 +32,31 @@ $user->Check_Session('Admin');
 $activeTab = $_GET['tab'] ?? 'advisors';
 
 //get result sets
-$advisors        = $user->getAdvisors();
-$students        = $user->getStudents();
-$superusers      = $user->getSuperUsers();
+$advisors = $user->getAdvisors();
+$selectedStudentYear = trim((string)($_GET['student_year'] ?? ''));
+$selectedStudentDegree = (int)($_GET['Student_Degree'] ?? '');
+
+
+
+if ($selectedStudentYear !== '') {
+    $students = $user->getStudentsByYear($selectedStudentYear);
+} else {
+    $students = $user->getStudents();
+}
+
+if ($students === false) {
+  $students = $user->getStudents();
+  $selectedStudentYear = '';
+}
+
+if($selectedStudentDegree !== 0) {
+  $students = $user->getStudentsByDegree($selectedStudentDegree);
+} else{
+  $students = $user->getStudents();
+}
+
+
+$superusers = $user->getSuperUsers();
 
 //get arrays for assignment tab
 $assignAdvisorsResult = $user->getAdvisors();
@@ -42,7 +64,7 @@ $assignStudentsResult = $user->getStudents();
 $assignAdvisors  = $assignAdvisorsResult ? $assignAdvisorsResult->fetch_all(MYSQLI_ASSOC) : [];
 $assignStudents  = $assignStudentsResult ? $assignStudentsResult->fetch_all(MYSQLI_ASSOC) : [];
 
-//get statistics 
+//get statistics
 $allAdvisors = $assignAdvisors;
 $allStudents = $assignStudents;
 $superusersArr = $user->getSuperUsers();
@@ -80,6 +102,19 @@ unset($_SESSION['flash'], $_SESSION['flash_type']);
 // Active section (default: advisors)
 $activeSection = $_GET['section'] ?? 'advisors';
 Notifications::createNotification();
+
+$studentYearOptions = [
+  '1' => 'Year 1',
+  '2' => 'Year 2',
+  '3' => 'Year 3',
+  '4' => 'Year 4',
+  '5' => 'Year 5',
+];
+
+$studentDegreeOptions = [
+  '1' => 'Computer Engineer & Informatics',
+  '2' => 'Electrical Engineering',
+]
 
 ?>
 <!DOCTYPE html>
@@ -289,6 +324,37 @@ Notifications::createNotification();
         </div>
       </div>
 
+      <!-- filters -->
+      <!--<button class="btn btn-outline-primary mb-3" type="button" data-bs-toggle="collapse" data-bs-target="#filterSection">
+        <i class="bi bi-funnel"></i> Filters </button> -->
+      <form method="GET" class="row g-2 align-items-end mb-3">
+        <input type="hidden" name="tab" value="students">
+            
+        <div class="col-sm-4 col-md-3">
+          <label for="studentYearFilter" class="form-label mb-1">Filter By Year</label>
+          <select class="form-select" id="studentYearFilter" name="student_year" onchange="this.form.submit()">
+            <option value="" <?= $selectedStudentYear === '' ? 'selected' : '' ?>>All Years</option>
+            <?php foreach ($studentYearOptions as $yearValue => $yearLabel): ?>
+            <option value="<?= htmlspecialchars($yearValue) ?>" <?= (string)$selectedStudentYear === (string)$yearValue ? 'selected' : '' ?>>
+              <?= htmlspecialchars($yearLabel) ?>
+            </option>
+            <?php endforeach; ?>
+          </select>
+        </div>
+      
+        <div class="col-sm-4 col-md-3">
+          <label for="studentDegreeFilter" class="form-label mb-1">Filter By Degree</label>
+          <select class="form-select" id="studentDegreeFilter" name="Student_Degree" onchange="this.form.submit()">
+            <option value="" <?= $selectedStudentDegree === '' ? 'selected' : '' ?>>All Degrees</option>
+            <?php foreach ($studentDegreeOptions as $degreeValue => $degreeLabel): ?>
+            <option value="<?= htmlspecialchars($degreeValue) ?>" <?= (string)$selectedStudentDegree === (string)$degreeValue ? 'selected' : '' ?>>
+              <?= htmlspecialchars($degreeLabel) ?>
+            </option>
+            <?php endforeach; ?>
+          </select>
+        </div>
+      </form>
+
       <input class="form-control mb-3" id="studentSearch" placeholder="Search students…">
 
       <form action="../backend/modules/dispatcher.php" method="POST" id="studentForm">
@@ -313,16 +379,16 @@ Notifications::createNotification();
               <tr class="student-row">
                 <td>
                   <input class="form-check-input mt-0"
-                         type="checkbox"
-                         name="student_ID[]"
-                         value="<?= htmlspecialchars($student['Student_ID']) ?>"
-                         data-external-id="<?= htmlspecialchars($student['StuExternal_ID']) ?>"
-                         data-first-name="<?= htmlspecialchars($student['First_name']) ?>"
-                         data-last-name="<?= htmlspecialchars($student['Last_Name']) ?>"
-                         data-email="<?= htmlspecialchars($student['Email']) ?>"
-                         data-degree-id="<?= htmlspecialchars((string)($student['Degree_ID'] ?? '1')) ?>"
-                         data-year="<?= htmlspecialchars((string)($student['Year'] ?? '')) ?>"
-                         data-advisor-id="<?= htmlspecialchars((string)($student['Advisor_ID'] ?? '')) ?>">
+                    type="checkbox"
+                    name="student_ID[]"
+                    value="<?= htmlspecialchars($student['Student_ID']) ?>"
+                    data-external-id="<?= htmlspecialchars($student['StuExternal_ID']) ?>"
+                    data-first-name="<?= htmlspecialchars($student['First_name']) ?>"
+                    data-last-name="<?= htmlspecialchars($student['Last_Name']) ?>"
+                    data-email="<?= htmlspecialchars($student['Email']) ?>"
+                    data-degree-id="<?= htmlspecialchars((string)($student['Degree_ID'] ?? '1')) ?>"
+                    data-year="<?= htmlspecialchars((string)($student['Year'] ?? '')) ?>"
+                    data-advisor-id="<?= htmlspecialchars((string)($student['Advisor_ID'] ?? '')) ?>">
                 </td>
                 <td><?= htmlspecialchars($student['First_name']) ?></td>
                 <td><?= htmlspecialchars($student['Last_Name']) ?></td>
