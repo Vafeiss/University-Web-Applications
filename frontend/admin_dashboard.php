@@ -19,6 +19,17 @@ Paraskevas Vafeiadis
 16-Mar-2026 v0.4
 added show messages for each action inside the dashboard using the notifications class.
 Paraskevas Vafeiadis
+
+20-Mar-2026 v0.5
+added filtering for students by year and degree, and added a degrees management section with add/edit features
+improved statistics by inserting a pie-chart and filtering the years
+Paraskevas Vafeiadis
+
+24-Mar-2026 v0.6
+Added department filtering
+Paraskevas Vafeiadis
+
+
 */
 
 require_once 'init.php';
@@ -34,33 +45,54 @@ $activeTab = $_GET['tab'] ?? 'advisors';
 
 //get result sets
 $advisors = $user->getAdvisors();
+//get students information for filtering
 $selectedStudentsYear =  trim((string)($_GET['student_year'] ?? ''));
-$selectedStudentsDegree = (int)($_GET['Student_Degree'] ?? '');
+$selectedStudentsDegree = (int)($_GET['Student_Degree'] ?? 0);
+$selectedStudentsDepartment = (int)($_GET['Student_Department'] ?? 0);
 
+//get function results
 $selectionClass = new SelectionClass();
+$departments = $selectionClass->getDepartment();
 $degrees = $selectionClass->getDegrees();
 
-$DegreeOptions = [];
-if (is_array($degrees)) {
-  foreach ($degrees as $degree) {
-    $degreeId = (string)($degree['DegreeID'] ?? '');
-    $degreeName = (string)($degree['DegreeName'] ?? '');
-    if ($degreeId !== '' && $degreeName !== '') {
-      $DegreeOptions[$degreeId] = $degreeName;
+
+$DepartmentOptions = [];
+if (is_array($departments)) {
+  foreach ($departments as $department) {
+    $departmentID = (string)($department['DepartmentID'] ?? '');
+    $departmentName = (string)($department['DepartmentName'] ?? '');
+    if ($departmentID !== '' && $departmentName !== '') {
+      $DepartmentOptions[$departmentID] = $departmentName;
     }
   }
 }
 
-if($selectedStudentsYear !== '' && $selectedStudentsDegree !== 0){
-  $students = $user->FilterStudents($selectedStudentsDegree, $selectedStudentsYear);
+$availableFilterDegrees = $selectedStudentsDepartment > 0
+  ? $selectionClass->getDegrees($selectedStudentsDepartment)
+  : $degrees;
+
+$DegreeOptions = [];
+if (is_array($availableFilterDegrees)) {
+  foreach ($availableFilterDegrees as $degree) {
+    $degreeID = (string)($degree['DegreeID'] ?? '');
+    $degreeName = (string)($degree['DegreeName'] ?? '');
+    if ($degreeID !== '' && $degreeName !== '') {
+      $DegreeOptions[$degreeID] = $degreeName;
+    }
+  }
 }
-else if($selectedStudentsYear !== '' && $selectedStudentsDegree === 0){
-  $students = $user->getStudentsByYear($selectedStudentsYear);
+
+if ($selectedStudentsDegree > 0 && !isset($DegreeOptions[(string)$selectedStudentsDegree])) {
+  $selectedStudentsDegree = 0;
 }
-else if($selectedStudentsDegree !== 0 && $selectedStudentsYear === ''){
-  $students = $user->getStudentsByDegree($selectedStudentsDegree);
-}
-else{
+
+$hasStudentFilters = $selectedStudentsYear !== '' || $selectedStudentsDepartment > 0 || $selectedStudentsDegree > 0;
+if ($hasStudentFilters) {
+  $students = $user->getStudentsByFilters($selectedStudentsYear, $selectedStudentsDepartment, $selectedStudentsDegree);
+  if ($students === false) {
+    $students = $user->getStudents();
+  }
+} else {
   $students = $user->getStudents();
 }
 
@@ -320,14 +352,14 @@ $YearOptions = [
               <tr class="advisor-row">
                 <td>
                   <input class="form-check-input mt-0"
-                         type="checkbox"
-                         name="advisor_id[]"
-                         value="<?= htmlspecialchars($advisor['Advisor_ID']) ?>"
-                         data-first-name="<?= htmlspecialchars($advisor['First_name']) ?>"
-                         data-last-name="<?= htmlspecialchars($advisor['Last_Name']) ?>"
-                         data-email="<?= htmlspecialchars($advisor['Email']) ?>"
-                         data-phone="<?= htmlspecialchars($advisor['Phone'] ?? '') ?>"
-                         data-department-id="<?= htmlspecialchars((string)($advisor['Department_ID'] ?? '1')) ?>">
+                        type="checkbox"
+                        name="advisor_id[]"
+                        value="<?= htmlspecialchars($advisor['Advisor_ID']) ?>"
+                        data-first-name="<?= htmlspecialchars($advisor['First_name']) ?>"
+                        data-last-name="<?= htmlspecialchars($advisor['Last_Name']) ?>"
+                        data-email="<?= htmlspecialchars($advisor['Email']) ?>"
+                        data-phone="<?= htmlspecialchars($advisor['Phone'] ?? '') ?>"
+                        data-department-id="<?= htmlspecialchars((string)($advisor['DepartmentID'] ?? '')) ?>">
                 </td>
                 <td><?= htmlspecialchars($advisor['First_name']) ?></td>
                 <td><?= htmlspecialchars($advisor['Last_Name']) ?></td>
@@ -376,17 +408,19 @@ $YearOptions = [
         </div>
       </div>
 
-      <!-- filters -->
+      <!-- filters students -->
       <button class="btn btn-outline-primary mb-3" type="button" data-bs-toggle="collapse" data-bs-target="#filterSection">
         <i class="bi bi-funnel"></i> Filters </button>
         <div class="collapse" id="filterSection">
           <form method="GET" class="row g-2 align-items-end mb-3">
               <input type="hidden" name="tab" value="students">
+              <input type="hidden" name="section" value="students">
 
+        <!-- filter by year -->
         <div class="col-sm-4 col-md-3">
           <label for="studentYearFilter" class="form-label mb-1">Filter By Year</label>
           <select class="form-select" id="studentYearFilter" name="student_year" onchange="this.form.submit()">
-            <option value="" <?= $YearOptions === '' ? 'selected' : '' ?>>All Years</option>
+            <option value="" <?= $selectedStudentsYear === '' ? 'selected' : '' ?>>All Years</option>
             <?php foreach ($YearOptions as $yearValue => $yearLabel): ?>
             <option value="<?= htmlspecialchars($yearValue) ?>" <?= (string)$selectedStudentsYear === (string)$yearValue ? 'selected' : '' ?>>
               <?= htmlspecialchars($yearLabel) ?>
@@ -394,7 +428,21 @@ $YearOptions = [
             <?php endforeach; ?>
           </select>
         </div>
-      
+
+        <!-- filter by department -->
+        <div class="col-sm-4 col-md-3">
+          <label for="studentDepartmentFilter" class="form-label mb-1">Filter By Department</label>
+          <select class="form-select" id="studentDepartmentFilter" name="Student_Department" onchange="this.form.submit()">
+            <option value="" <?= $selectedStudentsDepartment === 0 ? 'selected' : '' ?>>All Departments</option>
+            <?php foreach ($DepartmentOptions as $departmentValue => $departmentLabel): ?>
+            <option value="<?= htmlspecialchars($departmentValue) ?>" <?= (string)$selectedStudentsDepartment === (string)$departmentValue ? 'selected' : '' ?>>
+              <?= htmlspecialchars($departmentLabel) ?>
+            </option>
+            <?php endforeach; ?>
+          </select>
+        </div>
+
+        <!-- filter by degree based on department -->
         <div class="col-sm-4 col-md-3">
           <label for="studentDegreeFilter" class="form-label mb-1">Filter By Degree</label>
           <select class="form-select" id="studentDegreeFilter" name="Student_Degree" onchange="this.form.submit()">
@@ -410,6 +458,7 @@ $YearOptions = [
     </div>
   
 
+      <!-- Student tab -->
       <input class="form-control mb-3" id="studentSearch" placeholder="Search students…">
 
       <form action="../backend/modules/dispatcher.php" method="POST" id="studentForm">
@@ -424,6 +473,7 @@ $YearOptions = [
                 <th>Last Name</th>
                 <th>ID</th>
                 <th>Email</th>
+                <th>Department</th>
                 <th>Degree</th>
                 <th>Year</th>
                 <th>Advisor ID</th>
@@ -441,6 +491,7 @@ $YearOptions = [
                     data-first-name="<?= htmlspecialchars($student['First_name']) ?>"
                     data-last-name="<?= htmlspecialchars($student['Last_Name']) ?>"
                     data-email="<?= htmlspecialchars($student['Email']) ?>"
+                    data-department-id="<?= htmlspecialchars((string)($student['Department'] ?? '')) ?>"
                     data-degree-id="<?= htmlspecialchars((string)($student['Degree_ID'] ?? '1')) ?>"
                     data-year="<?= htmlspecialchars((string)($student['Year'] ?? '')) ?>"
                     data-advisor-id="<?= htmlspecialchars((string)($student['Advisor_ID'] ?? '')) ?>">
@@ -449,6 +500,7 @@ $YearOptions = [
                 <td><?= htmlspecialchars($student['Last_Name']) ?></td>
                 <td><?= htmlspecialchars($student['StuExternal_ID']) ?></td>
                 <td><?= htmlspecialchars($student['Email']) ?></td>
+                <td><?= htmlspecialchars($student['Department'] ?? '') ?></td>
                 <td><?= htmlspecialchars($student['Degree']) ?></td>
                 <td><?= 'Year ' . htmlspecialchars($student['Year'] ?? '') ?></td>
                 <td><?= htmlspecialchars($student['Advisor_ID'] ?? 'Unassigned') ?></td>
@@ -778,9 +830,9 @@ $YearOptions = [
               <label class="form-label">Department <span class="text-danger">*</span></label>
               <select name="department" class="form-select" required>
                 <option value="" disabled selected>Select a department…</option>
-                <?php foreach ($degrees as $degree): ?>
-                  <option value="<?= htmlspecialchars($degree['DegreeID']) ?>">
-                    <?= htmlspecialchars($degree['Department_Name']) ?>
+                <?php foreach ($DepartmentOptions as $departmentValue => $departmentLabel): ?>
+                  <option value="<?= htmlspecialchars($departmentValue) ?>">
+                    <?= htmlspecialchars($departmentLabel) ?>
                   </option>
                 <?php endforeach; ?>
               </select>
@@ -835,7 +887,12 @@ $YearOptions = [
             <div class="col-12">
               <label class="form-label">Department <span class="text-danger">*</span></label>
               <select name="department" id="editAdvisorDepartment" class="form-select" required>
-                <option value="1">HMMHY</option>
+                <option value="" disabled>Select a department…</option>
+                <?php foreach ($DepartmentOptions as $departmentValue => $departmentLabel): ?>
+                  <option value="<?= htmlspecialchars($departmentValue) ?>">
+                    <?= htmlspecialchars($departmentLabel) ?>
+                  </option>
+                <?php endforeach; ?>
               </select>
             </div>
           </div>

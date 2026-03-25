@@ -126,7 +126,7 @@ class AdminController {
 
         $year = trim((string)($_POST['year'] ?? ''));
         
-        $advisorinput = $_POST['advisor_id'] ?? ($_POST['advisors_id'] ?? '');
+        $advisorinput = trim((string)($_POST['advisor_id'] ?? ($_POST['advisors_id'] ?? '')));
         $advisorID = ($advisorinput === '' ? null : (int)$advisorinput);
 
         $added = $this->admin->addStudent($externalId, $first, $last, $email, $degree, $year, $advisorID);

@@ -109,22 +109,7 @@ class Participants_Processing{
                 return false;
             }
         }
-
-        public function Get_Advisor(int $studentid){
-            $sql = "SELECT Advisor_ID FROM student_advisors WHERE Student_ID = ?";
-            $stmt = $this->conn->prepare($sql);
-            $stmt->bind_param("i", $studentid);
-            $stmt->execute();
-            $result = $stmt->get_result();
-            if ($result->num_rows > 0) {
-                $row = $result->fetch_assoc();
-                return $row['Advisor_ID']; // Return the advisor ID
-            } else {
-                return null; // Return null if no advisor is assigned to the student
-            }
-        }
-
-
+        
         public function RandomAssignment(): bool {
             $this->conn->begin_transaction();
 
