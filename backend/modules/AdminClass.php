@@ -785,18 +785,38 @@ class Admin extends Users
         }
     }
 
-    //function to be able to add any degree/department inside the database
-    public function addDegree(string $degreeName, string $departmentName): bool {
+    //function to be able to add a department inside the database
+    public function addDepartment(string $departmentName): bool {
+        if ($departmentName === '') {
+            return false;
+        }
 
-        if ($degreeName === '' || $departmentName === '') {
+        try{
+            $DepartmentName = ucfirst(strtolower($departmentName));
+            $stmt = $this->conn->prepare('INSERT INTO departments (DepartmentName) VALUES (?)');
+            $stmt->bind_param('s', $DepartmentName);
+            $stmt->execute();
+            if($stmt->affected_rows === 0) {
+                return false;
+            }
+            return true;
+
+        } catch (Exception $e) {
+            return false;
+        }
+    }
+
+    //function to be able to add any degree/department inside the database
+    public function addDegree(string $degreeName, int $departmentId): bool {
+
+        if ($degreeName === '' || $departmentId === 0) {
             return false;
         }
 
         try{
             $DegreeName = ucfirst(strtolower($degreeName));
-            $DepartmentName = ucfirst(strtolower($departmentName));
-            $stmt = $this->conn->prepare('INSERT INTO degree (Department_Name, DegreeName) VALUES (?, ?)');
-            $stmt->bind_param('ss', $DepartmentName, $DegreeName);
+            $stmt = $this->conn->prepare('INSERT INTO degree (Department_ID, DegreeName) VALUES (?, ?)');
+            $stmt->bind_param('is', $departmentId, $DegreeName);
             $stmt->execute();
             if($stmt->affected_rows === 0) {
                 return false;

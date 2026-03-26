@@ -470,16 +470,16 @@ class AdminController {
         }
 
         $degreeName = trim((string)($_POST['degree_name'] ?? ''));
-        $departmentName = trim((string)($_POST['department_name'] ?? ''));
+        $departmentId = (int)($_POST['department_id'] ?? 0);
 
-        if ($degreeName === '' || $departmentName === '') {
-            Notifications::error("Degree name and department name cannot be empty.");
+        if ($degreeName === '' || $departmentId <= 0) {
+            Notifications::error("Degree name and department are required.");
             header("Location: ../../frontend/admin_dashboard.php?tab=degrees");
             exit();
         }
 
         try{
-        $added = $this->admin->addDegree($degreeName, $departmentName);
+        $added = $this->admin->addDegree($degreeName, $departmentId);
         if (!$added) {
             Notifications::error("Failed to add degree.");
             header("Location: ../../frontend/admin_dashboard.php?tab=degrees");
@@ -488,8 +488,40 @@ class AdminController {
         Notifications::success("Degree added successfully.");
         header("Location: ../../frontend/admin_dashboard.php?tab=degrees");
         exit();
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
             Notifications::error("An error occurred while adding the degree: " . $e->getMessage());
+            header("Location: ../../frontend/admin_dashboard.php?tab=degrees");
+            exit();
+        }
+    }
+
+    public function addDepartmentController(){
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            header('Location: ../../frontend/admin_dashboard.php');
+            exit();
+        }
+
+        $departmentName = trim((string)($_POST['department_name'] ?? ''));
+
+        if ($departmentName === '') {
+            Notifications::error("Department name cannot be empty.");
+            header("Location: ../../frontend/admin_dashboard.php?tab=degrees");
+            exit();
+        }
+
+        try {
+            $added = $this->admin->addDepartment($departmentName);
+            if (!$added) {
+                Notifications::error("Failed to add department.");
+                header("Location: ../../frontend/admin_dashboard.php?tab=degrees");
+                exit();
+            }
+
+            Notifications::success("Department added successfully.");
+            header("Location: ../../frontend/admin_dashboard.php?tab=degrees");
+            exit();
+        } catch (Throwable $e) {
+            Notifications::error("An error occurred while adding the department: " . $e->getMessage());
             header("Location: ../../frontend/admin_dashboard.php?tab=degrees");
             exit();
         }

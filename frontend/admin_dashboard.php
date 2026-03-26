@@ -214,16 +214,19 @@ $YearOptions = [
     .flash-toast { position: fixed; top: 1rem; right: 1rem; z-index: 9999; min-width: 280px; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,.12); padding: .85rem 1.1rem; display: flex; align-items: center; gap: .6rem; font-size: .92rem; }
 
         /* degrees big buttons */
-    .deg-btn-row { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; max-width: 700px; margin: 60px auto; }
+    .deg-btn-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 24px; max-width: 980px; margin: 60px auto; }
     .deg-btn { background: #fff; border: 2px solid #e5e7eb; border-radius: 20px; padding: 48px 28px 40px; display: flex; flex-direction: column; align-items: center; text-align: center; cursor: pointer; text-decoration: none; color: #111827; transition: all .22s cubic-bezier(.34,1.4,.64,1); gap: 18px; }
     .deg-btn:hover { transform: translateY(-5px); box-shadow: 0 16px 40px rgba(0,0,0,.1); color: #111827; text-decoration: none; }
     .deg-btn.add:hover { border-color: #4f46e5; }
     .deg-btn.edit:hover { border-color: #059669; }
+    .deg-btn.department:hover { border-color: #0369a1; }
     .deg-btn .deg-icon { width: 76px; height: 76px; border-radius: 20px; display: flex; align-items: center; justify-content: center; font-size: 2.2rem; transition: all .22s cubic-bezier(.34,1.4,.64,1); }
     .deg-btn.add  .deg-icon { background: #ede9fe; color: #4f46e5; }
     .deg-btn.edit .deg-icon { background: #d1fae5; color: #059669; }
+    .deg-btn.department .deg-icon { background: #e0f2fe; color: #0369a1; }
     .deg-btn.add:hover  .deg-icon { background: #4f46e5; color: #fff; transform: scale(1.08) rotate(-4deg); }
     .deg-btn.edit:hover .deg-icon { background: #059669; color: #fff; transform: scale(1.08) rotate(4deg); }
+    .deg-btn.department:hover .deg-icon { background: #0369a1; color: #fff; transform: scale(1.08) rotate(-2deg); }
     .deg-btn h5 { font-weight: 700; font-size: 1.15rem; margin: 0 0 4px; }
     .deg-btn p  { font-size: .84rem; color: #6b7280; margin: 0; line-height: 1.5; }
     @media(max-width:560px){ .deg-btn-row{ grid-template-columns: 1fr; } }
@@ -787,6 +790,15 @@ $YearOptions = [
           <p>Browse all existing degrees and update their details!</p>
         </div>
       </a>
+
+      <!-- ADD DEPARTMENT -->
+      <a class="deg-btn department" href="#" data-bs-toggle="modal" data-bs-target="#addDepartmentModal">
+        <div class="deg-icon"><i class="bi bi-building-add"></i></div>
+        <div>
+          <h5>Add Department</h5>
+          <p>Create a new department and use it for future degrees.</p>
+        </div>
+      </a>
  
     </div>
   </div>
@@ -1137,11 +1149,18 @@ $YearOptions = [
           <div class="row g-3">
             <div class="col-8">
               <label class="form-label">Degree Name <span class="text-danger">*</span></label>
-              <input type="text" name="degree_name" class="form-control" placeholder="e.g. BSc Computer Science" required>
+              <input type="text" name="degree_name" class="form-control" placeholder="Computer Science" required>
             </div>
             <div class="col-12">
               <label class="form-label">Department <span class="text-danger">*</span></label>
-              <input type="text" name="department_name" class="form-control" placeholder="e.g. Computer Science" required>
+              <select name="department_id" class="form-select" required>
+                <option value="" disabled selected>Select a department...</option>
+                <?php foreach ($DepartmentOptions as $departmentValue => $departmentLabel): ?>
+                  <option value="<?= htmlspecialchars($departmentValue) ?>">
+                    <?= htmlspecialchars($departmentLabel) ?>
+                  </option>
+                <?php endforeach; ?>
+              </select>
             </div>
           </div>
         </div>
@@ -1149,6 +1168,38 @@ $YearOptions = [
           <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
           <button type="submit" class="btn btn-primary">
             <i class="bi bi-check2-circle me-1"></i> Save Degree
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+
+<!-- ADD DEPARTMENT MODAL -->
+<div class="modal fade" id="addDepartmentModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 shadow">
+      <div class="modal-header border-0 pb-0">
+        <h5 class="modal-title fw-semibold">
+          <i class="bi bi-building-add me-2" style="color:#0369a1"></i>Add New Department
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form action="../backend/modules/dispatcher.php" method="POST">
+        <div class="modal-body">
+          <input type="hidden" name="action" value="/department/add">
+          <div class="row g-3">
+            <div class="col-12">
+              <label class="form-label">Department Name <span class="text-danger">*</span></label>
+              <input type="text" name="department_name" class="form-control" placeholder="HMMHY" required>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer border-0 pt-0">
+          <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary">
+            <i class="bi bi-check2-circle me-1"></i> Save Department
           </button>
         </div>
       </form>
