@@ -41,11 +41,16 @@ require_once '../backend/modules/AdminClass.php';
 require_once '../backend/modules/ParticipantsClass.php';
 require_once '../backend/modules/NotificationsClass.php';
 require_once '../backend/modules/SelectionClass.php';
+require_once '../backend/modules/PromotionClass.php';
 
 $user = new Admin();
 $user->Check_Session('Admin');
 
 $activeTab = $_GET['tab'] ?? 'advisors';
+
+//promote students automaticly
+$promotion = new PromotionClass();
+$promotion->promoteStudents();
 
 //get result sets
 $advisors = $user->getAdvisors();
