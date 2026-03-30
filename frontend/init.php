@@ -8,6 +8,10 @@
    28-Fev-2026 v0.1
    */
 
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
 //Auto load class from backend
 spl_autoload_register(function($class){
 require_once __DIR__ . '/../backend/modules/' . $class . '.php';
