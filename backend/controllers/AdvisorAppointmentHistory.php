@@ -4,8 +4,8 @@ declare(strict_types=1);
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../modules/AppointmentHistoryClass.php';
 
-$studentId = 1;
-$studentName = "Student Test User";
+$advisorId = 2;
+$advisorName = "Advisor Test User";
 
 $errorMessage = "";
 $history = [];
@@ -15,32 +15,32 @@ $appointmentHistory = new AppointmentHistory();
 try {
     $nameSql = "SELECT First_name, Last_Name
                 FROM users
-                WHERE User_ID = :student_id
-                  AND Role = 'Student'
+                WHERE User_ID = :advisor_id
+                  AND Role = 'Advisor'
                 LIMIT 1";
 
     $nameStmt = $pdo->prepare($nameSql);
     $nameStmt->execute([
-        'student_id' => $studentId
+        'advisor_id' => $advisorId
     ]);
 
-    $student = $nameStmt->fetch();
+    $advisor = $nameStmt->fetch();
 
-    if ($student) {
-        $studentName = trim((string)$student['First_name'] . ' ' . (string)$student['Last_Name']);
+    if ($advisor) {
+        $advisorName = trim((string)$advisor['First_name'] . ' ' . (string)$advisor['Last_Name']);
     }
 } catch (Throwable $e) {
-    $errorMessage = "Could not load student name.";
+    $errorMessage = "Could not load advisor name.";
 }
 
-$history = $appointmentHistory->getStudentHistory($studentId);
+$history = $appointmentHistory->getAdvisorHistory($advisorId);
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AdviCut - Student Appointment History</title>
+    <title>AdviCut - Advisor Appointment History</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
 </head>
 <body class="bg-light">
@@ -50,8 +50,8 @@ $history = $appointmentHistory->getStudentHistory($studentId);
             <div class="card shadow-sm border-0 rounded-4">
                 <div class="card-body p-4 p-md-5">
                     <div class="mb-4">
-                        <h2 class="fw-bold mb-2">Appointment History</h2>
-                        <h5 class="mb-0"><?= htmlspecialchars($studentName) ?></h5>
+                        <h2 class="fw-bold mb-2">Advisor Appointment History</h2>
+                        <h5 class="mb-0"><?= htmlspecialchars($advisorName) ?></h5>
                     </div>
 
                     <?php if ($errorMessage !== ""): ?>
@@ -66,10 +66,10 @@ $history = $appointmentHistory->getStudentHistory($studentId);
                                 <thead class="table-primary text-center">
                                 <tr>
                                     <th class="py-3">Request ID</th>
-                                    <th class="py-3">Advisor</th>
+                                    <th class="py-3">Student</th>
                                     <th class="py-3">Date</th>
                                     <th class="py-3">Time</th>
-                                    <th class="py-3">Your Reason</th>
+                                    <th class="py-3">Student Reason</th>
                                     <th class="py-3">Advisor Reason</th>
                                     <th class="py-3">Status</th>
                                 </tr>
@@ -78,7 +78,7 @@ $history = $appointmentHistory->getStudentHistory($studentId);
                                 <?php foreach ($history as $row): ?>
                                     <tr>
                                         <td class="text-center"><?= htmlspecialchars((string)$row['Request_ID']) ?></td>
-                                        <td><?= htmlspecialchars(trim((string)($row['Advisor_First_Name'] ?? '') . ' ' . (string)($row['Advisor_Last_Name'] ?? ''))) ?></td>
+                                        <td><?= htmlspecialchars(trim((string)($row['Student_First_Name'] ?? '') . ' ' . (string)($row['Student_Last_Name'] ?? ''))) ?></td>
                                         <td class="text-center"><?= htmlspecialchars((string)($row['Appointment_Date'] ?? '')) ?></td>
                                         <td class="text-center"><?= htmlspecialchars((string)($row['Start_Time'] ?? '')) ?> - <?= htmlspecialchars((string)($row['End_Time'] ?? '')) ?></td>
                                         <td><?= htmlspecialchars((string)($row['Student_Reason'] ?? '')) ?></td>

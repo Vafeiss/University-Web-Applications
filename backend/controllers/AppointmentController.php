@@ -1,47 +1,223 @@
 <?php
 /*
-Name: AppointmentController
-Description: Handles appointment related actions between frontend and AppointmentClass
-Author: Panteleimoni Alexandrou
-Date: 11-Mar-2026 v1.0
+   NAME: Appointment Controller
+   Description: This controller handles advisor actions for approving and declining appointment requests
+   Panteleimoni Alexandrou
+   30-Mar-2026 v1.0
+   Inputs: GET inputs for action and request id
+   Outputs: Updates appointment request status, inserts appointment record, inserts history record and redirects back to the advisor dashboard
+   Error Messages: If the request is invalid or a database operation fails, a flash error message is created
+   Files in use: AppointmentController.php, AdvisorAppointmentDashboard.php, db.php
 */
 
 declare(strict_types=1);
 
-require_once __DIR__ . '/../modules/AppointmentClass.php';
+session_start();
 
-class AppointmentController {
+require_once __DIR__ . '/../config/db.php';
 
-    public function bookAppointment()
-    {
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            header("Location: ../../frontend/index.php");
-            exit();
+/*
+TEMP TEST MODE
+Use hardcoded advisor user id until login/session is fully connected.
+*/
+$advisorId = 2;
+
+// Read action and request id from URL
+$action = isset($_GET['action']) ? trim((string)$_GET['action']) : '';
+$requestId = isset($_GET['id']) ? (int)$_GET['id'] : 0;
+
+/*
+Helper function for redirecting back to advisor requests tab
+*/
+function redirectToAdvisorRequestsDashboard(): void
+{
+    header("Location: ../../frontend/AdvisorAppointmentDashboard.php?section=requests");
+    exit;
+}
+
+// Validate request id
+if ($requestId <= 0) {
+    $_SESSION['flash'] = "Invalid request ID.";
+    $_SESSION['flash_type'] = "error";
+    redirectToAdvisorRequestsDashboard();
+}
+
+try {
+    /*
+    ------------------------------------------------------------
+    FETCH THE REQUEST FIRST
+    ------------------------------------------------------------
+    */
+    $requestSql = "SELECT Request_ID, Student_ID, Advisor_ID, OfficeHour_ID, Appointment_Date, Student_Reason, Advisor_Reason, Status
+                   FROM appointment_requests
+                   WHERE Request_ID = :request_id
+                     AND Advisor_ID = :advisor_id
+                   LIMIT 1";
+
+    $requestStmt = $pdo->prepare($requestSql);
+    $requestStmt->execute([
+        'request_id' => $requestId,
+        'advisor_id' => $advisorId
+    ]);
+
+    $request = $requestStmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$request) {
+        $_SESSION['flash'] = "Appointment request not found.";
+        $_SESSION['flash_type'] = "error";
+        redirectToAdvisorRequestsDashboard();
+    }
+
+    /*
+    ------------------------------------------------------------
+    APPROVE REQUEST
+    ------------------------------------------------------------
+    */
+    if ($action === 'approve') {
+        // Only pending requests can be approved
+        if ($request['Status'] !== 'Pending') {
+            $_SESSION['flash'] = "Only pending requests can be approved.";
+            $_SESSION['flash_type'] = "error";
+            redirectToAdvisorRequestsDashboard();
         }
 
-        $studentId = $_SESSION['UserID'];
-        $advisorId = $_POST['advisor_id'] ?? null;
-        $reason = $_POST['reason'] ?? "";
-        $date = $_POST['date'] ?? "";
+        // Get office hour start and end times for the approved appointment
+        $slotSql = "SELECT Start_Time, End_Time
+                    FROM office_hours
+                    WHERE OfficeHour_ID = :office_hour_id
+                      AND Advisor_ID = :advisor_id
+                    LIMIT 1";
 
-        $appointment = new AppointmentClass();
-        $appointment->createAppointment($studentId, $advisorId, $reason, $date);
+        $slotStmt = $pdo->prepare($slotSql);
+        $slotStmt->execute([
+            'office_hour_id' => $request['OfficeHour_ID'],
+            'advisor_id' => $advisorId
+        ]);
+
+        $slot = $slotStmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$slot) {
+            $_SESSION['flash'] = "Office hour slot not found.";
+            $_SESSION['flash_type'] = "error";
+            redirectToAdvisorRequestsDashboard();
+        }
+
+        // Start transaction
+        $pdo->beginTransaction();
+
+        // Update request status to approved
+        $updateRequestSql = "UPDATE appointment_requests
+                             SET Status = 'Approved',
+                                 Updated_At = CURRENT_TIMESTAMP
+                             WHERE Request_ID = :request_id";
+
+        $updateRequestStmt = $pdo->prepare($updateRequestSql);
+        $updateRequestStmt->execute([
+            'request_id' => $requestId
+        ]);
+
+        // Insert approved appointment into appointments table
+        $insertAppointmentSql = "INSERT INTO appointments
+                                 (Request_ID, Student_ID, Advisor_ID, OfficeHour_ID, Appointment_Date, Start_Time, End_Time, Status)
+                                 VALUES
+                                 (:request_id, :student_id, :advisor_id, :office_hour_id, :appointment_date, :start_time, :end_time, 'Scheduled')";
+
+        $insertAppointmentStmt = $pdo->prepare($insertAppointmentSql);
+        $insertAppointmentStmt->execute([
+            'request_id' => $request['Request_ID'],
+            'student_id' => $request['Student_ID'],
+            'advisor_id' => $request['Advisor_ID'],
+            'office_hour_id' => $request['OfficeHour_ID'],
+            'appointment_date' => $request['Appointment_Date'],
+            'start_time' => $slot['Start_Time'],
+            'end_time' => $slot['End_Time']
+        ]);
+
+        $appointmentId = (int)$pdo->lastInsertId();
+
+        // Insert action into appointment history
+        $insertHistorySql = "INSERT INTO appointment_history
+                             (Request_ID, Appointment_ID, Student_ID, Advisor_ID, Action_Type, Action_Reason, Action_By)
+                             VALUES
+                             (:request_id, :appointment_id, :student_id, :advisor_id, 'Approved', NULL, :action_by)";
+
+        $insertHistoryStmt = $pdo->prepare($insertHistorySql);
+        $insertHistoryStmt->execute([
+            'request_id' => $request['Request_ID'],
+            'appointment_id' => $appointmentId,
+            'student_id' => $request['Student_ID'],
+            'advisor_id' => $request['Advisor_ID'],
+            'action_by' => $advisorId
+        ]);
+
+        // Commit transaction
+        $pdo->commit();
+
+        $_SESSION['flash'] = "Appointment request approved successfully.";
+        $_SESSION['flash_type'] = "success";
+        redirectToAdvisorRequestsDashboard();
     }
 
-    public function approveAppointment()
-    {
-        $appointmentId = $_POST['appointment_id'] ?? null;
+    /*
+    ------------------------------------------------------------
+    DECLINE REQUEST
+    ------------------------------------------------------------
+    */
+    if ($action === 'decline') {
+        // Only pending requests can be declined
+        if ($request['Status'] !== 'Pending') {
+            $_SESSION['flash'] = "Only pending requests can be declined.";
+            $_SESSION['flash_type'] = "error";
+            redirectToAdvisorRequestsDashboard();
+        }
 
-        $appointment = new AppointmentClass();
-        $appointment->approveAppointment($appointmentId);
+        $pdo->beginTransaction();
+
+        // Update request status to declined
+        $updateRequestSql = "UPDATE appointment_requests
+                             SET Status = 'Declined',
+                                 Advisor_Reason = 'Declined by advisor',
+                                 Updated_At = CURRENT_TIMESTAMP
+                             WHERE Request_ID = :request_id";
+
+        $updateRequestStmt = $pdo->prepare($updateRequestSql);
+        $updateRequestStmt->execute([
+            'request_id' => $requestId
+        ]);
+
+        // Insert decline action into history
+        $insertHistorySql = "INSERT INTO appointment_history
+                             (Request_ID, Appointment_ID, Student_ID, Advisor_ID, Action_Type, Action_Reason, Action_By)
+                             VALUES
+                             (:request_id, NULL, :student_id, :advisor_id, 'Declined', 'Declined by advisor', :action_by)";
+
+        $insertHistoryStmt = $pdo->prepare($insertHistorySql);
+        $insertHistoryStmt->execute([
+            'request_id' => $request['Request_ID'],
+            'student_id' => $request['Student_ID'],
+            'advisor_id' => $request['Advisor_ID'],
+            'action_by' => $advisorId
+        ]);
+
+        $pdo->commit();
+
+        $_SESSION['flash'] = "Appointment request declined successfully.";
+        $_SESSION['flash_type'] = "success";
+        redirectToAdvisorRequestsDashboard();
     }
 
-    public function declineAppointment()
-    {
-        $appointmentId = $_POST['appointment_id'] ?? null;
+    // Invalid action fallback
+    $_SESSION['flash'] = "Invalid action.";
+    $_SESSION['flash_type'] = "error";
+    redirectToAdvisorRequestsDashboard();
 
-        $appointment = new AppointmentClass();
-        $appointment->declineAppointment($appointmentId);
+} catch (Throwable $e) {
+    // Roll back transaction if needed
+    if ($pdo->inTransaction()) {
+        $pdo->rollBack();
     }
 
+    $_SESSION['flash'] = "Database error while processing appointment request.";
+    $_SESSION['flash_type'] = "error";
+    redirectToAdvisorRequestsDashboard();
 }
