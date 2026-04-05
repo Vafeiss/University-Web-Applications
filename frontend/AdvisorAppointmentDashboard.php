@@ -3,58 +3,88 @@
    NAME: Advisor Appointment Dashboard
    Description: This page displays the advisor dashboard for managing appointment requests, office hours, appointments and history
    Panteleimoni Alexandrou
-   30-Mar-2026 v1.8
+   30-Mar-2026 v2.1
    Inputs: Section parameter from URL, session flash messages and database records for office hours, requests and appointments
    Outputs: Advisor dashboard interface with real database data
    Error Messages: If database fetch fails, an error message is displayed inside the relevant section
    Files in use: AdvisorAppointmentDashboard.php, AdvisorOfficeHours.php, AppointmentController.php, db.php
-
-   30-Mar-2026 v1.5
-   Fixed requests to show only pending records and history to show non-pending request records
-   Panteleimoni Alexandrou
 */
 
 declare(strict_types=1);
 
-session_start();
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 
 require_once __DIR__ . '/../backend/config/db.php';
 
 /*
-TEMP TEST MODE
-Use hardcoded advisor user id until login/session is fully connected.
+|--------------------------------------------------------------------------
+| ADVISOR IDENTIFICATION
+|--------------------------------------------------------------------------
+| Use logged-in advisor session if available.
+| Fallback to hardcoded advisor id only for temporary testing.
 */
 $advisorId = 2;
 
-// Get active section from URL
-$activeSection = isset($_GET['section']) ? $_GET['section'] : 'requests';
+if (isset($_SESSION['UserID']) && is_numeric($_SESSION['UserID'])) {
+    $advisorId = (int) $_SESSION['UserID'];
+}
 
-// Flash messages
-$flash = isset($_SESSION['flash']) ? $_SESSION['flash'] : null;
-$flashType = isset($_SESSION['flash_type']) ? $_SESSION['flash_type'] : 'success';
+$advisorName = 'Advisor';
+if (isset($_SESSION['First_name']) && trim((string)$_SESSION['First_name']) !== '') {
+    $advisorName = (string) $_SESSION['First_name'];
+} elseif (isset($_SESSION['email']) && trim((string)$_SESSION['email']) !== '') {
+    $advisorName = (string) $_SESSION['email'];
+}
+
+/*
+|--------------------------------------------------------------------------
+| ACTIVE SECTION
+|--------------------------------------------------------------------------
+*/
+$activeSection = isset($_GET['section']) ? (string) $_GET['section'] : 'requests';
+
+/*
+|--------------------------------------------------------------------------
+| FLASH MESSAGES
+|--------------------------------------------------------------------------
+*/
+$flash = isset($_SESSION['flash']) ? (string) $_SESSION['flash'] : null;
+$flashType = isset($_SESSION['flash_type']) ? (string) $_SESSION['flash_type'] : 'success';
 
 unset($_SESSION['flash'], $_SESSION['flash_type']);
 
-// Office hours data
+/*
+|--------------------------------------------------------------------------
+| DATA CONTAINERS
+|--------------------------------------------------------------------------
+*/
 $officeHours = [];
 $officeHoursError = '';
 
-// Pending requests data
 $requests = [];
 $requestsError = '';
 
-// Approved / scheduled appointments data
 $appointments = [];
 $appointmentsError = '';
 
-// History data from appointment_requests
 $historyRows = [];
 $historyError = '';
 
 /*
-------------------------------------------------------------
-FETCH OFFICE HOURS
-------------------------------------------------------------
+|--------------------------------------------------------------------------
+| BASIC DB CHECK
+|--------------------------------------------------------------------------
+*/
+if (!isset($pdo) || !($pdo instanceof PDO)) {
+    die('Database connection is not available.');
+}
+
+/*
+|--------------------------------------------------------------------------
+| FETCH OFFICE HOURS
+|--------------------------------------------------------------------------
 */
 try {
     $sql = "SELECT OfficeHour_ID, Day_of_Week, Start_Time, End_Time
@@ -75,9 +105,9 @@ try {
 }
 
 /*
-------------------------------------------------------------
-FETCH ONLY PENDING APPOINTMENT REQUESTS
-------------------------------------------------------------
+|--------------------------------------------------------------------------
+| FETCH ONLY PENDING APPOINTMENT REQUESTS
+|--------------------------------------------------------------------------
 */
 try {
     $sql = "SELECT Request_ID, Student_ID, Advisor_ID, OfficeHour_ID, Appointment_Date, Student_Reason, Advisor_Reason, Status, Created_At
@@ -97,9 +127,9 @@ try {
 }
 
 /*
-------------------------------------------------------------
-FETCH APPOINTMENTS
-------------------------------------------------------------
+|--------------------------------------------------------------------------
+| FETCH APPOINTMENTS
+|--------------------------------------------------------------------------
 */
 try {
     $sql = "SELECT Appointment_ID, Request_ID, Student_ID, Advisor_ID, OfficeHour_ID, Appointment_Date, Start_Time, End_Time, Status, Created_At
@@ -118,11 +148,11 @@ try {
 }
 
 /*
-------------------------------------------------------------
-FETCH HISTORY FROM NON-PENDING REQUESTS
-This temporarily uses appointment_requests so that approved,
-declined and cancelled records appear in History.
-------------------------------------------------------------
+|--------------------------------------------------------------------------
+| FETCH HISTORY
+|--------------------------------------------------------------------------
+| Temporarily uses appointment_requests so that approved,
+| declined and cancelled records appear in History.
 */
 try {
     $sql = "SELECT Request_ID, Student_ID, Appointment_Date, Student_Reason, Advisor_Reason, Status, Created_At
@@ -194,6 +224,7 @@ try {
       align-items: center;
       justify-content: center;
       font-size: .9rem;
+      text-transform: uppercase;
     }
 
     .tab-bar {
@@ -300,12 +331,12 @@ try {
   <img src="../documents/tepaklogo.png" alt="Logo" class="logo">
 
   <div class="navbar-center">
-    <span class="welcome-text">Welcome To Advicut! 👋</span>
+    <span class="welcome-text">Welcome to AdviCut, <?= htmlspecialchars($advisorName) ?>! 👋</span>
   </div>
 
   <div class="d-flex align-items-center gap-3">
     <i class="bi bi-question-circle text-secondary fs-5" title="Help"></i>
-    <div class="user-avatar">A</div>
+    <div class="user-avatar"><?= htmlspecialchars(strtoupper(substr($advisorName, 0, 1))) ?></div>
 
     <form action="../backend/modules/dispatcher.php" method="POST" class="mb-0">
       <input type="hidden" name="action" value="/logout">
@@ -336,7 +367,6 @@ try {
 
 <main class="container-fluid py-4 px-4" style="max-width: 1100px;">
 
-  <!-- Requests tab -->
   <div class="section-panel <?= $activeSection === 'requests' ? 'active' : '' ?>" id="section-requests">
     <div class="section-card">
       <div class="d-flex align-items-center justify-content-between mb-4">
@@ -400,7 +430,6 @@ try {
     </div>
   </div>
 
-  <!-- Office Hours tab -->
   <div class="section-panel <?= $activeSection === 'officehours' ? 'active' : '' ?>" id="section-officehours">
     <div class="section-card">
       <div class="d-flex align-items-center justify-content-between mb-4">
@@ -461,7 +490,6 @@ try {
     </div>
   </div>
 
-  <!-- Appointments tab -->
   <div class="section-panel <?= $activeSection === 'appointments' ? 'active' : '' ?>" id="section-appointments">
     <div class="section-card">
       <div class="d-flex align-items-center justify-content-between mb-4">
@@ -522,7 +550,6 @@ try {
     </div>
   </div>
 
-  <!-- History tab -->
   <div class="section-panel <?= $activeSection === 'history' ? 'active' : '' ?>" id="section-history">
     <div class="section-card">
       <div class="d-flex align-items-center justify-content-between mb-4">

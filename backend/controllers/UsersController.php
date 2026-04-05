@@ -62,7 +62,7 @@ class UsersController {
             $password = $_POST['password'] ?? '';
 
             $user = new Users();
-            $user->log_in($email, $password);
+            $user->Log_in($email, $password);
             }
             
 }

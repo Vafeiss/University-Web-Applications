@@ -36,7 +36,7 @@ private $conn;
 
 public function __construct() {
     //creating an obj of the mysql connection and connect to the database 
-    $this->conn = new mysqli("localhost", "root", "", "advicut");
+    $this->conn = new mysqli("localhost", "root", "", "advicut_test");
 if ($this->conn->connect_error) { //if connection fails kill it and print message
     die("Connection failed: " . $this->conn->connect_error);
     $this ->conn->set_charset("utf8mb4");

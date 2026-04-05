@@ -29,7 +29,7 @@ Paraskevas Vafeiadis
         <h3 class="text-center mb-4">Welcome to AdviCUT!</h3>
         <img src="imgs/cut_tepak_image.png" class="card-img-top mb-4" alt="AdviCut Logo">
         <form method="POST" action="../backend/modules/dispatcher.php">
-            <input type="hidden" name="action" value="login">
+            <input type="hidden" name="action" value="/login">
             <div class="mb-3">
                 <label for="Email" class="form-label">University Email</label>
                 <input type="text" class="form-control" id="Email" name="email" required>
