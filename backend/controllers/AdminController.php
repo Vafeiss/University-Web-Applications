@@ -222,7 +222,19 @@ class AdminController {
         }
         $department = (int)trim($_POST['department'] ?? '');
 
-        $this->admin->addAdvisor($external_id, $first_name, $last_name, $email, $phone, $department);
+        try {
+            $added = $this->admin->addAdvisor($external_id, $first_name, $last_name, $email, $phone, $department);
+        } catch (PDOException $e) {
+            Notifications::error("Failed to add advisor.");
+            header("Location: ../../frontend/admin_dashboard.php?tab=advisors");
+            exit();
+        }
+
+        if (!$added) {
+            Notifications::error("Failed to add advisor.");
+            header("Location: ../../frontend/admin_dashboard.php?tab=advisors");
+            exit();
+        }
 
         Notifications::success("Advisor added successfully.");
         header("Location: ../../frontend/admin_dashboard.php?tab=advisors");
@@ -335,9 +347,15 @@ class AdminController {
             $studentIds = [];
         }
 
-        //replace the students assigned to the advisor
-        $participants = new Participants_Processing();
-        $saved = $participants->Replace_Advisor_Students($advisorExternalId, $studentIds);
+        try {
+            //replace the students assigned to the advisor
+            $participants = new Participants_Processing();
+            $saved = $participants->Replace_Advisor_Students($advisorExternalId, $studentIds);
+        } catch (PDOException $e) {
+            Notifications::error("Failed to assign students to advisor.");
+            header("Location: ../../frontend/admin_dashboard.php?tab=assignstudents");
+            exit();
+        }
 
         if (!$saved) {
             Notifications::error("Failed to assign students to advisor.");
@@ -357,8 +375,14 @@ class AdminController {
             exit();
         }
 
-        $participants = new Participants_Processing();
-        $assigned = $participants->RandomAssignment();
+        try {
+            $participants = new Participants_Processing();
+            $assigned = $participants->RandomAssignment();
+        } catch (PDOException $e) {
+            Notifications::error("Failed to perform random assignment.");
+            header("Location: ../../frontend/admin_dashboard.php?tab=assignstudents");
+            exit();
+        }
 
         if (!$assigned) {
             Notifications::error("Failed to perform random assignment.");

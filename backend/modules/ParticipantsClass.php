@@ -11,163 +11,160 @@
    added random assignment feature that works with a roundrobin function
    Paraskevas Vafeiadis
 
-   
+   01-Apr-2026 v0.3
+   migrated to PDO connection and direct 1-1 random pairing
+   Paraskevas Vafeiadis
    */
 
+declare(strict_types=1);
 
+require_once __DIR__ . '/databaseconnect.php';
 
+class Participants_Processing
+{
+    private PDO $conn;
 
-class Participants_Processing{
-    private $conn;
-
-    public function __construct() {
-    //creating an obj of the mysql connection and connect to the database
-    $this->conn = new mysqli("localhost", "root", "", "advicut");
-    if ($this->conn->connect_error) { //if connection fails kill it and print message
-    die("Connection failed: " . $this->conn->connect_error);}
-    $this ->conn->set_charset("utf8mb4");
+    public function __construct()
+    {
+        $this->conn = ConnectToDatabase();
     }
 
-        public function Get_Student_Advisor(): array {
-            $sql = "SELECT Advisor_ID, Student_ID FROM student_advisors";
-            $stmt = $this->conn->prepare($sql);
-            $stmt->execute();
-            $result = $stmt->get_result();
-            $map = [];
+    public function Get_Student_Advisor(): array
+    {
+        $stmt = $this->conn->prepare('SELECT Advisor_ID, Student_ID FROM student_advisors');
+        $stmt->execute();
 
-            if ($result) {
-                while ($row = $result->fetch_assoc()) {
-                    $advisorId = (int)$row['Advisor_ID'];
-                    $studentId = (int)$row['Student_ID'];
-                    if (!isset($map[$advisorId])) {
-                        $map[$advisorId] = [];
-                    }
-                    $map[$advisorId][$studentId] = true;
-                }
+        $map = [];
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $advisorId = (int)($row['Advisor_ID'] ?? 0);
+            $studentId = (int)($row['Student_ID'] ?? 0);
+
+            if ($advisorId <= 0 || $studentId <= 0) {
+                continue;
             }
 
-            return $map;
+            if (!isset($map[$advisorId])) {
+                $map[$advisorId] = [];
+            }
+
+            $map[$advisorId][$studentId] = true;
         }
 
-        public function Assign_Students_Advisors(): array {
-            $sql = "SELECT Student_ID, Advisor_ID FROM student_advisors";
-            $stmt = $this->conn->prepare($sql);
-            $stmt->execute();
-            $result = $stmt->get_result();
-            $map = [];
+        return $map;
+    }
 
-            if ($result) {
-                while ($row = $result->fetch_assoc()) {
-                    $studentId = (int)$row['Student_ID'];
-                    $advisorId = (int)$row['Advisor_ID'];
-                    if (!isset($map[$studentId])) {
-                        $map[$studentId] = [];
-                    }
-                    $map[$studentId][] = $advisorId;
-                }
+    public function Assign_Students_Advisors(): array
+    {
+        $stmt = $this->conn->prepare('SELECT Student_ID, Advisor_ID FROM student_advisors');
+        $stmt->execute();
+
+        $map = [];
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $studentId = (int)($row['Student_ID'] ?? 0);
+            $advisorId = (int)($row['Advisor_ID'] ?? 0);
+
+            if ($studentId <= 0 || $advisorId <= 0) {
+                continue;
             }
 
-            return $map;
+            if (!isset($map[$studentId])) {
+                $map[$studentId] = [];
+            }
+
+            $map[$studentId][] = $advisorId;
         }
 
-        public function Replace_Advisor_Students(int $advisorId, array $studentIds): bool {
-            if ($advisorId <= 0) {
-                return false;
+        return $map;
+    }
+
+    public function Replace_Advisor_Students(int $advisorId, array $studentIds): bool
+    {
+        if ($advisorId <= 0) {
+            return false;
+        }
+
+        $checkIds = [];
+        foreach ($studentIds as $studentId) {
+            $studentId = (int)$studentId;
+            if ($studentId > 0) {
+                $checkIds[$studentId] = true;
+            }
+        }
+
+        $checkIds = array_keys($checkIds);
+        $this->conn->beginTransaction();
+
+        try {
+            $deleteStmt = $this->conn->prepare('DELETE FROM student_advisors WHERE Advisor_ID = ?');
+            $deleteStmt->execute([$advisorId]);
+
+            if (!empty($checkIds)) {
+                $insertStmt = $this->conn->prepare('INSERT INTO student_advisors (Student_ID, Advisor_ID) VALUES (?, ?)');
+                foreach ($checkIds as $studentId) {
+                    $insertStmt->execute([$studentId, $advisorId]);
+                }
             }
 
-            $checkIds = [];
-            foreach ($studentIds as $studentId) {
-                $studentId = (int)$studentId;
-                if ($studentId > 0) {
-                    $checkIds[$studentId] = true;
-                }
+            $this->conn->commit();
+            return true;
+        } catch (PDOException $e) {
+            $this->conn->rollBack();
+            return false;
+        }
+    }
+    
+    public function RandomAssignment(): bool
+    {
+        $this->conn->beginTransaction();
+
+        try {
+            $studentStmt = $this->conn->prepare(
+                "SELECT u.External_ID FROM users u LEFT JOIN student_advisors sa ON sa.Student_ID = u.External_ID WHERE u.Role = 'Student'
+                   AND u.External_ID IS NOT NULL AND sa.Student_ID IS NULL ORDER BY u.External_ID ASC"
+            );
+            $studentStmt->execute();
+            $students = array_map(
+                static fn (array $row): int => (int)($row['External_ID'] ?? 0),
+                $studentStmt->fetchAll(PDO::FETCH_ASSOC)
+            );
+            $students = array_values(array_filter($students, static fn (int $studentId): bool => $studentId > 0));
+
+            $advisorStmt = $this->conn->prepare(
+                "SELECT External_ID FROM users WHERE Role = 'Advisor' AND External_ID IS NOT NULL ORDER BY External_ID ASC"
+            );
+            $advisorStmt->execute();
+            $advisors = array_map(
+                static fn (array $row): int => (int)($row['External_ID'] ?? 0),
+                $advisorStmt->fetchAll(PDO::FETCH_ASSOC)
+            );
+            $advisors = array_values(array_filter($advisors, static fn (int $advisorId): bool => $advisorId > 0));
+
+            if (empty($advisors)) {
+                throw new PDOException('Missing advisors for random assignment');
             }
-            $checkIds = array_keys($checkIds);
-            $this->conn->begin_transaction();
 
-            try {
-                $deleteStmt = $this->conn->prepare("DELETE FROM student_advisors WHERE Advisor_ID = ?");
-                $deleteStmt->bind_param("i", $advisorId);
-                if (!$deleteStmt->execute()) {
-                    throw new Exception('Failed to clear previous advisor assignments');
-                }
-
-                if (!empty($checkIds)) {
-                    $insertStmt = $this->conn->prepare("INSERT INTO student_advisors (Student_ID, Advisor_ID) VALUES (?, ?)");
-                    foreach ($checkIds as $studentId) {
-                        $insertStmt->bind_param("ii", $studentId, $advisorId);
-                        if (!$insertStmt->execute()) {
-                            throw new Exception('Failed to save advisor assignments');
-                        }
-                    }
-                }
-
+            if (empty($students)) {
                 $this->conn->commit();
                 return true;
-            } catch (Throwable $e) {
-                $this->conn->rollback();
-                return false;
             }
-        }
-        
-        public function RandomAssignment(): bool {
-            $this->conn->begin_transaction();
 
-            try {
-                // Select only students that do not have an advisor yet.
-                $sql = "SELECT u.External_ID FROM users u LEFT JOIN student_advisors sa ON sa.Student_ID = u.External_ID WHERE u.Role = 'Student' AND u.External_ID IS NOT NULL AND sa.Student_ID IS NULL ORDER BY u.External_ID ASC";
-                $stmt = $this->conn->prepare($sql);
-                $stmt->execute();
-                $result = $stmt->get_result();
-                $students = [];
-                while ($row = $result->fetch_assoc()) {
-                    $students[] = (int)$row['External_ID'];
-                }
+            shuffle($students);
+            shuffle($advisors);
 
-                //select all advisors inside the database
-                $sql = "SELECT External_ID FROM users WHERE Role = 'Advisor' AND External_ID IS NOT NULL ORDER BY External_ID ASC";
-                $stmt = $this->conn->prepare($sql);
-                $stmt->execute();
-                $result = $stmt->get_result();
-                $advisors = [];
-                while ($row = $result->fetch_assoc()) {
-                    $advisors[] = (int)$row['External_ID'];
-                }
+            $pairCount = min(count($students), count($advisors));
+            $insertStmt = $this->conn->prepare('INSERT INTO student_advisors (Student_ID, Advisor_ID) VALUES (?, ?) ON DUPLICATE KEY UPDATE Advisor_ID = VALUES(Advisor_ID)');
 
-                // If no advisors exist, we cannot assign anybody.
-                if (empty($advisors)) {
-                    throw new Exception('Missing students or advisors for random assignment');
-                }
-
-                // Nothing new to assign
-                if (empty($students)) {
-                    $this->conn->commit();
-                    return true;
-                }
-
-                //shuffle all students and advisors to create a random order
-                shuffle($students);
-                shuffle($advisors);
-
-                // Assign only unassigned students in round robin fashion.
-                $advisorCount = count($advisors);
-                $insertStmt = $this->conn->prepare("INSERT INTO student_advisors (Student_ID, Advisor_ID) VALUES (?, ?) ON DUPLICATE KEY UPDATE Advisor_ID = Advisor_ID");
-                for ($i = 0; $i < count($students); $i++) {
-                    $studentId = $students[$i];
-                    $advisorId = $advisors[$i % $advisorCount];
-                    $insertStmt->bind_param("ii", $studentId, $advisorId);
-                    if (!$insertStmt->execute()) {
-                        throw new Exception('Failed to save random assignment row');
-                    }
-                }
-
-                $this->conn->commit();
-                return true;
-            } catch (Throwable $e) {
-                $this->conn->rollback();
-                return false;
+            for ($i = 0; $i < $pairCount; $i++) {
+                $insertStmt->execute([$students[$i], $advisors[$i]]);
             }
+
+            $this->conn->commit();
+            return true;
+        } catch (PDOException $e) {
+            $this->conn->rollBack();
+            return false;
         }
+    }
 }
 ?>
 

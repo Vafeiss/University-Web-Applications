@@ -81,7 +81,7 @@ class AdminAdvisorClass
     //add an advisor to the database with the information provided by the admin
     public function addAdvisor(?string $externalId, string $first, string $last, string $email, string $phone, int $department): bool
     {
-        if ($first === '' || $last === '' || $email === '' || $department < 0) {
+        if ($first === '' || $last === '' || $email === '' || $department <= 0) {
             return false;
         }
 
@@ -111,9 +111,9 @@ class AdminAdvisorClass
         $hashedTempPassword = password_hash($tempPassword, PASSWORD_DEFAULT);
 
         $externalIdInt = (int)$externalId;
-        $stmt = $this->conn->prepare('INSERT INTO users (Uni_Email, Password, Role, External_ID, First_name, Last_Name, Phone, Department_ID) VALUES (?, ?, "Advisor", ?, ?, ?, ?, ?)');
+        $stmt = $this->conn->prepare('INSERT INTO users (External_ID, Uni_Email, Password, Role, First_name, Last_Name, Phone, Department_ID) VALUES (?, ?, ?, "Advisor", ?, ?, ?, ?)');
 
-        return $stmt->execute([$email, $hashedTempPassword, $externalIdInt, $first, $last, $phone, $degreeId]);
+        return $stmt->execute([$externalIdInt, $email, $hashedTempPassword, $first, $last, $phone, $degreeId]);
     }
 
     //delete an advisor from the database

@@ -39,6 +39,7 @@ Paraskevas Vafeiadis
                 <input type="password" class="form-control" id="password" name="password" required>
             </div>
             <button type="Submit" class="btn btn-primary w-100">Log-in</button>
+                <a href="forgot_password.php">Forgot your password?</a>
         </form>
         </div>
         </div>
