@@ -28,11 +28,65 @@ Paraskevas Vafeiadis
 28-feb-2026 v1.0
 Pre-final version of the class it fully works needs enchans **testing** and review added NEW check_Session for security measures
 Paraskevas Vafeiadis
+
+30-Mar-2026 v1.1
+Added session management and role-based access control to the Check_Session method.For the communication to be more secure and to prevent 
+unauthorized access to the dashboard pages.
+Paraskevas Vafeiadis
 */
 
-session_start();
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 class Users {
 private $conn;
+
+//have a base path function to help with redirections in the project
+private function appBasePath(): string {
+    $scriptName = str_replace('\\', '/', $_SERVER['SCRIPT_NAME'] ?? '');
+
+    $backendMarker = '/backend/modules/dispatcher.php';
+    $frontendMarker = '/frontend/';
+
+    $backendPos = strpos($scriptName, $backendMarker);
+    if ($backendPos !== false) {
+        return rtrim(substr($scriptName, 0, $backendPos), '/');
+    }
+
+    $frontendPos = strpos($scriptName, $frontendMarker);
+    if ($frontendPos !== false) {
+        return rtrim(substr($scriptName, 0, $frontendPos), '/');
+    }
+
+    return '';
+}
+
+private function redirectTo(string $path): void {
+    $target = $this->appBasePath() . '/' . ltrim($path, '/');
+    header('Location: ' . $target);
+    exit();
+}
+
+//function to help the userclass to find the right dashboard to redirect the user after login.
+//Based on role
+private function dashboardPathForRole(string $role): ?string {
+    $normalized = strtolower(trim($role));
+
+    if ($normalized === 'student') {
+        return '/frontend/student_dashboard.php';
+    }
+    if ($normalized === 'advisor') {
+        return '/frontend/advisor_dashboard.php';
+    }
+    if ($normalized === 'admin') {
+        return '/frontend/admin_dashboard.php';
+    }
+    if ($normalized === 'superuser') {
+        return '/frontend/SuperUser_dashboard.php';
+    }
+
+    return null;
+}
 
 public function __construct() {
     //creating an obj of the mysql connection and connect to the database 
@@ -53,14 +107,12 @@ if ($this->conn->connect_error) { //if connection fails kill it and print messag
         $result1 = $stmt1->get_result();
 
         if ($result1->num_rows !== 1) { //error handling if email not found go back to index
-            header("Location: ../../frontend/index.php?error=invalid1");
-            exit();
+            $this->redirectTo('/frontend/index.php?error=invalid1');
         }
 
         $row = $result1->fetch_assoc();//error handling if password wrong go bakc to index
         if (!password_verify($password, $row["Password"])) {
-            header("Location: ../../frontend/index.php?error=invalid2");
-            exit();
+            $this->redirectTo('/frontend/index.php?error=invalid2');
         }
 
         $this->Validate_Credentials($row);
@@ -72,22 +124,19 @@ public function Log_out() {
     $_SESSION = [];
     session_destroy();
 
-    header("location: ../../frontend/index.php");
-    exit();
+    $this->redirectTo('/frontend/index.php');
 }
 
 public function Check_Session(string $requiredRole = null) {
-    //check all expected session values exist
-    if (!isset($_SESSION['email']) || !isset($_SESSION['UserID']) || !isset($_SESSION['role'])) {
-        header("location: ../../frontend/index.php?error=unauthorized");
-        exit();
+    // UserID is the primary key for an authenticated session.
+    if (!isset($_SESSION['UserID'])) {
+        $this->redirectTo('/frontend/index.php?error=unauthorized');
     }
 
     //userid is numbers and not a invalid number 
     $userId = intval($_SESSION['UserID']);
     if ($userId <= 0) {
-        header("location: ../../frontend/index.php?error=unauthorized");
-        exit();
+        $this->redirectTo('/frontend/index.php?error=unauthorized');
     }
 
     //query to get the row froim the data base
@@ -96,21 +145,17 @@ public function Check_Session(string $requiredRole = null) {
     $stmt->execute();
     $result = $stmt->get_result();
     if ($result->num_rows !== 1) {
-        header("location: ../../frontend/index.php?error=unauthorized");
-        exit();
+        $this->redirectTo('/frontend/index.php?error=unauthorized');
     }
     $result3 = $result->fetch_assoc();
 
-    //chekc if the email and role in the session match the database
-    if ($result3['Uni_Email'] !== $_SESSION['email'] || $result3['Role'] !== $_SESSION['role']) {
-        header("location: ../../frontend/index.php?error=unauthorized");
-        exit();
-    }
+    // Keep session values aligned with DB to avoid unnecessary logouts on refresh.
+    $_SESSION['email'] = $result3['Uni_Email'];
+    $_SESSION['role'] = $result3['Role'];
 
     //if not the required role for the page then exit
-    if ($requiredRole !== null && $result3['Role'] !== $requiredRole) {
-        header("location: ../../frontend/index.php?error=forbidden");
-        exit();
+    if ($requiredRole !== null && strcasecmp(trim((string)$result3['Role']), trim((string)$requiredRole)) !== 0) {
+        $this->redirectTo('/frontend/index.php?error=forbidden');
     }
 }
 
@@ -122,26 +167,25 @@ public function Validate_Credentials($row) {
         else {
         echo "Invalid credentials";
         }
-
+            //redirect them to the right dashboard based on their role if the session it's valid and the credentials are correct
             if ($_SESSION['role'] == 'Student') {
-                header("Location: ../../frontend/student_dashboard.php");
-                exit();
+                $this->redirectTo('/frontend/student_dashboard.php');
             }
             else if ($_SESSION['role'] == 'Advisor') {
-                header("Location: ../../frontend/advisor_dashboard.php");
-                exit();
+                $this->redirectTo('/frontend/advisor_dashboard.php');
             }
             else if ($_SESSION['role'] == 'Admin') {
-                header("Location: ../../frontend/admin_dashboard.php");
-                exit();
+                $this->redirectTo('/frontend/admin_dashboard.php');
             }
             else if ($_SESSION['role'] == 'SuperUser') {
-                header("Location: ../../frontend/SuperUser_dashboard.php");
-                exit();
+                $this->redirectTo('/frontend/SuperUser_dashboard.php');
             }
         else {
-            
-            header("location: ../../frontend/index.php");
+            $fallbackPath = $this->dashboardPathForRole((string)($_SESSION['role'] ?? ''));
+            if ($fallbackPath !== null) {
+                $this->redirectTo($fallbackPath);
+            }
+            $this->redirectTo('/frontend/index.php');
         }
 }
 

@@ -1,9 +1,10 @@
 <?php
-
+//User routes
 $router->post('/login', ['UsersController','Authentication']);
 $router->post('/logout', ['UsersController','logout']);
 $router->post('/password/change', ['UsersController','changePassword']);
 
+//admin routes
 $router->post('/student/add', ['AdminController','addStudent']);
 $router->post('/student/import', ['AdminController','importStudentsCSV']);
 $router->post('/student/delete', ['AdminController','deleteStudent']);

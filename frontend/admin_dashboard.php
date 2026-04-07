@@ -33,6 +33,10 @@ Paraskevas Vafeiadis
 Department/Degree add/edit/delete fully functional
 Paraskevas Vafeiadis
 
+30-Mar-2026 v0.8
+Fixed some UI bugs and added columns to the assigned students list as well as fliters for manual assignment
+Paraskevas Vafeiadis
+
 
 */
 
@@ -77,6 +81,11 @@ $advisors = $user->getAdvisors();
 $selectedStudentsYear =  trim((string)($_GET['student_year'] ?? ''));
 $selectedStudentsDegree = (int)($_GET['Student_Degree'] ?? 0);
 $selectedStudentsDepartment = (int)($_GET['Student_Department'] ?? 0);
+
+//get assign-students filter values
+$selectedAssignYear = trim((string)($_GET['assign_student_year'] ?? ''));
+$selectedAssignDegree = (int)($_GET['assign_student_degree'] ?? 0);
+$selectedAssignDepartment = (int)($_GET['assign_student_department'] ?? 0);
 
 //get function results
 $selectionClass = new SelectionClass();
@@ -128,13 +137,50 @@ $superusers = $user->getSuperUsers();
 
 //get arrays for assignment tab
 $assignAdvisorsResult = $user->getAdvisors();
-$assignStudentsResult = $user->getStudents();
+$availableAssignFilterDegrees = $selectedAssignDepartment > 0
+  ? $selectionClass->getDegrees($selectedAssignDepartment)
+  : $degrees;
+
+$AssignDegreeOptions = [];
+if (is_array($availableAssignFilterDegrees)) {
+  foreach ($availableAssignFilterDegrees as $degree) {
+    $degreeID = (string)($degree['DegreeID'] ?? '');
+    $degreeName = (string)($degree['DegreeName'] ?? '');
+    if ($degreeID !== '' && $degreeName !== '') {
+      $AssignDegreeOptions[$degreeID] = $degreeName;
+    }
+  }
+}
+
+if ($selectedAssignDegree > 0 && !isset($AssignDegreeOptions[(string)$selectedAssignDegree])) {
+  $selectedAssignDegree = 0;
+}
+
+$hasAssignStudentFilters = $selectedAssignYear !== '' || $selectedAssignDepartment > 0 || $selectedAssignDegree > 0;
+if ($hasAssignStudentFilters) {
+  $assignStudentsResult = $user->getStudentsByFilters($selectedAssignYear, $selectedAssignDepartment, $selectedAssignDegree);
+  if ($assignStudentsResult === false) {
+    $assignStudentsResult = $user->getStudents();
+  }
+} else {
+  $assignStudentsResult = $user->getStudents();
+}
+
 $assignAdvisors  = resultFetchAllAssoc($assignAdvisorsResult);
 $assignStudents  = resultFetchAllAssoc($assignStudentsResult);
 
+if ($selectedAssignDepartment > 0) {
+  $assignAdvisors = array_values(array_filter(
+    $assignAdvisors,
+    static function (array $advisor) use ($selectedAssignDepartment): bool {
+      return (int)($advisor['DepartmentID'] ?? 0) === $selectedAssignDepartment;
+    }
+  ));
+}
+
 //get statistics
-$allAdvisors = $assignAdvisors;
-$allStudents = $assignStudents;
+$allAdvisors = resultFetchAllAssoc($user->getAdvisors());
+$allStudents = resultFetchAllAssoc($user->getStudents());
 $superusersArr = $user->getSuperUsers();
 $allSuperusers = resultFetchAllAssoc($superusersArr);
 
@@ -620,7 +666,53 @@ $YearOptions = [
         </form>
       </div>
 
+      <button class="btn btn-outline-primary mb-3" type="button" data-bs-toggle="collapse" data-bs-target="#assignFilterSection">
+        <i class="bi bi-funnel"></i> Filters </button>
+      <div class="collapse" id="assignFilterSection">
+        <form method="GET" class="row g-2 align-items-end mb-3">
+          <input type="hidden" name="tab" value="assignstudents">
+          <input type="hidden" name="section" value="assignstudents">
+
+          <div class="col-sm-4 col-md-3">
+            <label for="assignYearFilter" class="form-label mb-1">Filter By Year</label>
+            <select class="form-select" id="assignYearFilter" name="assign_student_year" onchange="this.form.submit()">
+              <option value="" <?= $selectedAssignYear === '' ? 'selected' : '' ?>>All Years</option>
+              <?php foreach ($YearOptions as $yearValue => $yearLabel): ?>
+              <option value="<?= htmlspecialchars($yearValue) ?>" <?= (string)$selectedAssignYear === (string)$yearValue ? 'selected' : '' ?>>
+                <?= htmlspecialchars($yearLabel) ?>
+              </option>
+              <?php endforeach; ?>
+            </select>
+          </div>
+
+          <div class="col-sm-4 col-md-3">
+            <label for="assignDepartmentFilter" class="form-label mb-1">Filter By Department</label>
+            <select class="form-select" id="assignDepartmentFilter" name="assign_student_department" onchange="this.form.submit()">
+              <option value="" <?= $selectedAssignDepartment === 0 ? 'selected' : '' ?>>All Departments</option>
+              <?php foreach ($DepartmentOptions as $departmentValue => $departmentLabel): ?>
+              <option value="<?= htmlspecialchars($departmentValue) ?>" <?= (string)$selectedAssignDepartment === (string)$departmentValue ? 'selected' : '' ?>>
+                <?= htmlspecialchars($departmentLabel) ?>
+              </option>
+              <?php endforeach; ?>
+            </select>
+          </div>
+
+          <div class="col-sm-4 col-md-3">
+            <label for="assignDegreeFilter" class="form-label mb-1">Filter By Degree</label>
+            <select class="form-select" id="assignDegreeFilter" name="assign_student_degree" onchange="this.form.submit()">
+              <option value="" <?= $selectedAssignDegree === 0 ? 'selected' : '' ?>>All Degrees</option>
+              <?php foreach ($AssignDegreeOptions as $degreeValue => $degreeLabel): ?>
+              <option value="<?= htmlspecialchars($degreeValue) ?>" <?= (string)$selectedAssignDegree === (string)$degreeValue ? 'selected' : '' ?>>
+                <?= htmlspecialchars($degreeLabel) ?>
+              </option>
+              <?php endforeach; ?>
+            </select>
+          </div>
+        </form>
+      </div>
+
       <div class="accordion" id="assignAdvisorAccordion">
+
         <?php foreach ($assignAdvisors as $advisor):
           $advisorUserId    = (int)$advisor['User_ID'];
           $advisorExternalId = (int)$advisor['Advisor_ID'];
@@ -635,16 +727,14 @@ $YearOptions = [
           }
         ?>
         <div class="accordion-item border rounded mb-2" style="overflow:hidden;">
-          <h2 class="accordion-header">
-            <button class="accordion-button collapsed d-flex align-items-center gap-2"
-                    data-bs-toggle="collapse"
-                    data-bs-target="#<?= $collapseId ?>">
-              <div class="item-avatar avatar-indigo" style="width:32px;height:32px;font-size:.8rem;"><?= $initials ?></div>
-              <div>
-                <span class="fw-medium"><?= $advisorName ?></span>
-                <span class="badge bg-secondary ms-2" style="font-size:.72rem;"><?= $assignedToThisAdvisor ?> assigned</span>
-              </div>
-            </button>
+            <h2 class="accordion-header">
+              <button class="accordion-button collapsed" data-bs-toggle="collapse" data-bs-target="#<?= $collapseId ?>">
+          <div class="d-flex align-items-center gap-2 w-100 me-3">
+            <div class="item-avatar avatar-indigo" style="width:32px;height:32px;font-size:.8rem;"><?= $initials ?></div>
+            <span class="fw-medium"><?= $advisorName ?></span>
+            <span class="badge bg-secondary ms-auto" style="font-size:.72rem;"><?= $assignedToThisAdvisor ?> assigned</span>
+          </div>
+              </button>
           </h2>
 
           <div id="<?= $collapseId ?>" class="accordion-collapse collapse">
@@ -657,29 +747,43 @@ $YearOptions = [
                        placeholder="Filter students…">
 
                 <div class="assign-student-list" style="max-height:280px;overflow-y:auto;">
+
+                <!-- List for every advisor -->
+                <div class="d-flex px-2 py-1 border-bottom" style="font-size:.8rem;color:#6c757d;font-weight:600;">
+                  <div style="width:24px;flex-shrink:0;"></div>
+                  <div style="flex:2;">First Name</div>
+                  <div style="flex:2;">Last Name</div>
+                  <div style="flex:1.5;">ID</div>
+                  <div style="flex:1;">Year</div>
+                </div>
+
                   <?php foreach ($assignStudents as $student):
-                    $sName = htmlspecialchars($student['First_name'] . ' ' . $student['Last_Name']);
-                    $sId   = htmlspecialchars($student['StuExternal_ID']);
-                    $sYear = htmlspecialchars($student['Year'] ?? '');
+                    $sFirstName = htmlspecialchars($student['First_name']);
+                    $sLastName  = htmlspecialchars($student['Last_Name']);
+                    $sId        = htmlspecialchars($student['StuExternal_ID']);
+                    $sYear      = 'Year ' . htmlspecialchars($student['Year'] ?? '');
                   ?>
-                  <div class="form-check assign-student-row py-1 border-bottom">
-                        <?php $isChecked = isset($assignmentMap[$advisorExternalId]) && isset($assignmentMap[$advisorExternalId][(int)$sId]); ?>
+                <div class="assign-student-row d-flex align-items-center px-2 py-2 border-bottom"
+                    style="font-size:.85rem;">
+                  <div style="width:24px;flex-shrink:0;">
+                    <?php $isChecked = isset($assignmentMap[$advisorExternalId]) && isset($assignmentMap[$advisorExternalId][(int)$sId]); ?>
                     <input class="form-check-input"
-                           type="checkbox"
-                           name="student_external_ids[]"
-                           value="<?= $sId ?>"
+                          type="checkbox"
+                          name="student_external_ids[]"
+                          value="<?= $sId ?>"
                           id="stu_<?= $advisorUserId ?>_<?= $sId ?>"
                           <?= $isChecked ? 'checked' : '' ?>>
-                    <label class="form-check-label" for="stu_<?= $advisorUserId ?>_<?= $sId ?>">
-                      <span class="fw-medium"><?= $sName ?></span>
-                      <span class="text-muted ms-1" style="font-size:.8rem;">(<?= $sId ?>)</span>
-                      <?php if ($sYear): ?>
-                        <span class="badge bg-secondary ms-2" style="font-size:.72rem;"><?= $sYear ?></span>
-                      <?php endif; ?>
-                    </label>
                   </div>
-                  <?php endforeach; ?>
+                  <label class="d-flex w-100 mb-0" for="stu_<?= $advisorUserId ?>_<?= $sId ?>" style="cursor:pointer;font-size:.85rem;">
+                    <div style="flex:2;"><?= $sFirstName ?></div>
+                    <div style="flex:2;"><?= $sLastName ?></div>
+                    <div style="flex:1.5;color:#6c757d;"><?= $sId ?></div>
+                    <div style="flex:1;color:#6c757d;"><?= $sYear ?></div>
+                  </label>
                 </div>
+                <?php endforeach; ?>
+
+              </div>
 
                 <button class="btn btn-primary btn-sm mt-3">
                   <i class="bi bi-check2-circle me-1"></i> Save Assignment
@@ -1595,6 +1699,8 @@ if (editStudentBtn) {
 document.addEventListener("DOMContentLoaded", function () {
   const filter = document.getElementById("filterSection");
 
+  if (!filter) return;
+
   // Restore state
   if (localStorage.getItem("filtersOpen") === "true") {
     filter.classList.add("show");
@@ -1608,6 +1714,25 @@ document.addEventListener("DOMContentLoaded", function () {
   // Listen for close
   filter.addEventListener("hidden.bs.collapse", function () {
     localStorage.setItem("filtersOpen", "false");
+  });
+});
+
+//script for maintaining assign filter collapse state using localstorage
+document.addEventListener("DOMContentLoaded", function () {
+  const assignFilter = document.getElementById("assignFilterSection");
+
+  if (!assignFilter) return;
+
+  if (localStorage.getItem("assignFiltersOpen") === "true") {
+    assignFilter.classList.add("show");
+  }
+
+  assignFilter.addEventListener("shown.bs.collapse", function () {
+    localStorage.setItem("assignFiltersOpen", "true");
+  });
+
+  assignFilter.addEventListener("hidden.bs.collapse", function () {
+    localStorage.setItem("assignFiltersOpen", "false");
   });
 });
 
