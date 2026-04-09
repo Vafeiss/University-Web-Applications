@@ -16,10 +16,11 @@ $error = trim($_GET['error'] ?? '');
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Reset Password</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="css/auth_pages.css">
 </head>
-<body class="bg-light">
-    <div class="container d-flex justify-content-center align-items-center min-vh-100">
-        <div class="card shadow p-4" style="width: 420px;">
+<body class="bg-light auth-page">
+    <div class="container d-flex justify-content-center align-items-center min-vh-100 auth-shell">
+        <div class="card shadow p-4 auth-card auth-card-md" style="width: 420px;">
             <h3 class="text-center mb-3">Reset Password</h3>
 
             <?php if ($error !== ''): ?>

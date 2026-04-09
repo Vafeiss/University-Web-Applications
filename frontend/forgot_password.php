@@ -26,10 +26,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Forgot Password</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="css/auth_pages.css">
 </head>
-<body class="Log-in body">
-    <div class="container d-flex justify-content-center align-items-center vh-100">
-        <div class="card shadow p-4" style="width:400px;">
+<body class="Log-in body auth-page">
+    <div class="container d-flex justify-content-center align-items-center vh-100 auth-shell">
+        <div class="card shadow p-4 auth-card" style="width:400px;">
             <h3 class="text-center mb-4">Reset your password</h3>
             <img src="imgs/cut_tepak_image.png" class="card-img-top mb-4" alt="AdviCut Logo">
 

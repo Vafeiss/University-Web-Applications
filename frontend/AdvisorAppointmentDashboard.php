@@ -148,167 +148,12 @@ try {
 } catch (Throwable $e) {
     $appointmentsError = 'Could not load appointments.';
 }
-
-/*
-|--------------------------------------------------------------------------
-| FETCH HISTORY
-|--------------------------------------------------------------------------
-| Temporarily uses appointment_requests so that approved,
-| declined and cancelled records appear in History.
-*/
-try {
-    $sql = "SELECT Request_ID, Student_ID, Appointment_Date, Student_Reason, Advisor_Reason, Status, Created_At
-            FROM appointment_requests
-            WHERE Advisor_ID = :advisor_id
-              AND LOWER(TRIM(Status)) <> 'pending'
-            ORDER BY Created_At DESC";
-
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute([
-        'advisor_id' => $advisorId
-    ]);
-
-    $historyRows = $stmt->fetchAll(PDO::FETCH_ASSOC);
-} catch (Throwable $e) {
-    $historyError = 'Could not load appointment history.';
-}
 ?>
-<!DOCTYPE html>
-<html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Advisor Appointment Portal</title>
-
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
-
-  <style>
-    body {
-      background-color: #f8f9fa;
-      font-family: system-ui, -apple-system, sans-serif;
-    }
-
-    .top-navbar {
-      background: #fff;
-      border-bottom: 1px solid #e5e7eb;
-      padding: 0 1.5rem;
-      height: 64px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      position: sticky;
-      top: 0;
-      z-index: 100;
-      box-shadow: 0 1px 3px rgba(0,0,0,.06);
-    }
-
-    .welcome-text {
-      font-weight: 750;
-      font-size: 28px;
-      color: #555;
-    }
-
-    .logo {
-      height: 70px;
-      width: auto;
-      object-fit: contain;
-    }
-
-    .user-avatar {
-      width: 36px;
-      height: 36px;
-      border-radius: 50%;
-      background: #ede9fe;
-      color: #6d28d9;
-      font-weight: 600;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: .9rem;
-      text-transform: uppercase;
-    }
-
-    .tab-bar {
-      background: #fff;
-      border-bottom: 1px solid #e5e7eb;
-      padding: 0 1.5rem;
-      display: flex;
-      gap: .25rem;
-      justify-content: center;
-      flex-wrap: wrap;
-    }
-
-    .tab-btn {
-      border: none;
-      background: none;
-      padding: 1rem .75rem;
-      font-size: .95rem;
-      color: #6b7280;
-      cursor: pointer;
-      border-bottom: 2px solid transparent;
-      margin-bottom: -1px;
-      display: flex;
-      align-items: center;
-      gap: .4rem;
-      transition: color .15s;
-    }
-
-    .tab-btn:hover {
-      color: #111827;
-    }
-
-    .tab-btn.active {
-      color: #4f46e5;
-      border-bottom-color: #4f46e5;
-      font-weight: 500;
-    }
-
-    .section-card {
-      background: #fff;
-      border-radius: 12px;
-      border: 1px solid #e5e7eb;
-      padding: 1.5rem;
-    }
-
-    .section-panel {
-      display: none;
-    }
-
-    .section-panel.active {
-      display: block;
-    }
-
-    .flash-toast {
-      position: fixed;
-      top: 1rem;
-      right: 1rem;
-      z-index: 9999;
-      min-width: 280px;
-      border-radius: 10px;
-      box-shadow: 0 4px 12px rgba(0,0,0,.12);
-      padding: .85rem 1.1rem;
-      display: flex;
-      align-items: center;
-      gap: .6rem;
-      font-size: .92rem;
-    }
-
-    @media (max-width: 768px) {
-      .welcome-text {
-        font-size: 20px;
-      }
-
-      .top-navbar {
-        padding: 0 1rem;
-      }
-
-      .tab-bar {
-        justify-content: flex-start;
-        overflow-x: auto;
-      }
-    }
-  </style>
+    <meta charset="UTF-8">
+    <title>Advisor Appointment Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="css/advisor_appointment_dashboard.css">
 </head>
 <body>
 
@@ -337,15 +182,23 @@ try {
   </div>
 
   <div class="d-flex align-items-center gap-3">
-    <i class="bi bi-question-circle text-secondary fs-5" title="Help"></i>
-    <div class="user-avatar"><?= htmlspecialchars(strtoupper(substr($advisorName, 0, 1))) ?></div>
-
-    <form action="../backend/modules/dispatcher.php" method="POST" class="mb-0">
-      <input type="hidden" name="action" value="/logout">
-      <button type="submit" class="btn btn-outline-danger btn-sm">
-        <i class="bi bi-box-arrow-right me-1"></i>Logout
+    <div class="dropdown">
+      <button class="btn p-0 border-0 bg-transparent dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+        <div class="user-avatar"><?= htmlspecialchars(strtoupper(substr($advisorName, 0, 1))) ?></div>
       </button>
-    </form>
+      <div class="dropdown-menu dropdown-menu-end p-2" style="min-width: 220px;">
+        <a class="dropdown-item" href="changepassword.php">
+          <i class="bi bi-shield-lock me-2"></i>Change Password
+        </a>
+        <div class="dropdown-divider"></div>
+        <form action="../backend/modules/dispatcher.php" method="POST" class="mb-0">
+          <input type="hidden" name="action" value="/logout">
+          <button type="submit" class="dropdown-item text-danger">
+            <i class="bi bi-box-arrow-right me-2"></i>Logout
+          </button>
+        </form>
+      </div>
+    </div>
   </div>
 </header>
 

@@ -1,0 +1,26 @@
+body.auth-page {
+  background-color: #f8f9fa;
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+.auth-shell {
+  min-height: 100vh;
+}
+
+.auth-card {
+  width: 400px;
+}
+
+.auth-card-md {
+  width: 420px;
+}
+
+.auth-card img {
+  width: 100%;
+  height: auto;
+  object-fit: contain;
+}
+
+.auth-title {
+  font-weight: 700;
+}

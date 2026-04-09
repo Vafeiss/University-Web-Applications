@@ -16,11 +16,12 @@ if (!isset($_SESSION["UserID"])) {
 <meta charset="UTF-8">
 <title>Change Password</title>
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+<link rel="stylesheet" href="css/auth_pages.css">
 </head>
 
-<body>
-<div class="container d-flex justify-content-center align-items-center vh-100">
-<div class="card shadow p-4" style="width:400px;">
+<body class="auth-page">
+<div class="container d-flex justify-content-center align-items-center vh-100 auth-shell">
+<div class="card shadow p-4 auth-card" style="width:400px;">
 <h3 class="text-center mb-4">Change Password</h3>
 
 <form method="POST" action="../backend/modules/dispatcher.php">

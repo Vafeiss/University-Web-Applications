@@ -23,6 +23,15 @@ $router->post('/degree/edit', ['AdminController','editDegreeController']);
 $router->post('/department/delete', ['AdminController','deleteDepartmentController']);
 $router->post('/department/edit', ['AdminController','editDepartmentController']);
 
+//communications routes
+$router->post('/message/thread', ['AdvisorController','getMessageThread']);
+$router->post('/message/send', ['AdvisorController','sendMessage']);
+$router->post('/message/read', ['AdvisorController','markMessagesRead']);
+
+$router->post('/student/message/thread', ['StudentController','getMessageThread']);
+$router->post('/student/message/send', ['StudentController','sendMessage']);
+$router->post('/student/message/read', ['StudentController','markMessagesRead']);
+
 /*
 |--------------------------------------------------------------------------
 | Appointments Routes

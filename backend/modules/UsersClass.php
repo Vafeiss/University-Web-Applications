@@ -8,7 +8,7 @@ Inputs: Email,Password,database advicut
 Outputs: None
 Error Messages : Database connection failed.
 Files in use: authentication.php where the object user is created and the log_in method is called,
-student_dashboard.php to test the login of student and advisor_dashboard.php to test the login of the advisor
+StudentAppointmentDashboard.php to test the login of student and AdvisorAppointmentDashboard.php to test the login of the advisor
 advicut.sql for the test with the database.
 
 25-feb-2026 v0.2
@@ -76,16 +76,16 @@ private function dashboardPathForRole(string $role): ?string {
     $normalized = strtolower(trim($role));
 
     if ($normalized === 'student') {
-        return '/frontend/student_dashboard.php';
+        return '/frontend/StudentAppointmentDashboard.php';
     }
     if ($normalized === 'advisor') {
-        return '/frontend/advisor_dashboard.php';
+        return '/frontend/AdvisorAppointmentDashboard.php';
     }
     if ($normalized === 'admin') {
         return '/frontend/admin_dashboard.php';
     }
     if ($normalized === 'superuser') {
-        return '/frontend/SuperUser_dashboard.php';
+        return '/frontend/superuser_reports.php';
     }
 
     return null;
@@ -176,16 +176,16 @@ public function Validate_Credentials($row) {
         }
             //redirect them to the right dashboard based on their role if the session it's valid and the credentials are correct
             if ($_SESSION['role'] == 'Student') {
-                $this->redirectTo('/frontend/student_dashboard.php');
+                $this->redirectTo('/frontend/StudentAppointmentDashboard.php');
             }
             else if ($_SESSION['role'] == 'Advisor') {
-                $this->redirectTo('/frontend/advisor_dashboard.php');
+                $this->redirectTo('/frontend/AdvisorAppointmentDashboard.php');
             }
             else if ($_SESSION['role'] == 'Admin') {
                 $this->redirectTo('/frontend/admin_dashboard.php');
             }
             else if ($_SESSION['role'] == 'SuperUser') {
-                $this->redirectTo('/frontend/SuperUser_dashboard.php');
+                $this->redirectTo('/frontend/superuser_reports.php');
             }
         else {
             $fallbackPath = $this->dashboardPathForRole((string)($_SESSION['role'] ?? ''));

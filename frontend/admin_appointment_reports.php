@@ -23,80 +23,8 @@ $advisorAppointmentCounts = $appointmentReports->getAdvisorAppointmentCounts();
 
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+    <link rel="stylesheet" href="css/admin_appointment_reports.css">
 
-    <style>
-        body {
-            background-color: #f8f9fa;
-            font-family: system-ui, -apple-system, sans-serif;
-        }
-
-        .top-navbar {
-            background: #fff;
-            border-bottom: 1px solid #e5e7eb;
-            padding: 0 1.5rem;
-            height: 64px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            position: sticky;
-            top: 0;
-            z-index: 100;
-            box-shadow: 0 1px 3px rgba(0,0,0,.06);
-        }
-
-        .logo {
-            height: 70px;
-            width: auto;
-            object-fit: contain;
-        }
-
-        .welcome-text {
-            font-weight: 750;
-            font-size: 26px;
-            color: #555;
-        }
-
-        .page-card {
-            background: #fff;
-            border-radius: 12px;
-            border: 1px solid #e5e7eb;
-            padding: 1.5rem;
-        }
-
-        .stat-card {
-            background: #fff;
-            border-radius: 12px;
-            border: 1px solid #e5e7eb;
-            padding: 1.25rem 1.5rem;
-            height: 100%;
-        }
-
-        .stat-label {
-            font-size: .8rem;
-            color: #6b7280;
-            text-transform: uppercase;
-            letter-spacing: .05em;
-            margin: 0 0 .35rem;
-        }
-
-        .stat-value {
-            font-size: 2rem;
-            font-weight: 700;
-            margin: 0;
-            line-height: 1;
-        }
-
-        .page-subtitle {
-            color: #6b7280;
-            font-size: .95rem;
-            margin-bottom: 0;
-        }
-
-        .section-title {
-            font-weight: 700;
-            margin-bottom: .25rem;
-        }
-    </style>
 </head>
 <body>
 
@@ -108,6 +36,12 @@ $advisorAppointmentCounts = $appointmentReports->getAdvisorAppointmentCounts();
     </div>
 
     <div class="d-flex align-items-center gap-3">
+        <a href="admin_appointment_reports_export_csv.php" class="btn btn-outline-success btn-sm">
+            <i class="bi bi-filetype-csv me-1"></i> Export CSV
+        </a>
+        <a href="admin_appointment_reports_pdf.php" class="btn btn-outline-primary btn-sm">
+            <i class="bi bi-file-earmark-pdf me-1"></i> PDF
+        </a>
         <a href="admin_dashboard.php?tab=statistics" class="btn btn-outline-secondary btn-sm">
             <i class="bi bi-arrow-left me-1"></i> Back
         </a>

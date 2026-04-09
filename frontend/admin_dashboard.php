@@ -236,95 +236,7 @@ $YearOptions = [
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
   <link rel="stylesheet" href="../css/degreebuttons.css">
-
-  <style>
-    body { background-color: #f8f9fa; font-family: system-ui, -apple-system, sans-serif; }
-
-    .stat-card {
-    text-align: center;
-    }
-
-    /*navbar css*/
-    .top-navbar { background: #fff; border-bottom: 1px solid #e5e7eb; padding: 0 1.5rem; height: 64px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; box-shadow: 0 1px 3px rgba(0,0,0,.06); }
-    .brand-badge { background: #4f46e5; color: #fff; font-weight: 600; font-size: .8rem; padding: .3rem .7rem; border-radius: 6px; letter-spacing: .05em; }
-    .user-avatar { width: 36px; height: 36px; border-radius: 50%; background: #ede9fe; color: #6d28d9; font-weight: 600; display: flex; align-items: center; justify-content: center; font-size: .9rem; }
-
-    /*tab bar css*/
-    .tab-bar { background: #fff; border-bottom: 1px solid #e5e7eb; padding: 0 1.5rem; display: flex; gap: .25rem; justify-content: center; }
-    .tab-btn { border: none; background: none; padding: 1rem .75rem; font-size: .95rem; color: #6b7280; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; display: flex; align-items: center; gap: .4rem; transition: color .15s; }
-    .tab-btn:hover { color: #111827; }
-    .tab-btn.active { color: #4f46e5; border-bottom-color: #4f46e5; font-weight: 500; }
-
-    /*card css*/
-    .section-card { background: #fff; border-radius: 12px; border: 1px solid #e5e7eb; padding: 1.5rem; }
-
-    /*lists item css*/
-    .list-item { display: flex; align-items: center; gap: .75rem; padding: .85rem 1rem; border-bottom: 1px solid #f3f4f6; transition: background .1s; }
-    .list-item:last-child { border-bottom: none; }
-    .list-item:hover { background: #f9fafb; }
-    .item-avatar { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: .95rem; flex-shrink: 0; }
-    .avatar-indigo { background: #ede9fe; color: #6d28d9; }
-    .avatar-green  { background: #d1fae5; color: #065f46; }
-    .avatar-amber  { background: #fef3c7; color: #92400e; }
-    .item-meta { flex: 1; min-width: 0; }
-    .item-meta .name { font-weight: 500; color: #111827; font-size: .95rem; margin: 0; }
-    .item-meta .sub  { color: #6b7280; font-size: .82rem; margin: .1rem 0 0; }
-    .item-meta .sub-warn { color: #ef4444; font-size: .82rem; margin: .1rem 0 0; }
-
-    /*stat cards*/
-    .stat-card { background: #fff; border-radius: 12px; border: 1px solid #e5e7eb; padding: 1.25rem 1.5rem; }
-    .stat-label { font-size: .8rem; color: #6b7280; text-transform: uppercase; letter-spacing: .05em; margin: 0 0 .35rem; }
-    .stat-value { font-size: 2rem; font-weight: 600; color: #111827; margin: 0; line-height: 1; }
-
-    /*accordion css*/
-    .accordion-button:not(.collapsed) { background: #f5f3ff; color: #4f46e5; box-shadow: none; }
-    .accordion-button:focus { box-shadow: none; }
-
-    /*section css*/
-    .section-panel { display: none; }
-    .section-panel.active { display: block; }
-
-    /*flash toast css*/
-    .flash-toast { position: fixed; top: 1rem; right: 1rem; z-index: 9999; min-width: 280px; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,.12); padding: .85rem 1.1rem; display: flex; align-items: center; gap: .6rem; font-size: .92rem; }
-
-        /* degrees big buttons */
-    .deg-btn-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 24px; max-width: 1000px; margin: 60px auto; }
-    .deg-btn { background: #fff; border: 2px solid #e5e7eb; border-radius: 20px; padding: 48px 28px 40px; display: flex; flex-direction: column; align-items: center; text-align: center; cursor: pointer; text-decoration: none; color: #111827; transition: all .22s cubic-bezier(.34,1.4,.64,1); gap: 18px; }
-    .deg-btn:hover { transform: translateY(-5px); box-shadow: 0 16px 40px rgba(0,0,0,.1); color: #111827; text-decoration: none; }
-    .deg-btn.add:hover { border-color: #4f46e5; }
-    .deg-btn.edit:hover { border-color: #059669; }
-    .deg-btn.department:hover { border-color: #0369a1; }
-    .deg-btn .deg-icon { width: 76px; height: 76px; border-radius: 20px; display: flex; align-items: center; justify-content: center; font-size: 2.2rem; transition: all .22s cubic-bezier(.34,1.4,.64,1); }
-    .deg-btn.add  .deg-icon { background: #ede9fe; color: #4f46e5; }
-    .deg-btn.edit .deg-icon { background: #d1fae5; color: #059669; }
-    .deg-btn.department .deg-icon { background: #e0f2fe; color: #0369a1; }
-    .deg-btn.add:hover  .deg-icon { background: #4f46e5; color: #fff; transform: scale(1.08) rotate(-4deg); }
-    .deg-btn.edit:hover .deg-icon { background: #059669; color: #fff; transform: scale(1.08) rotate(4deg); }
-    .deg-btn.department:hover .deg-icon { background: #0369a1; color: #fff; transform: scale(1.08) rotate(-2deg); }
-    .deg-btn h5 { font-weight: 700; font-size: 1.15rem; margin: 0 0 4px; }
-    .deg-btn p  { font-size: .84rem; color: #6b7280; margin: 0; line-height: 1.5; }
-    @media(max-width:560px){ .deg-btn-row{ grid-template-columns: 1fr; } }
- 
-    /* degrees edit list */
-    .deg-list-item { background: #f9fafb; border: 1.5px solid #e5e7eb; border-radius: 12px; padding: 14px 16px; margin-bottom: 10px; transition: border-color .15s; }
-    .deg-list-item:hover { border-color: #d1d5db; }
-    .deg-list-item.editing { border-color: #4f46e5; background: #fafbff; }
-    .deg-inline-form { display: none; flex-direction: column; gap: 10px; margin-top: 12px; padding-top: 12px; border-top: 1px solid #e5e7eb; }
-    .deg-list-item.editing .deg-inline-form { display: flex; }
-
-    .welcome-text {
-    font-weight: 750;
-    font-size: 28px;
-    color: #555;
-    }
-
-    .logo {
-    height: 70px;
-    width: auto;
-    object-fit: contain;
-    }
-
-  </style>
+  <link rel="stylesheet" href="css/admin_dashboard.css">
 </head>
 <body>
 
@@ -351,14 +263,23 @@ $YearOptions = [
   </div>
 
   <div class="d-flex align-items-center gap-3">
-    <i class="bi bi-question-circle text-secondary fs-5" title="Help"></i>
-    <div class="user-avatar">A</div>
-    <form action="../backend/modules/dispatcher.php" method="POST" class="mb-0">
-      <input type="hidden" name="action" value="/logout">
-      <button class="btn btn-outline-danger btn-sm">
-        <i class="bi bi-box-arrow-right me-1"></i>Logout
+    <a href="admin_appointment_reports.php" class="btn btn-outline-primary btn-sm">
+      <i class="bi bi-clipboard-data me-1"></i>Appointment Reports
+    </a>
+
+    <div class="dropdown">
+      <button class="btn p-0 border-0 bg-transparent dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+        <div class="user-avatar">A</div>
       </button>
-    </form>
+      <div class="dropdown-menu dropdown-menu-end p-2" style="min-width: 190px;">
+        <form action="../backend/modules/dispatcher.php" method="POST" class="mb-0">
+          <input type="hidden" name="action" value="/logout">
+          <button class="dropdown-item text-danger" type="submit">
+            <i class="bi bi-box-arrow-right me-2"></i>Logout
+          </button>
+        </form>
+      </div>
+    </div>
   </div>
 
 </header>
@@ -485,54 +406,66 @@ $YearOptions = [
         </div>
       </div>
 
-      <!-- filters students -->
-      <button class="btn btn-outline-primary mb-3" type="button" data-bs-toggle="collapse" data-bs-target="#filterSection">
-        <i class="bi bi-funnel"></i> Filters </button>
-        <div class="collapse" id="filterSection">
-          <form method="GET" class="row g-2 align-items-end mb-3">
-              <input type="hidden" name="tab" value="students">
-              <input type="hidden" name="section" value="students">
+      <form method="GET" class="mb-3">
+        <input type="hidden" name="tab" value="students">
+        <input type="hidden" name="section" value="students">
 
-        <!-- filter by year -->
-        <div class="col-sm-4 col-md-3">
-          <label for="studentYearFilter" class="form-label mb-1">Filter By Year</label>
-          <select class="form-select" id="studentYearFilter" name="student_year" onchange="this.form.submit()">
-            <option value="" <?= $selectedStudentsYear === '' ? 'selected' : '' ?>>All Years</option>
-            <?php foreach ($YearOptions as $yearValue => $yearLabel): ?>
-            <option value="<?= htmlspecialchars($yearValue) ?>" <?= (string)$selectedStudentsYear === (string)$yearValue ? 'selected' : '' ?>>
-              <?= htmlspecialchars($yearLabel) ?>
-            </option>
-            <?php endforeach; ?>
-          </select>
+        <div class="d-flex flex-wrap gap-2 mb-3">
+          <button class="btn btn-outline-primary btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#studentYearFilterWrap" aria-expanded="false" aria-controls="studentYearFilterWrap">
+            <i class="bi bi-calendar3 me-1"></i> Year Filter
+          </button>
+          <button class="btn btn-outline-primary btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#studentDepartmentFilterWrap" aria-expanded="false" aria-controls="studentDepartmentFilterWrap">
+            <i class="bi bi-building me-1"></i> Department Filter
+          </button>
+          <button class="btn btn-outline-primary btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#studentDegreeFilterWrap" aria-expanded="false" aria-controls="studentDegreeFilterWrap">
+            <i class="bi bi-mortarboard me-1"></i> Degree Filter
+          </button>
+          <button class="btn btn-primary btn-sm" type="submit">
+            <i class="bi bi-funnel-fill me-1"></i> Apply Filters
+          </button>
+          <a href="admin_dashboard.php?section=students" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-arrow-counterclockwise me-1"></i> Reset
+          </a>
         </div>
 
-        <!-- filter by department -->
-        <div class="col-sm-4 col-md-3">
-          <label for="studentDepartmentFilter" class="form-label mb-1">Filter By Department</label>
-          <select class="form-select" id="studentDepartmentFilter" name="Student_Department" onchange="this.form.submit()">
-            <option value="" <?= $selectedStudentsDepartment === 0 ? 'selected' : '' ?>>All Departments</option>
-            <?php foreach ($DepartmentOptions as $departmentValue => $departmentLabel): ?>
-            <option value="<?= htmlspecialchars($departmentValue) ?>" <?= (string)$selectedStudentsDepartment === (string)$departmentValue ? 'selected' : '' ?>>
-              <?= htmlspecialchars($departmentLabel) ?>
-            </option>
-            <?php endforeach; ?>
-          </select>
-        </div>
+        <div class="row g-2 align-items-end">
+          <div class="col-sm-4 col-md-3 collapse <?= $selectedStudentsYear !== '' ? 'show' : '' ?>" id="studentYearFilterWrap">
+            <label for="studentYearFilter" class="form-label mb-1">Filter By Year</label>
+            <select class="form-select" id="studentYearFilter" name="student_year">
+              <option value="" <?= $selectedStudentsYear === '' ? 'selected' : '' ?>>All Years</option>
+              <?php foreach ($YearOptions as $yearValue => $yearLabel): ?>
+              <option value="<?= htmlspecialchars($yearValue) ?>" <?= (string)$selectedStudentsYear === (string)$yearValue ? 'selected' : '' ?>>
+                <?= htmlspecialchars($yearLabel) ?>
+              </option>
+              <?php endforeach; ?>
+            </select>
+          </div>
 
-        <!-- filter by degree based on department -->
-        <div class="col-sm-4 col-md-3">
-          <label for="studentDegreeFilter" class="form-label mb-1">Filter By Degree</label>
-          <select class="form-select" id="studentDegreeFilter" name="Student_Degree" onchange="this.form.submit()">
-            <option value="" <?= $selectedStudentsDegree === 0 ? 'selected' : '' ?>>All Degrees</option>
-            <?php foreach ($DegreeOptions as $degreeValue => $degreeLabel): ?>
-            <option value="<?= htmlspecialchars($degreeValue) ?>" <?= (string)$selectedStudentsDegree === (string)$degreeValue ? 'selected' : '' ?>>
-              <?= htmlspecialchars($degreeLabel) ?>
-            </option>
-            <?php endforeach; ?>
-          </select>
+          <div class="col-sm-4 col-md-3 collapse <?= $selectedStudentsDepartment > 0 ? 'show' : '' ?>" id="studentDepartmentFilterWrap">
+            <label for="studentDepartmentFilter" class="form-label mb-1">Filter By Department</label>
+            <select class="form-select" id="studentDepartmentFilter" name="Student_Department">
+              <option value="" <?= $selectedStudentsDepartment === 0 ? 'selected' : '' ?>>All Departments</option>
+              <?php foreach ($DepartmentOptions as $departmentValue => $departmentLabel): ?>
+              <option value="<?= htmlspecialchars($departmentValue) ?>" <?= (string)$selectedStudentsDepartment === (string)$departmentValue ? 'selected' : '' ?>>
+                <?= htmlspecialchars($departmentLabel) ?>
+              </option>
+              <?php endforeach; ?>
+            </select>
+          </div>
+
+          <div class="col-sm-4 col-md-3 collapse <?= $selectedStudentsDegree > 0 ? 'show' : '' ?>" id="studentDegreeFilterWrap">
+            <label for="studentDegreeFilter" class="form-label mb-1">Filter By Degree</label>
+            <select class="form-select" id="studentDegreeFilter" name="Student_Degree">
+              <option value="" <?= $selectedStudentsDegree === 0 ? 'selected' : '' ?>>All Degrees</option>
+              <?php foreach ($DegreeOptions as $degreeValue => $degreeLabel): ?>
+              <option value="<?= htmlspecialchars($degreeValue) ?>" <?= (string)$selectedStudentsDegree === (string)$degreeValue ? 'selected' : '' ?>>
+                <?= htmlspecialchars($degreeLabel) ?>
+              </option>
+              <?php endforeach; ?>
+            </select>
+          </div>
         </div>
       </form>
-    </div>
   
 
       <!-- Student tab -->
@@ -666,16 +599,32 @@ $YearOptions = [
         </form>
       </div>
 
-      <button class="btn btn-outline-primary mb-3" type="button" data-bs-toggle="collapse" data-bs-target="#assignFilterSection">
-        <i class="bi bi-funnel"></i> Filters </button>
-      <div class="collapse" id="assignFilterSection">
-        <form method="GET" class="row g-2 align-items-end mb-3">
-          <input type="hidden" name="tab" value="assignstudents">
-          <input type="hidden" name="section" value="assignstudents">
+      <form method="GET" class="mb-3">
+        <input type="hidden" name="tab" value="assignstudents">
+        <input type="hidden" name="section" value="assignstudents">
 
-          <div class="col-sm-4 col-md-3">
+        <div class="d-flex flex-wrap gap-2 mb-3">
+          <button class="btn btn-outline-primary btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#assignYearFilterWrap" aria-expanded="false" aria-controls="assignYearFilterWrap">
+            <i class="bi bi-calendar3 me-1"></i> Year Filter
+          </button>
+          <button class="btn btn-outline-primary btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#assignDepartmentFilterWrap" aria-expanded="false" aria-controls="assignDepartmentFilterWrap">
+            <i class="bi bi-building me-1"></i> Department Filter
+          </button>
+          <button class="btn btn-outline-primary btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#assignDegreeFilterWrap" aria-expanded="false" aria-controls="assignDegreeFilterWrap">
+            <i class="bi bi-mortarboard me-1"></i> Degree Filter
+          </button>
+          <button class="btn btn-primary btn-sm" type="submit">
+            <i class="bi bi-funnel-fill me-1"></i> Apply Filters
+          </button>
+          <a href="admin_dashboard.php?section=assignstudents" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-arrow-counterclockwise me-1"></i> Reset
+          </a>
+        </div>
+
+        <div class="row g-2 align-items-end">
+          <div class="col-sm-4 col-md-3 collapse <?= $selectedAssignYear !== '' ? 'show' : '' ?>" id="assignYearFilterWrap">
             <label for="assignYearFilter" class="form-label mb-1">Filter By Year</label>
-            <select class="form-select" id="assignYearFilter" name="assign_student_year" onchange="this.form.submit()">
+            <select class="form-select" id="assignYearFilter" name="assign_student_year">
               <option value="" <?= $selectedAssignYear === '' ? 'selected' : '' ?>>All Years</option>
               <?php foreach ($YearOptions as $yearValue => $yearLabel): ?>
               <option value="<?= htmlspecialchars($yearValue) ?>" <?= (string)$selectedAssignYear === (string)$yearValue ? 'selected' : '' ?>>
@@ -685,9 +634,9 @@ $YearOptions = [
             </select>
           </div>
 
-          <div class="col-sm-4 col-md-3">
+          <div class="col-sm-4 col-md-3 collapse <?= $selectedAssignDepartment > 0 ? 'show' : '' ?>" id="assignDepartmentFilterWrap">
             <label for="assignDepartmentFilter" class="form-label mb-1">Filter By Department</label>
-            <select class="form-select" id="assignDepartmentFilter" name="assign_student_department" onchange="this.form.submit()">
+            <select class="form-select" id="assignDepartmentFilter" name="assign_student_department">
               <option value="" <?= $selectedAssignDepartment === 0 ? 'selected' : '' ?>>All Departments</option>
               <?php foreach ($DepartmentOptions as $departmentValue => $departmentLabel): ?>
               <option value="<?= htmlspecialchars($departmentValue) ?>" <?= (string)$selectedAssignDepartment === (string)$departmentValue ? 'selected' : '' ?>>
@@ -697,9 +646,9 @@ $YearOptions = [
             </select>
           </div>
 
-          <div class="col-sm-4 col-md-3">
+          <div class="col-sm-4 col-md-3 collapse <?= $selectedAssignDegree > 0 ? 'show' : '' ?>" id="assignDegreeFilterWrap">
             <label for="assignDegreeFilter" class="form-label mb-1">Filter By Degree</label>
-            <select class="form-select" id="assignDegreeFilter" name="assign_student_degree" onchange="this.form.submit()">
+            <select class="form-select" id="assignDegreeFilter" name="assign_student_degree">
               <option value="" <?= $selectedAssignDegree === 0 ? 'selected' : '' ?>>All Degrees</option>
               <?php foreach ($AssignDegreeOptions as $degreeValue => $degreeLabel): ?>
               <option value="<?= htmlspecialchars($degreeValue) ?>" <?= (string)$selectedAssignDegree === (string)$degreeValue ? 'selected' : '' ?>>
@@ -708,8 +657,8 @@ $YearOptions = [
               <?php endforeach; ?>
             </select>
           </div>
-        </form>
-      </div>
+        </div>
+      </form>
 
       <div class="accordion" id="assignAdvisorAccordion">
 

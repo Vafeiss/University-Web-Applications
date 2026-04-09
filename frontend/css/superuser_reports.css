@@ -1,0 +1,57 @@
+body {
+    background: #f8f9fa;
+    font-family: system-ui, -apple-system, sans-serif;
+}
+
+.page-card {
+    background: #fff;
+    border-radius: 12px;
+    border: 1px solid #e5e7eb;
+    padding: 1.5rem;
+    margin-bottom: 1.25rem;
+}
+
+.stat-card {
+    background: #fff;
+    border-radius: 12px;
+    border: 1px solid #e5e7eb;
+    padding: 1.25rem 1.5rem;
+    height: 100%;
+}
+
+.stat-label {
+    font-size: .8rem;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    margin: 0 0 .35rem;
+}
+
+.stat-value {
+    font-size: 2rem;
+    font-weight: 700;
+    margin: 0;
+    line-height: 1;
+}
+
+.section-title {
+    font-weight: 700;
+    margin-bottom: .25rem;
+}
+
+.page-subtitle {
+    color: #6b7280;
+    font-size: .95rem;
+    margin-bottom: 0;
+}
+
+.top-actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.chart-wrap {
+    max-width: 360px;
+    margin: 0 auto;
+}
