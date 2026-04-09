@@ -7,14 +7,16 @@
    Inputs: POST inputs for student id, office hour slot, appointment date and reason
    Outputs: Inserts a new record into appointment_requests and redirects back to the student dashboard
    Error Messages: If validation fails or database action fails, a flash error message is created
-   Files in use: StudentBookAppointment.php, StudentAppointmentDashboard.php, db.php
+    Files in use: StudentBookAppointment.php, StudentAppointmentDashboard.php, databaseconnect.php
 */
 
 declare(strict_types=1);
 
 session_start();
 
-require_once __DIR__ . '/../config/db.php';
+require_once __DIR__ . '/../modules/databaseconnect.php';
+
+$pdo = ConnectToDatabase();
 
 /*
 Helper function for redirecting back to student dashboard

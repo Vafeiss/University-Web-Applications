@@ -100,14 +100,18 @@ if ($advisorId > 0) {
                                         </td>
                                         <td>
                                             <div class="d-flex flex-column gap-2">
-                                                <form method="POST" action="../modules/dispatcher.php?action=approve_appointment" class="m-0">
+                                                <form method="POST" action="../modules/dispatcher.php" class="m-0">
+                                                    <input type="hidden" name="action" value="/appointment/action">
+                                                    <input type="hidden" name="appointment_action" value="approve">
                                                     <input type="hidden" name="request_id" value="<?= (int)($request['Request_ID'] ?? 0) ?>">
                                                     <button type="submit" class="btn btn-success btn-sm w-100" onclick="return confirm('Approve this appointment request?');">
                                                         Approve
                                                     </button>
                                                 </form>
 
-                                                <form method="POST" action="../modules/dispatcher.php?action=decline_appointment" class="m-0">
+                                                <form method="POST" action="../modules/dispatcher.php" class="m-0">
+                                                    <input type="hidden" name="action" value="/appointment/action">
+                                                    <input type="hidden" name="appointment_action" value="decline">
                                                     <input type="hidden" name="request_id" value="<?= (int)($request['Request_ID'] ?? 0) ?>">
                                                     <textarea name="decline_reason" class="form-control form-control-sm" rows="2" placeholder="Enter decline reason..." required></textarea>
                                                     <button type="submit" class="btn btn-danger btn-sm w-100 mt-2" onclick="return confirm('Decline this appointment request?');">

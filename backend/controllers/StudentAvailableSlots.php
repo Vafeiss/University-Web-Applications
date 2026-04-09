@@ -7,12 +7,14 @@ Date: 20/03/2026 v1.5
 Inputs: None
 Outputs: HTML page showing available slots + Select button
 Error Messages: Shows database/query error if something fails
-Files in use: backend/config/db.php, users table, office_hours table, appointment_history table, student_advisors table, Bootstrap CSS from the web
+Files in use: backend/modules/databaseconnect.php, users table, office_hours table, appointment_history table, student_advisors table, Bootstrap CSS from the web
 */
 
 declare(strict_types=1);
 
-require_once __DIR__ . '/../config/db.php';
+require_once __DIR__ . '/../modules/databaseconnect.php';
+
+$pdo = ConnectToDatabase();
 
 $errorMessage = "";
 $slots = [];

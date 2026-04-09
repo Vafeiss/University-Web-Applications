@@ -7,7 +7,7 @@
    Inputs: Section parameter from URL, session flash messages and database records for office hours, requests and appointments
    Outputs: Advisor dashboard interface with real database data
    Error Messages: If database fetch fails, an error message is displayed inside the relevant section
-   Files in use: AdvisorAppointmentDashboard.php, AdvisorOfficeHours.php, AppointmentController.php, db.php
+  Files in use: AdvisorAppointmentDashboard.php, AdvisorOfficeHours.php, AppointmentController.php, databaseconnect.php
 */
 
 declare(strict_types=1);
@@ -16,7 +16,9 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-require_once __DIR__ . '/../backend/config/db.php';
+require_once __DIR__ . '/../backend/modules/databaseconnect.php';
+
+$pdo = ConnectToDatabase();
 
 /*
 |--------------------------------------------------------------------------

@@ -38,8 +38,11 @@ Paraskevas Vafeiadis
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
+
+require_once __DIR__ . '/databaseconnect.php';
+
 class Users {
-private $conn;
+private PDO $conn;
 
 //have a base path function to help with redirections in the project
 private function appBasePath(): string {
@@ -89,33 +92,34 @@ private function dashboardPathForRole(string $role): ?string {
 }
 
 public function __construct() {
-    //creating an obj of the mysql connection and connect to the database 
-    $this->conn = new mysqli("localhost", "root", "", "advicut_test");
-if ($this->conn->connect_error) { //if connection fails kill it and print message
-    die("Connection failed: " . $this->conn->connect_error);
-    $this ->conn->set_charset("utf8mb4");
-}}
+    //connect using the shared PDO connection used by backend modules
+    $this->conn = ConnectToDatabase();
+}
 
 
     //method to log in the user by checking email and password to the advicut database
     public function Log_in(string $email, string $password) {
-        //query to get all the students where email and password match the input parameters
-        $sql = "SELECT User_ID , Uni_Email , Role , Password FROM users WHERE Uni_Email = ? LIMIT 1";
-        $stmt1 = $this->conn->prepare($sql);
-        $stmt1->bind_param("s", $email); //make the query as a prepared statement to prevent attacks
-        $stmt1->execute();
-        $result1 = $stmt1->get_result();
+        try {
+            //query to get all the students where email and password match the input parameters
+            $sql = "SELECT User_ID , Uni_Email , Role , Password FROM users WHERE Uni_Email = ? LIMIT 1";
+            $stmt1 = $this->conn->prepare($sql);
+            $stmt1->execute([$email]); //make the query as a prepared statement to prevent attacks
+            $row = $stmt1->fetch(PDO::FETCH_ASSOC);
 
-        if ($result1->num_rows !== 1) { //error handling if email not found go back to index
-            $this->redirectTo('/frontend/index.php?error=invalid1');
+            if ($row === false) { //error handling if email not found go back to index
+                $this->redirectTo('/frontend/index.php?error=invalid1');
+            }
+
+            //error handling if password wrong go back to index
+            if (!password_verify($password, (string)$row["Password"])) {
+                $this->redirectTo('/frontend/index.php?error=invalid2');
+            }
+
+            $this->Validate_Credentials($row);
+        } catch (PDOException $e) {
+            error_log('Users::Log_in PDO error: ' . $e->getMessage());
+            $this->redirectTo('/frontend/index.php?error=database');
         }
-
-        $row = $result1->fetch_assoc();//error handling if password wrong go bakc to index
-        if (!password_verify($password, $row["Password"])) {
-            $this->redirectTo('/frontend/index.php?error=invalid2');
-        }
-
-        $this->Validate_Credentials($row);
         
     }
 
@@ -127,7 +131,7 @@ public function Log_out() {
     $this->redirectTo('/frontend/index.php');
 }
 
-public function Check_Session(string $requiredRole = null) {
+public function Check_Session(?string $requiredRole = null) {
     // UserID is the primary key for an authenticated session.
     if (!isset($_SESSION['UserID'])) {
         $this->redirectTo('/frontend/index.php?error=unauthorized');
@@ -139,23 +143,26 @@ public function Check_Session(string $requiredRole = null) {
         $this->redirectTo('/frontend/index.php?error=unauthorized');
     }
 
-    //query to get the row froim the data base
-    $stmt = $this->conn->prepare("SELECT Uni_Email, Role FROM users WHERE User_ID = ? LIMIT 1");
-    $stmt->bind_param("i", $userId);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    if ($result->num_rows !== 1) {
+    try {
+        //query to get the row from the database
+        $stmt = $this->conn->prepare("SELECT Uni_Email, Role FROM users WHERE User_ID = ? LIMIT 1");
+        $stmt->execute([$userId]);
+        $result3 = $stmt->fetch(PDO::FETCH_ASSOC);
+        if ($result3 === false) {
+            $this->redirectTo('/frontend/index.php?error=unauthorized');
+        }
+
+        // Keep session values aligned with DB to avoid unnecessary logouts on refresh.
+        $_SESSION['email'] = $result3['Uni_Email'];
+        $_SESSION['role'] = $result3['Role'];
+
+        //if not the required role for the page then exit
+        if ($requiredRole !== null && strcasecmp(trim((string)$result3['Role']), trim((string)$requiredRole)) !== 0) {
+            $this->redirectTo('/frontend/index.php?error=forbidden');
+        }
+    } catch (PDOException $e) {
+        error_log('Users::Check_Session PDO error: ' . $e->getMessage());
         $this->redirectTo('/frontend/index.php?error=unauthorized');
-    }
-    $result3 = $result->fetch_assoc();
-
-    // Keep session values aligned with DB to avoid unnecessary logouts on refresh.
-    $_SESSION['email'] = $result3['Uni_Email'];
-    $_SESSION['role'] = $result3['Role'];
-
-    //if not the required role for the page then exit
-    if ($requiredRole !== null && strcasecmp(trim((string)$result3['Role']), trim((string)$requiredRole)) !== 0) {
-        $this->redirectTo('/frontend/index.php?error=forbidden');
     }
 }
 
@@ -195,34 +202,35 @@ public function Change_Password(int $userId, string $currentPassword, string $ne
     if (strlen($newPassword) < 8) {
         return false;
     }
-    $stmt = $this->conn->prepare(
-        "SELECT Password FROM users WHERE User_ID = ? LIMIT 1"
-    );
+    try {
+        $stmt = $this->conn->prepare(
+            "SELECT Password FROM users WHERE User_ID = ? LIMIT 1"
+        );
+        $stmt->execute([$userId]); //get the current password to verify
 
-    $stmt->bind_param("i", $userId); //get the current of password to verify
-    $stmt->execute();
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        if ($row === false) {
+            return false;
+        }
 
+        //verify existing password
+        if (!password_verify($currentPassword, (string)$row["Password"])) {
+            return false;
+        }
 
-    $result2 = $stmt->get_result();
-    if ($result2->num_rows !== 1) {
+        //hash password
+        $newPasswordhashed = password_hash($newPassword, PASSWORD_DEFAULT);
+
+        //update the database with the new password
+        $uploadtodb = $this->conn->prepare(
+            "UPDATE users SET Password = ? WHERE User_ID = ?"
+        );
+        $uploadtodb->execute([$newPasswordhashed, $userId]);
+        return $uploadtodb->rowCount() > 0;
+    } catch (PDOException $e) {
+        error_log('Users::Change_Password PDO error: ' . $e->getMessage());
         return false;
     }
-
-    $row = $result2->fetch_assoc();
-    //verify existing password
-    if (!password_verify($currentPassword, $row["Password"])) {
-        return false;
-    }
-
-    //hash password
-    $newPasswordhashed = password_hash($newPassword, PASSWORD_DEFAULT);
-
-    //update the database with the new password
-    $uploadtodb = $this->conn->prepare(
-        "UPDATE users SET Password = ? WHERE User_ID = ?"
-    );
-    $uploadtodb->bind_param("si", $newPasswordhashed, $userId);
-    return $uploadtodb->execute();
 
 }
 }

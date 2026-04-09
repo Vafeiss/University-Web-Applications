@@ -7,7 +7,7 @@
    Inputs: Section parameter from URL, session flash messages and database records for available slots, requests, appointments and history
    Outputs: Student dashboard interface with real database data
    Error Messages: If database fetch fails, an error message is displayed inside the relevant section
-   Files in use: StudentAppointmentDashboard.php, StudentBookAppointment.php, db.php
+  Files in use: StudentAppointmentDashboard.php, StudentBookAppointment.php, databaseconnect.php
 
    30-Mar-2026 v1.8
    Added booking submit integration and appointments fallback logic
@@ -18,7 +18,9 @@ declare(strict_types=1);
 
 session_start();
 
-require_once __DIR__ . '/../backend/config/db.php';
+require_once __DIR__ . '/../backend/modules/databaseconnect.php';
+
+$pdo = ConnectToDatabase();
 
 /*
 TEMP TEST MODE

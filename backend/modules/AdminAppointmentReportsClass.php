@@ -11,25 +11,15 @@
 
 declare(strict_types=1);
 
+require_once __DIR__ . '/databaseconnect.php';
+
 class AdminAppointmentReportsClass
 {
     private PDO $conn;
 
     public function __construct()
     {
-        $host = "localhost";
-        $dbname = "advicut";
-        $username = "root";
-        $password = "";
-
-        $this->conn = new PDO(
-            "mysql:host=$host;dbname=$dbname;charset=utf8mb4",
-            $username,
-            $password
-        );
-
-        $this->conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-        $this->conn->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
+        $this->conn = ConnectToDatabase();
     }
 
     public function getAppointmentSummary(): array

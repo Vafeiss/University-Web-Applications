@@ -7,14 +7,16 @@
    Inputs: POST and GET inputs for office hour actions
    Outputs: Redirects back to AdvisorAppointmentDashboard.php with flash messages
    Error Messages: If validation fails or database action fails, an error flash message is created
-   Files in use: AdvisorOfficeHours.php, AdvisorAppointmentDashboard.php, db.php
+    Files in use: AdvisorOfficeHours.php, AdvisorAppointmentDashboard.php, databaseconnect.php
 */
 
 declare(strict_types=1);
 
 session_start();
 
-require_once __DIR__ . '/../config/db.php';
+require_once __DIR__ . '/../modules/databaseconnect.php';
+
+$pdo = ConnectToDatabase();
 
 /*
 TEMP TEST MODE

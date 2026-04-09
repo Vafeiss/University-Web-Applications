@@ -5,99 +5,125 @@ require_once __DIR__ . '/databaseconnect.php';
 
 class AppointmentApproval
 {
-    private mysqli $conn;
+    private PDO $conn;
 
     public function __construct()
     {
-        $db = new DatabaseConnect();
-        $this->conn = $db->connect();
+        $this->conn = ConnectToDatabase();
     }
 
     public function getPendingAppointmentsForAdvisor(int $advisorId): array
     {
-        $sql = "SELECT ar.*, u.First_name, u.Last_Name, oh.Start_Time, oh.End_Time
-                FROM appointment_requests ar
-                LEFT JOIN users u ON ar.Student_ID = u.User_ID
-                LEFT JOIN office_hours oh ON ar.OfficeHour_ID = oh.OfficeHour_ID
-                WHERE ar.Advisor_ID = ?
-                  AND ar.Status = 'Pending'
-                ORDER BY ar.Appointment_Date ASC";
+                try {
+                        $sql = "SELECT ar.*, u.First_name, u.Last_Name, oh.Start_Time, oh.End_Time
+                                        FROM appointment_requests ar
+                                        LEFT JOIN users u ON ar.Student_ID = u.User_ID
+                                        LEFT JOIN office_hours oh ON ar.OfficeHour_ID = oh.OfficeHour_ID
+                                        WHERE ar.Advisor_ID = ?
+                                            AND ar.Status = 'Pending'
+                                        ORDER BY ar.Appointment_Date ASC";
 
-        $stmt = $this->conn->prepare($sql);
-        if (!$stmt) {
-            return [];
-        }
+                        $stmt = $this->conn->prepare($sql);
+                        $stmt->execute([$advisorId]);
 
-        $stmt->bind_param("i", $advisorId);
-        $stmt->execute();
-        $result = $stmt->get_result();
-
-        return $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
+                        $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                        return is_array($result) ? $result : [];
+                } catch (Throwable $e) {
+                        error_log('AppointmentApproval::getPendingAppointmentsForAdvisor error: ' . $e->getMessage());
+                        return [];
+                }
     }
 
     public function approveAppointment(int $requestId, int $advisorId): bool
     {
-        $updateSql = "UPDATE appointment_requests
-                      SET Status = 'Approved'
-                      WHERE Request_ID = ?
-                        AND Advisor_ID = ?
-                        AND Status = 'Pending'";
+        try {
+            $requestStmt = $this->conn->prepare(
+                "SELECT Request_ID, Student_ID, Advisor_ID, OfficeHour_ID, Appointment_Date
+                 FROM appointment_requests
+                 WHERE Request_ID = ?
+                   AND Advisor_ID = ?
+                   AND Status = 'Pending'
+                 LIMIT 1"
+            );
+            $requestStmt->execute([$requestId, $advisorId]);
+            $request = $requestStmt->fetch(PDO::FETCH_ASSOC);
 
-        $updateStmt = $this->conn->prepare($updateSql);
-        if (!$updateStmt) {
+            if ($request === false) {
+                return false;
+            }
+
+            $slotStmt = $this->conn->prepare(
+                "SELECT Start_Time, End_Time
+                 FROM office_hours
+                 WHERE OfficeHour_ID = ?
+                   AND Advisor_ID = ?
+                 LIMIT 1"
+            );
+            $slotStmt->execute([(int)$request['OfficeHour_ID'], $advisorId]);
+            $slot = $slotStmt->fetch(PDO::FETCH_ASSOC);
+
+            if ($slot === false) {
+                return false;
+            }
+
+            $this->conn->beginTransaction();
+
+            $updateStmt = $this->conn->prepare(
+                "UPDATE appointment_requests
+                 SET Status = 'Approved',
+                     Updated_At = CURRENT_TIMESTAMP
+                 WHERE Request_ID = ?
+                   AND Advisor_ID = ?
+                   AND Status = 'Pending'"
+            );
+            $updateStmt->execute([$requestId, $advisorId]);
+
+            if ($updateStmt->rowCount() <= 0) {
+                $this->conn->rollBack();
+                return false;
+            }
+
+            $insertStmt = $this->conn->prepare(
+                "INSERT INTO appointments
+                 (Request_ID, Student_ID, Advisor_ID, OfficeHour_ID, Appointment_Date, Start_Time, End_Time, Status)
+                 VALUES
+                 (?, ?, ?, ?, ?, ?, ?, 'Scheduled')"
+            );
+            $insertStmt->execute([
+                $requestId,
+                (int)$request['Student_ID'],
+                (int)$request['Advisor_ID'],
+                (int)$request['OfficeHour_ID'],
+                (string)$request['Appointment_Date'],
+                (string)$slot['Start_Time'],
+                (string)$slot['End_Time'],
+            ]);
+
+            $appointmentId = (int)$this->conn->lastInsertId();
+
+            $historyStmt = $this->conn->prepare(
+                "INSERT INTO appointment_history
+                 (Request_ID, Appointment_ID, Student_ID, Advisor_ID, Action_Type, Action_Reason, Action_By)
+                 VALUES
+                 (?, ?, ?, ?, 'Approved', NULL, ?)"
+            );
+            $historyStmt->execute([
+                $requestId,
+                $appointmentId,
+                (int)$request['Student_ID'],
+                (int)$request['Advisor_ID'],
+                $advisorId,
+            ]);
+
+            $this->conn->commit();
+            return true;
+        } catch (Throwable $e) {
+            if ($this->conn->inTransaction()) {
+                $this->conn->rollBack();
+            }
+            error_log('AppointmentApproval::approveAppointment error: ' . $e->getMessage());
             return false;
         }
-
-        $updateStmt->bind_param("ii", $requestId, $advisorId);
-        $ok = $updateStmt->execute();
-
-        if (!$ok || $updateStmt->affected_rows <= 0) {
-            return false;
-        }
-
-        $fetchSql = "SELECT ar.Student_ID, ar.Advisor_ID, ar.OfficeHour_ID, ar.Appointment_Date,
-                            oh.Start_Time, oh.End_Time
-                     FROM appointment_requests ar
-                     LEFT JOIN office_hours oh ON ar.OfficeHour_ID = oh.OfficeHour_ID
-                     WHERE ar.Request_ID = ?
-                     LIMIT 1";
-
-        $fetchStmt = $this->conn->prepare($fetchSql);
-        if (!$fetchStmt) {
-            return false;
-        }
-
-        $fetchStmt->bind_param("i", $requestId);
-        $fetchStmt->execute();
-        $fetchResult = $fetchStmt->get_result();
-
-        if (!$fetchResult || $fetchResult->num_rows === 0) {
-            return false;
-        }
-
-        $row = $fetchResult->fetch_assoc();
-
-        $insertSql = "INSERT INTO appointments
-                      (Request_ID, Student_ID, Advisor_ID, OfficeHour_ID, Appointment_Date, Start_Time, End_Time, Status)
-                      VALUES (?, ?, ?, ?, ?, ?, ?, 'Scheduled')";
-
-        $insertStmt = $this->conn->prepare($insertSql);
-        if (!$insertStmt) {
-            return false;
-        }
-
-        $insertStmt->bind_param(
-            "iiiisss",
-            $requestId,
-            $row['Student_ID'],
-            $row['Advisor_ID'],
-            $row['OfficeHour_ID'],
-            $row['Appointment_Date'],
-            $row['Start_Time'],
-            $row['End_Time']
-        );
-
-        return $insertStmt->execute();
     }
 
     public function declineAppointment(int $requestId, int $advisorId, string $reason): bool
@@ -108,20 +134,63 @@ class AppointmentApproval
             return false;
         }
 
-        $sql = "UPDATE appointment_requests
-                SET Status = 'Declined',
-                    Advisor_Reason = ?
-                WHERE Request_ID = ?
-                  AND Advisor_ID = ?
-                  AND Status = 'Pending'";
+        try {
+            $requestStmt = $this->conn->prepare(
+                "SELECT Student_ID, Advisor_ID
+                 FROM appointment_requests
+                 WHERE Request_ID = ?
+                   AND Advisor_ID = ?
+                   AND Status = 'Pending'
+                 LIMIT 1"
+            );
+            $requestStmt->execute([$requestId, $advisorId]);
+            $request = $requestStmt->fetch(PDO::FETCH_ASSOC);
 
-        $stmt = $this->conn->prepare($sql);
-        if (!$stmt) {
+            if ($request === false) {
+                return false;
+            }
+
+            $this->conn->beginTransaction();
+
+            $stmt = $this->conn->prepare(
+                "UPDATE appointment_requests
+                 SET Status = 'Declined',
+                     Advisor_Reason = ?,
+                     Updated_At = CURRENT_TIMESTAMP
+                 WHERE Request_ID = ?
+                   AND Advisor_ID = ?
+                   AND Status = 'Pending'"
+            );
+            $stmt->execute([$reason, $requestId, $advisorId]);
+
+            if ($stmt->rowCount() <= 0) {
+                $this->conn->rollBack();
+                return false;
+            }
+
+            $historyStmt = $this->conn->prepare(
+                "INSERT INTO appointment_history
+                 (Request_ID, Appointment_ID, Student_ID, Advisor_ID, Action_Type, Action_Reason, Action_By)
+                 VALUES
+                 (?, NULL, ?, ?, 'Declined', ?, ?)"
+            );
+            $historyStmt->execute([
+                $requestId,
+                (int)$request['Student_ID'],
+                (int)$request['Advisor_ID'],
+                $reason,
+                $advisorId,
+            ]);
+
+            $this->conn->commit();
+            return true;
+        } catch (Throwable $e) {
+            if ($this->conn->inTransaction()) {
+                $this->conn->rollBack();
+            }
+            error_log('AppointmentApproval::declineAppointment error: ' . $e->getMessage());
             return false;
         }
-
-        $stmt->bind_param("sii", $reason, $requestId, $advisorId);
-        return $stmt->execute();
     }
 
     public function markAttendance(int $appointmentId, int $advisorId, int $attendance): bool
@@ -136,19 +205,21 @@ class AppointmentApproval
             return false;
         }
 
-        $sql = "UPDATE appointments
-                SET Status = ?
-                WHERE Appointment_ID = ?
-                  AND Advisor_ID = ?
-                  AND Status = 'Scheduled'";
+        try {
+            $sql = "UPDATE appointments
+                    SET Status = ?
+                    WHERE Appointment_ID = ?
+                      AND Advisor_ID = ?
+                      AND Status = 'Scheduled'";
 
-        $stmt = $this->conn->prepare($sql);
-        if (!$stmt) {
+            $stmt = $this->conn->prepare($sql);
+            $stmt->execute([$newStatus, $appointmentId, $advisorId]);
+
+            return $stmt->rowCount() > 0;
+        } catch (Throwable $e) {
+            error_log('AppointmentApproval::markAttendance error: ' . $e->getMessage());
             return false;
         }
-
-        $stmt->bind_param("sii", $newStatus, $appointmentId, $advisorId);
-        return $stmt->execute();
     }
 }
 ?>

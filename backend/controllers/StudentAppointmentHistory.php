@@ -1,8 +1,10 @@
 <?php
 declare(strict_types=1);
 
-require_once __DIR__ . '/../config/db.php';
+require_once __DIR__ . '/../modules/databaseconnect.php';
 require_once __DIR__ . '/../modules/AppointmentHistoryClass.php';
+
+$pdo = ConnectToDatabase();
 
 $studentId = 1;
 $studentName = "Student Test User";

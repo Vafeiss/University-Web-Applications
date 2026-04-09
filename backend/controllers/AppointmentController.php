@@ -7,7 +7,7 @@
    Inputs: GET inputs for action and request id
    Outputs: Updates appointment request status, inserts appointment record, inserts history record and redirects back to the advisor dashboard
    Error Messages: If the request is invalid or a database operation fails, a flash error message is created
-   Files in use: AppointmentController.php, AdvisorAppointmentDashboard.php, db.php
+    Files in use: AppointmentController.php, AdvisorAppointmentDashboard.php, databaseconnect.php
 */
 
 declare(strict_types=1);
@@ -16,7 +16,9 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-require_once __DIR__ . '/../config/db.php';
+require_once __DIR__ . '/../modules/databaseconnect.php';
+
+$pdo = ConnectToDatabase();
 
 class AppointmentController
 {
