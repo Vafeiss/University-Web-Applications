@@ -35,9 +35,9 @@ class AdminAppointmentReportsClass
             $sql = "
                 SELECT
                     COUNT(*) AS total_requests,
-                    SUM(CASE WHEN Status = 0 THEN 1 ELSE 0 END) AS pending_requests,
-                    SUM(CASE WHEN Status = 1 THEN 1 ELSE 0 END) AS approved_requests,
-                    SUM(CASE WHEN Status = 2 THEN 1 ELSE 0 END) AS declined_requests
+                    SUM(CASE WHEN LOWER(TRIM(Status)) = 'pending' THEN 1 ELSE 0 END) AS pending_requests,
+                    SUM(CASE WHEN LOWER(TRIM(Status)) = 'approved' THEN 1 ELSE 0 END) AS approved_requests,
+                    SUM(CASE WHEN LOWER(TRIM(Status)) = 'declined' THEN 1 ELSE 0 END) AS declined_requests
                 FROM appointment_requests
             ";
 
@@ -68,12 +68,12 @@ class AdminAppointmentReportsClass
                     u.First_name,
                     u.Last_Name,
                     COUNT(ar.Request_ID) AS Total_Requests,
-                    SUM(CASE WHEN ar.Status = 0 THEN 1 ELSE 0 END) AS Pending_Requests,
-                    SUM(CASE WHEN ar.Status = 1 THEN 1 ELSE 0 END) AS Approved_Requests,
-                    SUM(CASE WHEN ar.Status = 2 THEN 1 ELSE 0 END) AS Declined_Requests
+                    SUM(CASE WHEN LOWER(TRIM(ar.Status)) = 'pending' THEN 1 ELSE 0 END) AS Pending_Requests,
+                    SUM(CASE WHEN LOWER(TRIM(ar.Status)) = 'approved' THEN 1 ELSE 0 END) AS Approved_Requests,
+                    SUM(CASE WHEN LOWER(TRIM(ar.Status)) = 'declined' THEN 1 ELSE 0 END) AS Declined_Requests
                 FROM users u
                 LEFT JOIN appointment_requests ar
-                    ON ar.Advisor_ID = u.External_ID
+                    ON ar.Advisor_ID = u.User_ID
                 WHERE u.Role = 'Advisor'
                 GROUP BY u.External_ID, u.First_name, u.Last_Name
                 ORDER BY Total_Requests DESC, u.Last_Name ASC, u.First_name ASC

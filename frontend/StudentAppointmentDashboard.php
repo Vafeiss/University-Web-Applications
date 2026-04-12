@@ -41,21 +41,26 @@ $studentId = isset($_SESSION['UserID']) && is_numeric($_SESSION['UserID'])
 
 $currentStudent = [];
 $myAdvisor = null;
+$studentExternalId = 0;
 
 if ($studentId > 0) {
   try {
     $studentModule = new StudentClass();
     $currentStudent = $studentModule->getStudentInfo($studentId);
     $myAdvisor = $studentModule->getStudentAdvisor($studentId);
+    $studentExternalId = isset($currentStudent['Student_ID']) && is_numeric($currentStudent['Student_ID'])
+      ? (int)$currentStudent['Student_ID']
+      : 0;
   } catch (Throwable $e) {
     error_log('Error loading student dashboard info: ' . $e->getMessage());
     $currentStudent = [];
     $myAdvisor = null;
+    $studentExternalId = 0;
   }
 }
 
 // Get active section from URL
-$activeSection = isset($_GET['section']) ? $_GET['section'] : 'book';
+$activeSection = isset($_GET['section']) ? $_GET['section'] : 'calendar';
 
 // Flash messages
 $flash = isset($_SESSION['flash']) ? $_SESSION['flash'] : null;
@@ -83,30 +88,25 @@ $studentAppointmentsError = '';
 $studentHistory = [];
 $studentHistoryError = '';
 
+// Student calendar events
+$studentCalendarEvents = [];
+$studentCalendarError = '';
+
 /*
 ------------------------------------------------------------
 FETCH STUDENT ADVISOR
 ------------------------------------------------------------
 */
 try {
-    $advisorSql = "SELECT Advisor_ID
-                   FROM student_advisors
-                   WHERE Student_ID = :student_id
-                   LIMIT 1";
-
-    $advisorStmt = $pdo->prepare($advisorSql);
-    $advisorStmt->execute([
-        'student_id' => $studentId
-    ]);
-
-    $advisorRow = $advisorStmt->fetch(PDO::FETCH_ASSOC);
-
-    if ($advisorRow && isset($advisorRow['Advisor_ID'])) {
-        $advisorId = (int)$advisorRow['Advisor_ID'];
-        $advisorName = 'Advisor ID: ' . $advisorId;
+  if (is_array($myAdvisor) && isset($myAdvisor['User_ID'])) {
+    $advisorId = (int)$myAdvisor['User_ID'];
+    $advisorName = trim((string)($myAdvisor['First_name'] ?? '') . ' ' . (string)($myAdvisor['Last_Name'] ?? ''));
+    if ($advisorName === '') {
+      $advisorName = 'Assigned Advisor';
     }
+  }
 } catch (Throwable $e) {
-    $advisorId = null;
+  $advisorId = null;
 }
 
 /*
@@ -155,7 +155,7 @@ try {
 
     $stmt = $pdo->prepare($sql);
     $stmt->execute([
-        'student_id' => $studentId
+      'student_id' => $studentId
     ]);
 
     $studentRequests = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -171,14 +171,15 @@ If no rows are found, fallback to approved requests.
 ------------------------------------------------------------
 */
 try {
-    $sql = "SELECT Appointment_ID, Request_ID, Student_ID, Advisor_ID, OfficeHour_ID, Appointment_Date, Start_Time, End_Time, Status, Created_At
-            FROM appointments
+  $sql = "SELECT a.Appointment_ID, a.Request_ID, a.Student_ID, a.Advisor_ID, u.Last_Name AS Advisor_Last_Name, a.OfficeHour_ID, a.Appointment_Date, a.Start_Time, a.End_Time, a.Status, a.Created_At
+      FROM appointments a
+      LEFT JOIN users u ON a.Advisor_ID = u.User_ID
             WHERE Student_ID = :student_id
             ORDER BY Appointment_Date DESC, Start_Time DESC";
 
     $stmt = $pdo->prepare($sql);
     $stmt->execute([
-        'student_id' => $studentId
+      'student_id' => $studentId
     ]);
 
     $studentAppointments = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -189,20 +190,22 @@ try {
                             Request_ID,
                             Student_ID,
                             Advisor_ID,
+                            u.Last_Name AS Advisor_Last_Name,
                             OfficeHour_ID,
                             Appointment_Date,
                             NULL AS Start_Time,
                             NULL AS End_Time,
                             Status,
                             Created_At
-                        FROM appointment_requests
+                        FROM appointment_requests ar
+                        LEFT JOIN users u ON ar.Advisor_ID = u.User_ID
                         WHERE Student_ID = :student_id
                           AND LOWER(TRIM(Status)) = 'approved'
                         ORDER BY Appointment_Date DESC, Created_At DESC";
 
         $fallbackStmt = $pdo->prepare($fallbackSql);
         $fallbackStmt->execute([
-            'student_id' => $studentId
+          'student_id' => $studentId
         ]);
 
         $studentAppointments = $fallbackStmt->fetchAll(PDO::FETCH_ASSOC);
@@ -218,20 +221,85 @@ Use non-pending request records as history for now
 ------------------------------------------------------------
 */
 try {
-    $sql = "SELECT Request_ID, Student_ID, Advisor_ID, Appointment_Date, Student_Reason, Advisor_Reason, Status, Created_At
-            FROM appointment_requests
-            WHERE Student_ID = :student_id
+    $sql = "SELECT ar.Request_ID, ar.Student_ID, ar.Advisor_ID, u.Last_Name AS Advisor_Last_Name, ar.Appointment_Date, ar.Student_Reason, ar.Advisor_Reason, ar.Status, ar.Created_At
+            FROM appointment_requests ar
+            LEFT JOIN users u ON ar.Advisor_ID = u.User_ID
+            WHERE ar.Student_ID = :student_id
               AND LOWER(TRIM(Status)) <> 'pending'
             ORDER BY Created_At DESC";
 
     $stmt = $pdo->prepare($sql);
     $stmt->execute([
-        'student_id' => $studentId
+      'student_id' => $studentId
     ]);
 
     $studentHistory = $stmt->fetchAll(PDO::FETCH_ASSOC);
 } catch (Throwable $e) {
     $studentHistoryError = 'Could not load appointment history.';
+}
+
+/*
+------------------------------------------------------------
+FETCH STUDENT CALENDAR EVENTS
+------------------------------------------------------------
+*/
+try {
+  $calendarSql = "SELECT
+            ar.Request_ID,
+            ar.Appointment_Date,
+            ar.Student_Reason,
+            ar.Advisor_Reason,
+            ar.Status,
+            oh.Start_Time,
+            oh.End_Time,
+            u.First_name AS Advisor_First_Name,
+            u.Last_Name AS Advisor_Last_Name
+          FROM appointment_requests ar
+          LEFT JOIN office_hours oh ON ar.OfficeHour_ID = oh.OfficeHour_ID
+          LEFT JOIN users u ON ar.Advisor_ID = u.User_ID
+          WHERE ar.Student_ID = :student_id
+          ORDER BY ar.Appointment_Date ASC, oh.Start_Time ASC";
+
+  $calendarStmt = $pdo->prepare($calendarSql);
+  $calendarStmt->execute([
+    'student_id' => $studentId
+  ]);
+
+  $calendarRows = $calendarStmt->fetchAll(PDO::FETCH_ASSOC);
+
+  foreach ($calendarRows as $row) {
+    $status = (string)($row['Status'] ?? 'Pending');
+    $advisorFullName = trim(
+      (string)($row['Advisor_First_Name'] ?? '') . ' ' .
+      (string)($row['Advisor_Last_Name'] ?? '')
+    );
+
+    $title = $advisorFullName !== '' ? $advisorFullName : 'Appointment';
+
+    $eventColor = '#6c757d';
+    if ($status === 'Pending') $eventColor = '#f0ad4e';
+    if ($status === 'Approved') $eventColor = '#198754';
+    if ($status === 'Declined') $eventColor = '#dc3545';
+    if ($status === 'Cancelled') $eventColor = '#212529';
+
+    $studentCalendarEvents[] = [
+      'id' => (int)($row['Request_ID'] ?? 0),
+      'title' => $title . ' (' . $status . ')',
+      'start' => (string)($row['Appointment_Date'] ?? ''),
+      'backgroundColor' => $eventColor,
+      'borderColor' => $eventColor,
+      'extendedProps' => [
+        'advisor' => $advisorFullName,
+        'date' => (string)($row['Appointment_Date'] ?? ''),
+        'time' => (string)($row['Start_Time'] ?? '') . ' - ' . (string)($row['End_Time'] ?? ''),
+        'student_reason' => (string)($row['Student_Reason'] ?? ''),
+        'advisor_reason' => (string)($row['Advisor_Reason'] ?? ''),
+        'status' => $status
+      ]
+    ];
+  }
+} catch (Throwable $e) {
+  $studentCalendarError = 'Could not load calendar events.';
 }
 ?>
 <!DOCTYPE html>
@@ -243,6 +311,7 @@ try {
 
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.css" rel="stylesheet">
   <link rel="stylesheet" href="css/student_appointment_dashboard.css">
 
 </head>
@@ -278,6 +347,10 @@ try {
         <div class="user-avatar">S</div>
       </button>
       <div class="dropdown-menu dropdown-menu-end p-2" style="min-width: 220px;">
+        <button class="dropdown-item" type="button" data-bs-toggle="modal" data-bs-target="#manualInstructionsModal">
+          <i class="bi bi-journal-text me-2"></i>Manual
+        </button>
+        <div class="dropdown-divider"></div>
         <a class="dropdown-item" href="changepassword.php">
           <i class="bi bi-shield-lock me-2"></i>Change Password
         </a>
@@ -293,7 +366,38 @@ try {
   </div>
 </header>
 
+<div class="modal fade" id="manualInstructionsModal" tabindex="-1" aria-labelledby="manualInstructionsModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content border-0 shadow">
+      <div class="modal-header border-0 pb-0">
+        <h5 class="modal-title fw-semibold" id="manualInstructionsModalLabel">
+          <i class="bi bi-info-circle me-2 text-primary"></i>Student Dashboard Manual
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body pt-2">
+        <ol class="mb-0 ps-3">
+          <li>Use Book Appointment to schedule meetings with your advisor based on the available slots.</li>
+          <li>Use My Requests to view the status of your appointment requests.</li>
+          <li>Use My Appointments to see upcoming confirmed/denied appointments.</li>
+          <li>Use Appointment History to review past appointments and notes.</li>
+          <li>Use Communications to message your assigned advisor.</li>
+          <li>Use Change Password to update your login password.</li>
+          <li>If no advisor is assigned yet, contact the administration office.</li>
+        </ol>
+      </div>
+      <div class="modal-footer border-0 pt-0">
+        <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="tab-bar">
+  <button type="button" class="tab-btn <?= $activeSection === 'calendar' ? 'active' : '' ?>" data-section="calendar">
+    <i class="bi bi-calendar3"></i> Calendar
+  </button>
+
   <button type="button" class="tab-btn <?= $activeSection === 'book' ? 'active' : '' ?>" data-section="book">
     <i class="bi bi-calendar-plus"></i> Book Appointment
   </button>
@@ -509,7 +613,7 @@ try {
             <?php else: ?>
               <?php foreach ($studentAppointments as $appointment): ?>
                 <tr>
-                  <td><?= htmlspecialchars('Advisor ID: ' . (string)$appointment['Advisor_ID']) ?></td>
+                  <td><?= htmlspecialchars(trim((string)($appointment['Advisor_Last_Name'] ?? '')) !== '' ? (string)$appointment['Advisor_Last_Name'] : 'Advisor') ?></td>
                   <td><?= htmlspecialchars((string)$appointment['Appointment_Date']) ?></td>
                   <td><?= htmlspecialchars($appointment['Start_Time'] ? substr((string)$appointment['Start_Time'], 0, 5) : '-') ?></td>
                   <td><?= htmlspecialchars($appointment['End_Time'] ? substr((string)$appointment['End_Time'], 0, 5) : '-') ?></td>
@@ -570,8 +674,12 @@ try {
               </tr>
             <?php else: ?>
               <?php foreach ($studentHistory as $history): ?>
+                <?php
+                  $historyReason = trim((string)($history['Advisor_Reason'] ?? $history['Student_Reason'] ?? ''));
+                  $historyAdvisorLastName = trim((string)($history['Advisor_Last_Name'] ?? ''));
+                ?>
                 <tr>
-                  <td><?= htmlspecialchars('Advisor ID: ' . (string)$history['Advisor_ID']) ?></td>
+                  <td><?= htmlspecialchars($historyAdvisorLastName !== '' ? $historyAdvisorLastName : 'Advisor') ?></td>
                   <td>
                     <?php if ($history['Status'] === 'Approved'): ?>
                       <span class="badge bg-success">Approved</span>
@@ -584,7 +692,17 @@ try {
                     <?php endif; ?>
                   </td>
                   <td><?= htmlspecialchars((string)$history['Appointment_Date']) ?></td>
-                  <td><?= htmlspecialchars((string)($history['Advisor_Reason'] ?? $history['Student_Reason'] ?? '-')) ?></td>
+                  <td>
+                    <?php if ($historyReason !== ''): ?>
+                      <button type="button"
+                              class="btn btn-outline-primary btn-sm calendar-reason-btn history-details-btn"
+                              data-history-reason="<?= htmlspecialchars($historyReason) ?>">
+                        View details
+                      </button>
+                    <?php else: ?>
+                      <span class="text-muted">-</span>
+                    <?php endif; ?>
+                  </td>
                 </tr>
               <?php endforeach; ?>
             <?php endif; ?>
@@ -592,6 +710,27 @@ try {
         </table>
       </div>
 
+    </div>
+  </div>
+
+  <!-- Calendar tab -->
+  <div class="section-panel <?= $activeSection === 'calendar' ? 'active' : '' ?>" id="section-calendar">
+    <div class="section-card">
+
+      <div class="d-flex align-items-center justify-content-between mb-4">
+        <div>
+          <h5 class="mb-0 fw-semibold">Appointment Calendar</h5>
+          <p class="text-muted mb-0" style="font-size:.85rem;">Track all your requests and appointment decisions by date</p>
+        </div>
+      </div>
+
+      <?php if ($studentCalendarError !== ''): ?>
+        <div class="alert alert-danger">
+          <?= htmlspecialchars($studentCalendarError) ?>
+        </div>
+      <?php endif; ?>
+
+      <div id="studentCalendar"></div>
     </div>
   </div>
 
@@ -642,6 +781,8 @@ try {
   </div>
 
 </main>
+
+<?php require_once __DIR__ . '/footer/dashboard_footer.php'; ?>
 
 <!-- Book Appointment modal -->
 <div class="modal fade" id="bookAppointmentModal" tabindex="-1">
@@ -699,11 +840,153 @@ try {
   </div>
 </div>
 
+<!-- Student Calendar Details Modal -->
+<div class="modal fade" id="studentCalendarModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content rounded-4">
+      <div class="modal-header">
+        <h5 class="modal-title">Appointment Details</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <p><strong>Advisor:</strong> <span id="calendarModalAdvisor"></span></p>
+        <p><strong>Date:</strong> <span id="calendarModalDate"></span></p>
+        <p><strong>Time:</strong> <span id="calendarModalTime"></span></p>
+        <p><strong>Status:</strong> <span id="calendarModalStatus"></span></p>
+
+        <div class="calendar-reason-group">
+          <div class="d-flex align-items-center justify-content-between gap-3">
+            <strong>Your Reason:</strong>
+            <button type="button"
+                    class="btn btn-outline-primary btn-sm calendar-reason-btn"
+                    id="calendarModalStudentReasonBtn"
+                    data-bs-toggle="collapse"
+                    data-bs-target="#calendarModalStudentReasonWrap"
+                    aria-expanded="false"
+                    aria-controls="calendarModalStudentReasonWrap">
+              View Reason
+            </button>
+          </div>
+          <div class="collapse mt-2" id="calendarModalStudentReasonWrap">
+            <div class="calendar-reason-box" id="calendarModalStudentReason"></div>
+          </div>
+        </div>
+
+        <div class="calendar-reason-group mt-3">
+          <div class="d-flex align-items-center justify-content-between gap-3">
+            <strong>Advisor Reason:</strong>
+            <button type="button"
+                    class="btn btn-outline-primary btn-sm calendar-reason-btn"
+                    id="calendarModalAdvisorReasonBtn"
+                    data-bs-toggle="collapse"
+                    data-bs-target="#calendarModalAdvisorReasonWrap"
+                    aria-expanded="false"
+                    aria-controls="calendarModalAdvisorReasonWrap">
+              View Reason
+            </button>
+          </div>
+          <div class="collapse mt-2" id="calendarModalAdvisorReasonWrap">
+            <div class="calendar-reason-box" id="calendarModalAdvisorReason"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- History Details Modal -->
+<div class="modal fade" id="historyDetailsModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content rounded-4">
+      <div class="modal-header">
+        <h5 class="modal-title">Appointment Details</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="calendar-reason-box" id="historyDetailsText"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
 
 <script>
 const COMM_MAX_WORDS = 200;
 let commLoaded = false;
+let studentCalendarLoaded = false;
+let studentCalendarInstance = null;
+let historyDetailsModal = null;
+
+function openHistoryDetailsModal(reasonText) {
+  const content = document.getElementById('historyDetailsText');
+  if (!content || !historyDetailsModal) return;
+
+  const cleanReason = String(reasonText ?? '').trim();
+  content.textContent = cleanReason !== '' ? cleanReason : '-';
+  historyDetailsModal.show();
+}
+
+const studentCalendarEvents = <?= json_encode($studentCalendarEvents, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
+
+function setCalendarReason(buttonId, wrapId, contentId, value) {
+  const button = document.getElementById(buttonId);
+  const wrap = document.getElementById(wrapId);
+  const content = document.getElementById(contentId);
+
+  if (!button || !wrap || !content) return;
+
+  const text = String(value ?? '').trim();
+  const hasValue = text !== '' && text !== '-';
+
+  content.textContent = hasValue ? text : '';
+  button.style.display = hasValue ? 'inline-flex' : 'none';
+
+  if (!hasValue) {
+    const collapse = bootstrap.Collapse.getOrCreateInstance(wrap, { toggle: false });
+    collapse.hide();
+  }
+}
+
+function resetCalendarReasonState(wrapId) {
+  const wrap = document.getElementById(wrapId);
+  if (!wrap) return;
+
+  const collapse = bootstrap.Collapse.getOrCreateInstance(wrap, { toggle: false });
+  collapse.hide();
+}
+
+function renderStudentCalendar() {
+  if (studentCalendarLoaded) return;
+
+  const calendarEl = document.getElementById('studentCalendar');
+  const modalEl = document.getElementById('studentCalendarModal');
+  if (!calendarEl || !modalEl) return;
+
+  const detailsModal = new bootstrap.Modal(modalEl);
+
+  studentCalendarInstance = new FullCalendar.Calendar(calendarEl, {
+    initialView: 'dayGridMonth',
+    height: 'auto',
+    events: studentCalendarEvents,
+    eventClick: function (info) {
+      const props = info.event.extendedProps || {};
+      document.getElementById('calendarModalAdvisor').textContent = props.advisor || '-';
+      document.getElementById('calendarModalDate').textContent = props.date || '-';
+      document.getElementById('calendarModalTime').textContent = props.time || '-';
+      document.getElementById('calendarModalStatus').textContent = props.status || '-';
+      setCalendarReason('calendarModalStudentReasonBtn', 'calendarModalStudentReasonWrap', 'calendarModalStudentReason', props.student_reason);
+      setCalendarReason('calendarModalAdvisorReasonBtn', 'calendarModalAdvisorReasonWrap', 'calendarModalAdvisorReason', props.advisor_reason);
+      resetCalendarReasonState('calendarModalStudentReasonWrap');
+      resetCalendarReasonState('calendarModalAdvisorReasonWrap');
+      detailsModal.show();
+    }
+  });
+
+  studentCalendarInstance.render();
+  studentCalendarLoaded = true;
+}
 
 function commLoad() {
   if (!window.commStudentId) return;
@@ -826,6 +1109,17 @@ function commEsc(str) {
 }
 
 document.addEventListener("DOMContentLoaded", function () {
+  const historyModalEl = document.getElementById('historyDetailsModal');
+  if (historyModalEl) {
+    historyDetailsModal = new bootstrap.Modal(historyModalEl);
+  }
+
+  document.querySelectorAll('.history-details-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      openHistoryDetailsModal(btn.getAttribute('data-history-reason'));
+    });
+  });
+
   const params = new URLSearchParams(window.location.search);
   const section = params.get("section");
 
@@ -873,11 +1167,19 @@ document.addEventListener("DOMContentLoaded", function () {
       if (sectionName === 'communications' && !commLoaded) {
         commLoad();
       }
+
+      if (sectionName === 'calendar') {
+        renderStudentCalendar();
+      }
     });
   });
 
   if (document.getElementById('section-communications')?.classList.contains('active')) {
     commLoad();
+  }
+
+  if (document.getElementById('section-calendar')?.classList.contains('active')) {
+    renderStudentCalendar();
   }
 
   const studentRequestSearch = document.getElementById('studentRequestSearch');

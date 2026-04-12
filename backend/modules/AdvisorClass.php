@@ -51,14 +51,16 @@ class AdvisorClass
                         s.External_ID AS StuExternal_ID,
                         s.First_name,
                         s.Last_Name,
+                        st.year AS StuYear,
                         COALESCE(SUM(CASE WHEN m.Sender_ID != ? AND m.Is_Read = 0 THEN 1 ELSE 0 END), 0) AS unread_count
                     FROM student_advisors sa
                     JOIN users s ON s.External_ID = sa.Student_ID AND s.Role = 'Student'
+                    LEFT JOIN students st ON st.User_ID = s.User_ID
                     LEFT JOIN conversations c ON c.Student_ID = s.User_ID AND c.Advisor_ID = ?
                     LEFT JOIN messages m ON m.Conversation_ID = c.Conversation_ID
                     WHERE sa.Advisor_ID = ?
-                    GROUP BY s.User_ID, s.External_ID, s.First_name, s.Last_Name
-                    ORDER BY s.First_name ASC, s.Last_Name ASC";
+                    GROUP BY s.User_ID, s.External_ID, s.First_name, s.Last_Name, st.year
+                    ORDER BY st.year ASC, s.First_name ASC, s.Last_Name ASC";
 
             $stmt = $this->conn->prepare($sql);
             $stmt->execute([$advisorUserId, $advisorUserId, $advisorExternalId]);

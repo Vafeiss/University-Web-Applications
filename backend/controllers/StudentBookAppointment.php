@@ -53,10 +53,13 @@ try {
     FETCH STUDENT ADVISOR
     ------------------------------------------------------------
     */
-    $advisorSql = "SELECT Advisor_ID
-                   FROM student_advisors
-                   WHERE Student_ID = :student_id
-                   LIMIT 1";
+        $advisorSql = "SELECT advisor.User_ID AS Advisor_User_ID
+                                     FROM users student
+                                     INNER JOIN student_advisors sa ON sa.Student_ID = student.External_ID
+                                     INNER JOIN users advisor ON advisor.External_ID = sa.Advisor_ID AND advisor.Role = 'Advisor'
+                                     WHERE student.User_ID = :student_id
+                                         AND student.Role = 'Student'
+                                     LIMIT 1";
 
     $advisorStmt = $pdo->prepare($advisorSql);
     $advisorStmt->execute([
@@ -65,13 +68,13 @@ try {
 
     $advisorRow = $advisorStmt->fetch(PDO::FETCH_ASSOC);
 
-    if (!$advisorRow || !isset($advisorRow['Advisor_ID'])) {
+    if (!$advisorRow || !isset($advisorRow['Advisor_User_ID'])) {
         $_SESSION['flash'] = "No advisor is assigned to this student.";
         $_SESSION['flash_type'] = "error";
         redirectToStudentDashboard('book');
     }
 
-    $advisorId = (int)$advisorRow['Advisor_ID'];
+    $advisorId = (int)$advisorRow['Advisor_User_ID'];
 
     /*
     ------------------------------------------------------------

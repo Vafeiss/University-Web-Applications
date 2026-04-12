@@ -267,11 +267,15 @@ $YearOptions = [
       <i class="bi bi-clipboard-data me-1"></i>Appointment Reports
     </a>
 
-    <div class="dropdown">
+  <div class="dropdown">
       <button class="btn p-0 border-0 bg-transparent dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
         <div class="user-avatar">A</div>
       </button>
       <div class="dropdown-menu dropdown-menu-end p-2" style="min-width: 190px;">
+        <button class="dropdown-item" type="button" data-bs-toggle="modal" data-bs-target="#manualInstructionsModal">
+          <i class="bi bi-journal-text me-2"></i>Manual
+        </button>
+        <hr class="dropdown-divider my-2">
         <form action="../backend/modules/dispatcher.php" method="POST" class="mb-0">
           <input type="hidden" name="action" value="/logout">
           <button class="dropdown-item text-danger" type="submit">
@@ -281,8 +285,38 @@ $YearOptions = [
       </div>
     </div>
   </div>
-
+  
 </header>
+
+<!-- manual instructions modal -->
+<div class="modal fade" id="manualInstructionsModal" tabindex="-1" aria-labelledby="manualInstructionsModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content border-0 shadow">
+      <div class="modal-header border-0 pb-0">
+        <h5 class="modal-title fw-semibold" id="manualInstructionsModalLabel">
+          <i class="bi bi-info-circle me-2 text-primary"></i>Admin Dashboard Manual
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body pt-2">
+        <p class="mb-2">Quick instructions:</p>
+        <ol class="mb-0 ps-3">
+          <li>Use the top tabs to navigate Advisors, Students, Assignments, Statistics, and Degrees.</li>
+          <li>Use Add buttons to create new students and advisors each time it creates an account automatically.</li>
+          <li>Use the delete buttons to remove students and advisors (be careful as this action is irreversible).</li>
+          <li>Use filter buttons in Students and Assignments to narrow results.</li>
+          <li>Use Random Assignment to auto-distribute students to advisors Randomly(Those that are already assigned do not get reassigned).</li>
+          <li>Tab the Appointment Results to view more statistic analyses and export to CSV , PDF </li>
+          <li>Create new departments and degree using the Degress tab(To delete a degree/department you must have 0 associated records)</li>
+          <li>For any issues or questions, contact the system administrator.</li>
+        </ol>
+      </div>
+      <div class="modal-footer border-0 pt-0">
+        <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
 
 
 <!-- tab bar -->
@@ -455,8 +489,8 @@ $YearOptions = [
 
           <div class="col-sm-4 col-md-3 collapse <?= $selectedStudentsDegree > 0 ? 'show' : '' ?>" id="studentDegreeFilterWrap">
             <label for="studentDegreeFilter" class="form-label mb-1">Filter By Degree</label>
-            <select class="form-select" id="studentDegreeFilter" name="Student_Degree">
-              <option value="" <?= $selectedStudentsDegree === 0 ? 'selected' : '' ?>>All Degrees</option>
+            <select class="form-select" id="studentDegreeFilter" name="Student_Degree" autocomplete="off">
+              <option value="0" <?= $selectedStudentsDegree === 0 ? 'selected' : '' ?>>All Degrees</option>
               <?php foreach ($DegreeOptions as $degreeValue => $degreeLabel): ?>
               <option value="<?= htmlspecialchars($degreeValue) ?>" <?= (string)$selectedStudentsDegree === (string)$degreeValue ? 'selected' : '' ?>>
                 <?= htmlspecialchars($degreeLabel) ?>
@@ -648,8 +682,8 @@ $YearOptions = [
 
           <div class="col-sm-4 col-md-3 collapse <?= $selectedAssignDegree > 0 ? 'show' : '' ?>" id="assignDegreeFilterWrap">
             <label for="assignDegreeFilter" class="form-label mb-1">Filter By Degree</label>
-            <select class="form-select" id="assignDegreeFilter" name="assign_student_degree">
-              <option value="" <?= $selectedAssignDegree === 0 ? 'selected' : '' ?>>All Degrees</option>
+            <select class="form-select" id="assignDegreeFilter" name="assign_student_degree" autocomplete="off">
+              <option value="0" <?= $selectedAssignDegree === 0 ? 'selected' : '' ?>>All Degrees</option>
               <?php foreach ($AssignDegreeOptions as $degreeValue => $degreeLabel): ?>
               <option value="<?= htmlspecialchars($degreeValue) ?>" <?= (string)$selectedAssignDegree === (string)$degreeValue ? 'selected' : '' ?>>
                 <?= htmlspecialchars($degreeLabel) ?>
@@ -1465,6 +1499,9 @@ $YearOptions = [
     </div>
   </div>
 </div>
+
+
+<?php require_once __DIR__ . '/footer/dashboard_footer.php'; ?>
 
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>

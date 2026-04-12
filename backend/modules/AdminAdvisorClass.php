@@ -40,21 +40,16 @@ class AdminAdvisorClass
         return $digitsLength >= 8 && $digitsLength <= 15;
     }
 
-    //private function to resolve the department ID to a degree ID for the advisor
-    private function resolveDepartmentToDegreeId(int $departmentId): ?int
+    //private function to verify that the requested department exists
+    private function departmentExists(int $departmentId): bool
     {
-        if ($departmentId <= 0) {
-            return null;
+        if ($departmentId < 0) {
+            return false;
         }
 
-        $stmt = $this->conn->prepare('SELECT DegreeID FROM degree WHERE DepartmentID = ? ORDER BY DegreeID ASC LIMIT 1');
+        $stmt = $this->conn->prepare('SELECT DepartmentID FROM departments WHERE DepartmentID = ? LIMIT 1');
         $stmt->execute([$departmentId]);
-        $degreeId = $stmt->fetchColumn();
-        if ($degreeId === false) {
-            return null;
-        }
-
-        return (int)$degreeId;
+        return $stmt->fetchColumn() !== false;
     }
 
     //generate a random temporary password for the advisor account
@@ -75,18 +70,17 @@ class AdminAdvisorClass
     //get advisors info for the admin dashboard 
     public function getAdvisors()
     {
-        return $this->conn->query("SELECT users.User_ID, users.External_ID AS Advisor_ID, users.First_name, users.Last_Name, users.Uni_Email AS Email, users.Department_ID, departments.DepartmentID AS DepartmentID, departments.DepartmentName AS Department, users.Phone FROM users JOIN degree ON users.Department_ID = degree.DegreeID JOIN departments ON degree.DepartmentID = departments.DepartmentID WHERE users.Role = 'Advisor'");
+        return $this->conn->query("SELECT users.User_ID, users.External_ID AS Advisor_ID, users.First_name, users.Last_Name, users.Uni_Email AS Email, departments.DepartmentID AS DepartmentID, departments.DepartmentName AS Department, users.Phone FROM users LEFT JOIN advisordepartment ON users.User_ID = advisordepartment.User_ID LEFT JOIN departments ON advisordepartment.DepartmentID = departments.DepartmentID WHERE users.Role = 'Advisor'");
     }
 
     //add an advisor to the database with the information provided by the admin
     public function addAdvisor(?string $externalId, string $first, string $last, string $email, string $phone, int $department): bool
     {
-        if ($first === '' || $last === '' || $email === '' || $department <= 0) {
+        if ($first === '' || $last === '' || $email === '' || $department < 0 || $externalId === null || trim($externalId) === '' || (int)$externalId <= 0) {
             return false;
         }
 
-        $degreeId = $this->resolveDepartmentToDegreeId($department);
-        if ($degreeId === null) {
+        if (!$this->departmentExists($department)) {
             return false;
         }
 
@@ -111,9 +105,28 @@ class AdminAdvisorClass
         $hashedTempPassword = password_hash($tempPassword, PASSWORD_DEFAULT);
 
         $externalIdInt = (int)$externalId;
-        $stmt = $this->conn->prepare('INSERT INTO users (External_ID, Uni_Email, Password, Role, First_name, Last_Name, Phone, Department_ID) VALUES (?, ?, ?, "Advisor", ?, ?, ?, ?)');
+        $this->conn->beginTransaction();
 
-        return $stmt->execute([$externalIdInt, $email, $hashedTempPassword, $first, $last, $phone, $degreeId]);
+        try {
+            $stmt = $this->conn->prepare('INSERT INTO users (External_ID, Uni_Email, Password, Role, First_name, Last_Name, Phone) VALUES (?, ?, ?, "Advisor", ?, ?, ?)');
+            if (!$stmt->execute([$externalIdInt, $email, $hashedTempPassword, $first, $last, $phone])) {
+                throw new RuntimeException('Failed to insert advisor user record.');
+            }
+
+            $userId = (int)$this->conn->lastInsertId();
+            $mapStmt = $this->conn->prepare('INSERT INTO advisordepartment (User_ID, DepartmentID) VALUES (?, ?)');
+            if (!$mapStmt->execute([$userId, $department])) {
+                throw new RuntimeException('Failed to insert advisor department mapping.');
+            }
+
+            $this->conn->commit();
+            return true;
+        } catch (Throwable $exception) {
+            if ($this->conn->inTransaction()) {
+                $this->conn->rollBack();
+            }
+            return false;
+        }
     }
 
     //delete an advisor from the database
@@ -134,8 +147,7 @@ class AdminAdvisorClass
             return false;
         }
 
-        $degreeId = $this->resolveDepartmentToDegreeId($department);
-        if ($degreeId === null) {
+        if (!$this->departmentExists($department)) {
             return false;
         }
 
@@ -167,8 +179,26 @@ class AdminAdvisorClass
             return false;
         }
 
-        $stmt = $this->conn->prepare('UPDATE users SET Uni_Email = ?, First_name = ?, Last_Name = ?, Phone = ?, Department_ID = ? WHERE User_ID = ? AND Role = "Advisor"');
+        $this->conn->beginTransaction();
 
-        return $stmt->execute([$email, $first, $last, $phone, $degreeId, $userId]);
+        try {
+            $stmt = $this->conn->prepare('UPDATE users SET Uni_Email = ?, First_name = ?, Last_Name = ?, Phone = ? WHERE User_ID = ? AND Role = "Advisor"');
+            if (!$stmt->execute([$email, $first, $last, $phone, $userId])) {
+                throw new RuntimeException('Failed to update advisor user record.');
+            }
+
+            $deptStmt = $this->conn->prepare('INSERT INTO advisordepartment (User_ID, DepartmentID) VALUES (?, ?) ON DUPLICATE KEY UPDATE DepartmentID = VALUES(DepartmentID)');
+            if (!$deptStmt->execute([$userId, $department])) {
+                throw new RuntimeException('Failed to update advisor department.');
+            }
+
+            $this->conn->commit();
+            return true;
+        } catch (Throwable $exception) {
+            if ($this->conn->inTransaction()) {
+                $this->conn->rollBack();
+            }
+            return false;
+        }
     }
 }

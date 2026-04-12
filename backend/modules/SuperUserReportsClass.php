@@ -87,7 +87,8 @@ class SuperUserReportsClass
                 SELECT COUNT(*) AS total_students
                 FROM users u
                 INNER JOIN students s ON u.User_ID = s.User_ID
-                INNER JOIN degree deg ON u.Department_ID = deg.DegreeID
+                INNER JOIN studentdegree sd ON u.User_ID = sd.User_ID
+                INNER JOIN degree deg ON sd.DegreeID = deg.DegreeID
                 INNER JOIN departments d ON deg.DepartmentID = d.DepartmentID
                 WHERE $studentWhereSql
             ";
@@ -107,7 +108,8 @@ class SuperUserReportsClass
                 SELECT COUNT(DISTINCT u.External_ID) AS assigned_students
                 FROM users u
                 INNER JOIN students s ON u.User_ID = s.User_ID
-                INNER JOIN degree deg ON u.Department_ID = deg.DegreeID
+                INNER JOIN studentdegree sd ON u.User_ID = sd.User_ID
+                INNER JOIN degree deg ON sd.DegreeID = deg.DegreeID
                 INNER JOIN departments d ON deg.DepartmentID = d.DepartmentID
                 INNER JOIN student_advisors sa ON sa.Student_ID = u.External_ID
                 WHERE $studentWhereSql
@@ -162,7 +164,8 @@ class SuperUserReportsClass
                     sa.Advisor_ID
                 FROM users u
                 INNER JOIN students s ON u.User_ID = s.User_ID
-                INNER JOIN degree deg ON u.Department_ID = deg.DegreeID
+                INNER JOIN studentdegree sd ON u.User_ID = sd.User_ID
+                INNER JOIN degree deg ON sd.DegreeID = deg.DegreeID
                 INNER JOIN departments d ON deg.DepartmentID = d.DepartmentID
                 LEFT JOIN student_advisors sa ON sa.Student_ID = u.External_ID
                 WHERE $whereSql
@@ -217,7 +220,8 @@ class SuperUserReportsClass
                 LEFT JOIN student_advisors sa ON sa.Advisor_ID = a.External_ID
                 LEFT JOIN users st ON st.External_ID = sa.Student_ID AND st.Role = 'Student'
                 LEFT JOIN students s ON st.User_ID = s.User_ID
-                LEFT JOIN degree deg ON st.Department_ID = deg.DegreeID
+                LEFT JOIN studentdegree sd ON st.User_ID = sd.User_ID
+                LEFT JOIN degree deg ON sd.DegreeID = deg.DegreeID
                 LEFT JOIN departments d ON deg.DepartmentID = d.DepartmentID
                 WHERE a.Role = 'Advisor'
                 $filterSql

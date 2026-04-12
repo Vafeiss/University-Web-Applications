@@ -37,7 +37,7 @@ class StudentClass{
     public function getStudentInfo(int $studentUserId): array
     {
         try {
-            $stmt = $this->conn->prepare('SELECT User_ID, External_ID AS Student_ID, First_name, Last_Name, Email FROM users WHERE User_ID = ? AND Role = "Student" LIMIT 1');
+            $stmt = $this->conn->prepare('SELECT User_ID, External_ID AS Student_ID, First_name, Last_Name, Uni_Email AS Email FROM users WHERE User_ID = ? AND Role = "Student" LIMIT 1');
             $stmt->execute([$studentUserId]);
             $student = $stmt->fetch(PDO::FETCH_ASSOC);
 

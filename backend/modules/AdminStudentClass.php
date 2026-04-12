@@ -78,9 +78,10 @@ class AdminStudentClass
             }
         }
 
-        $query = 'SELECT users.User_ID AS Student_ID, users.External_ID AS StuExternal_ID, users.First_name, users.Last_Name, users.Uni_Email AS Email, users.Department_ID AS Degree_ID, students.Year, degree.DegreeName AS Degree, sa.Advisor_ID, departments.DepartmentName AS Department
+        $query = 'SELECT users.User_ID AS Student_ID, users.External_ID AS StuExternal_ID, users.First_name, users.Last_Name, users.Uni_Email AS Email, sd.DegreeID AS Degree_ID, students.Year, degree.DegreeName AS Degree, sa.Advisor_ID, departments.DepartmentName AS Department
             FROM users
-            JOIN degree ON users.Department_ID = degree.DegreeID
+            JOIN studentdegree sd ON users.User_ID = sd.User_ID
+            JOIN degree ON sd.DegreeID = degree.DegreeID
             JOIN departments ON degree.DepartmentID = departments.DepartmentID
             JOIN students ON users.User_ID = students.User_ID
             LEFT JOIN student_advisors sa ON sa.Student_ID = users.External_ID
@@ -120,9 +121,10 @@ class AdminStudentClass
         }
 
         $stmt = $this->conn->prepare(
-            'SELECT users.User_ID AS Student_ID, users.External_ID AS StuExternal_ID, users.First_name, users.Last_Name, users.Uni_Email AS Email, users.Department_ID AS Degree_ID, students.Year, degree.DegreeName AS Degree, sa.Advisor_ID
+            'SELECT users.User_ID AS Student_ID, users.External_ID AS StuExternal_ID, users.First_name, users.Last_Name, users.Uni_Email AS Email, sd.DegreeID AS Degree_ID, students.Year, degree.DegreeName AS Degree, sa.Advisor_ID
             FROM users
-            JOIN degree ON users.Department_ID = degree.DegreeID
+            JOIN studentdegree sd ON users.User_ID = sd.User_ID
+            JOIN degree ON sd.DegreeID = degree.DegreeID
             JOIN departments ON degree.DepartmentID = departments.DepartmentID
             JOIN students ON users.User_ID = students.User_ID
             LEFT JOIN student_advisors sa ON sa.Student_ID = users.External_ID
@@ -139,9 +141,10 @@ class AdminStudentClass
     public function getStudentsByDegree(int $degree)
     {
         $stmt = $this->conn->prepare(
-            'SELECT users.User_ID AS Student_ID, users.External_ID AS StuExternal_ID, users.First_name, users.Last_Name, users.Uni_Email AS Email, users.Department_ID AS Degree_ID, students.Year, degree.DegreeName AS Degree, sa.Advisor_ID
+            'SELECT users.User_ID AS Student_ID, users.External_ID AS StuExternal_ID, users.First_name, users.Last_Name, users.Uni_Email AS Email, sd.DegreeID AS Degree_ID, students.Year, degree.DegreeName AS Degree, sa.Advisor_ID
             FROM users
-            JOIN degree ON users.Department_ID = degree.DegreeID
+            JOIN studentdegree sd ON users.User_ID = sd.User_ID
+            JOIN degree ON sd.DegreeID = degree.DegreeID
             JOIN departments ON degree.DepartmentID = departments.DepartmentID
             JOIN students ON users.User_ID = students.User_ID
             LEFT JOIN student_advisors sa ON sa.Student_ID = users.External_ID
@@ -157,7 +160,7 @@ class AdminStudentClass
     //get students information for the admin dashboard
     public function getStudents()
     {
-        return $this->conn->query("SELECT users.User_ID AS Student_ID, users.External_ID AS StuExternal_ID, users.First_name, users.Last_Name, users.Uni_Email AS Email, users.Department_ID AS Department_ID, students.Year, degree.DegreeName AS Degree, sa.Advisor_ID , departments.DepartmentName as Department FROM users JOIN degree ON users.Department_ID = degree.DegreeID JOIN departments ON degree.DepartmentID = departments.DepartmentID LEFT JOIN student_advisors sa ON sa.Student_ID = users.External_ID LEFT JOIN students ON users.User_ID = students.User_ID WHERE users.Role = 'Student' ORDER BY students.Year ASC");
+        return $this->conn->query("SELECT users.User_ID AS Student_ID, users.External_ID AS StuExternal_ID, users.First_name, users.Last_Name, users.Uni_Email AS Email, sd.DegreeID AS Degree_ID, students.Year, degree.DegreeName AS Degree, sa.Advisor_ID, departments.DepartmentName AS Department, departments.DepartmentID AS Department_ID FROM users JOIN studentdegree sd ON users.User_ID = sd.User_ID JOIN degree ON sd.DegreeID = degree.DegreeID JOIN departments ON degree.DepartmentID = departments.DepartmentID LEFT JOIN student_advisors sa ON sa.Student_ID = users.External_ID LEFT JOIN students ON users.User_ID = students.User_ID WHERE users.Role = 'Student' ORDER BY students.Year ASC");
     }
 
     //add students to the database with the information provided by the admin
@@ -206,12 +209,18 @@ class AdminStudentClass
         $this->conn->beginTransaction();
 
         try {
-            $stmt = $this->conn->prepare('INSERT INTO users (Uni_Email, Password, Role, External_ID, First_name, Last_Name, Department_ID) VALUES (?, ?, "Student", ?, ?, ?, ?)');
-            if (!$stmt->execute([$email, $hashedTempPassword, $externalIdInt, $first, $last, $degree])) {
+            $stmt = $this->conn->prepare('INSERT INTO users (Uni_Email, Password, Role, External_ID, First_name, Last_Name) VALUES (?, ?, "Student", ?, ?, ?)');
+            if (!$stmt->execute([$email, $hashedTempPassword, $externalIdInt, $first, $last])) {
                 throw new RuntimeException('Failed to insert student record.');
             }
 
             $userId = (int)$this->conn->lastInsertId();
+
+            $degreeStmt = $this->conn->prepare('INSERT INTO studentdegree (User_ID, DegreeID) VALUES (?, ?)');
+            if (!$degreeStmt->execute([$userId, $degree])) {
+                throw new RuntimeException('Failed to insert student degree mapping.');
+            }
+
             $stmt2 = $this->conn->prepare('INSERT INTO students (User_ID, Year) VALUES (?, ?)');
             if (!$stmt2->execute([$userId, (int)$normalizedYear])) {
                 throw new RuntimeException('Failed to insert student info record.');
@@ -297,14 +306,11 @@ class AdminStudentClass
             $last = trim((string)$last);
             $email = trim((string)$email);
             $degree = (int)trim((string)$degree);
-            if ($degree <= 0) {
-                $degree = 1;
-            }
             $year = trim((string)$year);
             $advisoridRaw = trim((string)$advisorid);
             $advisorid = ($advisoridRaw === '' ? null : (int)$advisoridRaw);
 
-            if ($first === '' || $last === '' || $email === '' || $external_id === '' || (int)$external_id <= 0) {
+            if ($first === '' || $last === '' || $email === '' || $external_id === '' || (int)$external_id <= 0 || $degree <= 0) {
                 $skipped++;
                 continue;
             }
@@ -390,9 +396,14 @@ class AdminStudentClass
         $this->conn->beginTransaction();
 
         try {
-            $stmt = $this->conn->prepare('UPDATE users SET Uni_Email = ?, First_name = ?, Last_Name = ?, Department_ID = ? WHERE User_ID = ? AND Role = "Student"');
-            if (!$stmt->execute([$email, $first, $last, $degree, $userId])) {
+            $stmt = $this->conn->prepare('UPDATE users SET Uni_Email = ?, First_name = ?, Last_Name = ? WHERE User_ID = ? AND Role = "Student"');
+            if (!$stmt->execute([$email, $first, $last, $userId])) {
                 throw new RuntimeException('Failed to update student user record.');
+            }
+
+            $degreeStmt = $this->conn->prepare('INSERT INTO studentdegree (User_ID, DegreeID) VALUES (?, ?) ON DUPLICATE KEY UPDATE DegreeID = VALUES(DegreeID)');
+            if (!$degreeStmt->execute([$userId, $degree])) {
+                throw new RuntimeException('Failed to update student degree mapping.');
             }
 
             $yearStmt = $this->conn->prepare('UPDATE students SET Year = ? WHERE User_ID = ?');

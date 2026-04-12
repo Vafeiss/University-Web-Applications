@@ -129,7 +129,7 @@ class Admin extends Users
     //edit degree information in the database according with the information provided by the admin
     public function editDegree(int $degreeId, string $degreeName, int $departmentId): bool
     {
-        if ($degreeName === '' || $degreeId < 0 || $departmentId < 0) {
+        if ($degreeName === '' || $degreeId <= 0 || $departmentId <= 0) {
             return false;
         }
 
@@ -172,19 +172,33 @@ class Admin extends Users
     //add a degree to the database with the information provided by the admin
     public function addDegree(string $degreeName, int $departmentId): bool
     {
-        if ($degreeName === '' || $departmentId < 0) {
+        if ($degreeName === '' || $departmentId <= 0) {
             return false;
         }
 
         try {
+            $this->conn->beginTransaction();
+            //go into the degree table get the max id and the store the next degree as max + 1
             $DegreeName = ucfirst(strtolower($degreeName));
-            $stmt = $this->conn->prepare('INSERT INTO degree (DepartmentID, DegreeName) VALUES (?, ?)');
-            $stmt->execute([$departmentId, $DegreeName]);
+            $nextIdStmt = $this->conn->query('SELECT COALESCE(MAX(DegreeID), 0) + 1 AS NextDegreeID FROM degree');
+            $nextId = (int)($nextIdStmt->fetch(PDO::FETCH_ASSOC)['NextDegreeID'] ?? 0);
+            if ($nextId <= 0) {
+                throw new RuntimeException('Failed to generate DegreeID.');
+            }
+
+            $stmt = $this->conn->prepare('INSERT INTO degree (DegreeID, DepartmentID, DegreeName) VALUES (?, ?, ?)');
+            $stmt->execute([$nextId, $departmentId, $DegreeName]);
             if ($stmt->rowCount() === 0) {
+                $this->conn->rollBack();
                 return false;
             }
+
+            $this->conn->commit();
             return true;
         } catch (Exception $e) {
+            if ($this->conn->inTransaction()) {
+                $this->conn->rollBack();
+            }
             return false;
         }
     }
@@ -192,7 +206,7 @@ class Admin extends Users
     //delete a degree from the database
     public function deleteDegree(int $degreeId): bool
     {
-        if ($degreeId < 0) {
+        if ($degreeId <= 0) {
             return false;
         }
 

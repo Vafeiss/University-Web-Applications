@@ -108,6 +108,59 @@ body {
   font-size: .92rem;
 }
 
+#advisorCalendar {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 14px;
+}
+
+.fc .fc-toolbar-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #111827;
+}
+
+.fc .fc-button {
+  border-radius: 8px;
+  border-color: #4f46e5;
+  background-color: #4f46e5;
+  font-size: .82rem;
+  font-weight: 600;
+}
+
+.fc .fc-button:hover,
+.fc .fc-button:focus {
+  background-color: #4338ca;
+  border-color: #4338ca;
+}
+
+.fc .fc-daygrid-event {
+  border-radius: 6px;
+  padding: 2px 6px;
+  font-size: .8rem;
+}
+
+.calendar-reason-group {
+  margin-top: .25rem;
+}
+
+.calendar-reason-btn {
+  white-space: nowrap;
+}
+
+.calendar-reason-box {
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 14px;
+  padding: 1rem 1.05rem;
+  color: #1e3a8a;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+  box-shadow: 0 8px 18px rgba(79, 70, 229, .08);
+}
+
 .comm-layout {
   display: grid;
   grid-template-columns: 300px 1fr;

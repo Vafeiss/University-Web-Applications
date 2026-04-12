@@ -92,6 +92,9 @@ $advisorCounts = $reports->getAdvisorStudentCounts(
   </div>
 
   <div class="d-flex align-items-center gap-3">
+    <a href="admin_appointment_reports.php" class="btn btn-outline-success btn-sm">
+      <i class="bi bi-clipboard-data me-1"></i> Appointment Reports
+    </a>
     <a href="superuser_reports_pdf.php" class="btn btn-outline-primary btn-sm">
       <i class="bi bi-file-earmark-pdf me-1"></i> Superuser Reports PDF
     </a>
@@ -100,6 +103,10 @@ $advisorCounts = $reports->getAdvisorStudentCounts(
         <div class="user-avatar">S</div>
       </button>
       <div class="dropdown-menu dropdown-menu-end p-2" style="min-width: 190px;">
+        <button class="dropdown-item" type="button" data-bs-toggle="modal" data-bs-target="#manualInstructionsModal">
+          <i class="bi bi-journal-text me-2"></i>Manual
+        </button>
+        <div class="dropdown-divider"></div>
         <form action="../backend/modules/dispatcher.php" method="POST" class="mb-0">
           <input type="hidden" name="action" value="/logout">
           <button class="dropdown-item text-danger" type="submit">
@@ -110,6 +117,29 @@ $advisorCounts = $reports->getAdvisorStudentCounts(
     </div>
   </div>
 </header>
+
+<div class="modal fade" id="manualInstructionsModal" tabindex="-1" aria-labelledby="manualInstructionsModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content border-0 shadow">
+      <div class="modal-header border-0 pb-0">
+        <h5 class="modal-title fw-semibold" id="manualInstructionsModalLabel">
+          <i class="bi bi-info-circle me-2 text-primary"></i>Super User Reports Manual
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body pt-2">
+        <ol class="mb-0 ps-3">
+          <li>Use Statistics to filter the overview by department, degree, and year.</li>
+          <li>Use Students to review the filtered student list.</li>
+          <li>Use the PDF report to export the current view.</li>
+        </ol>
+      </div>
+      <div class="modal-footer border-0 pt-0">
+        <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
 
 <div class="tab-bar">
   <button type="button" class="tab-btn <?= $activeSection === 'statistics' ? 'active' : '' ?>" data-section="statistics">
@@ -401,6 +431,8 @@ $advisorCounts = $reports->getAdvisorStudentCounts(
   </div>
 
 </main>
+
+<?php require_once __DIR__ . '/footer/dashboard_footer.php'; ?>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script>

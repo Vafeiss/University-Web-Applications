@@ -8,7 +8,22 @@
 
 declare(strict_types=1);
 
+require_once 'init.php';
+require_once '../backend/modules/UsersClass.php';
 require_once '../backend/modules/AdminAppointmentReportsClass.php';
+
+$user = new Users();
+$user->Check_Session();
+
+$role = strtolower(trim((string)($_SESSION['role'] ?? '')));
+if ($role !== 'admin' && $role !== 'superuser') {
+    header('Location: index.php?error=forbidden');
+    exit;
+}
+
+$backHref = $role === 'superuser'
+    ? 'superuser_reports.php'
+    : 'admin_dashboard.php?tab=statistics';
 
 $appointmentReports = new AdminAppointmentReportsClass();
 $appointmentSummary = $appointmentReports->getAppointmentSummary();
@@ -36,17 +51,43 @@ $advisorAppointmentCounts = $appointmentReports->getAdvisorAppointmentCounts();
     </div>
 
     <div class="d-flex align-items-center gap-3">
+        <button type="button" class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#manualInstructionsModal">
+            <i class="bi bi-journal-text me-1"></i>Manual
+        </button>
         <a href="admin_appointment_reports_export_csv.php" class="btn btn-outline-success btn-sm">
             <i class="bi bi-filetype-csv me-1"></i> Export CSV
         </a>
         <a href="admin_appointment_reports_pdf.php" class="btn btn-outline-primary btn-sm">
             <i class="bi bi-file-earmark-pdf me-1"></i> PDF
         </a>
-        <a href="admin_dashboard.php?tab=statistics" class="btn btn-outline-secondary btn-sm">
+        <a href="<?= htmlspecialchars($backHref) ?>" class="btn btn-outline-secondary btn-sm">
             <i class="bi bi-arrow-left me-1"></i> Back
         </a>
     </div>
 </header>
+
+<div class="modal fade" id="manualInstructionsModal" tabindex="-1" aria-labelledby="manualInstructionsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-semibold" id="manualInstructionsModalLabel">
+                    <i class="bi bi-info-circle me-2 text-primary"></i>Appointment Reports Manual
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body pt-2">
+                <ol class="mb-0 ps-3">
+                    <li>Use Export CSV to download the appointment report data.</li>
+                    <li>Use PDF to generate a printable report.</li>
+                    <li>Use Back to return to the main admin dashboard.</li>
+                </ol>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
 
 <main class="container py-4" style="max-width: 1150px;">
 
@@ -152,6 +193,8 @@ $advisorAppointmentCounts = $appointmentReports->getAdvisorAppointmentCounts();
     </div>
 
 </main>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 
 </body>
 </html>

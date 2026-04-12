@@ -15,14 +15,26 @@ declare(strict_types=1);
 session_start();
 
 require_once __DIR__ . '/../modules/databaseconnect.php';
+require_once __DIR__ . '/../modules/UsersClass.php';
+
+$user = new Users();
+$user->Check_Session('Advisor');
 
 $pdo = ConnectToDatabase();
 
 /*
-TEMP TEST MODE
-Use hardcoded advisor user id until login/session is fully connected.
+Resolve advisor user id from authenticated session.
 */
-$advisorId = 2;
+$advisorId = isset($_SESSION['UserID']) && is_numeric($_SESSION['UserID'])
+    ? (int)$_SESSION['UserID']
+    : 0;
+
+if ($advisorId <= 0) {
+    $_SESSION['flash'] = "Unauthorized advisor session.";
+    $_SESSION['flash_type'] = "error";
+    header("Location: ../../frontend/index.php?error=unauthorized");
+    exit;
+}
 
 /*
 Helper function for redirecting back to dashboard
