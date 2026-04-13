@@ -17,6 +17,7 @@ if (session_status() === PHP_SESSION_NONE) {
 }
 
 require_once __DIR__ . '/../modules/databaseconnect.php';
+require_once __DIR__ . '/../modules/NotificationsClass.php';
 
 $pdo = ConnectToDatabase();
 
@@ -101,8 +102,7 @@ function redirectToAdvisorRequestsDashboard(): void
 
 // Validate request id
 if ($requestId <= 0) {
-    $_SESSION['flash'] = "Invalid request ID.";
-    $_SESSION['flash_type'] = "error";
+    Notifications::error("Invalid request ID.");
     redirectToAdvisorRequestsDashboard();
 }
 
@@ -127,8 +127,7 @@ try {
     $request = $requestStmt->fetch(PDO::FETCH_ASSOC);
 
     if (!$request) {
-        $_SESSION['flash'] = "Appointment request not found.";
-        $_SESSION['flash_type'] = "error";
+        Notifications::error("Appointment request not found.");
         redirectToAdvisorRequestsDashboard();
     }
 
@@ -139,8 +138,7 @@ try {
     */
     if ($action === 'approve') {
         if ($request['Status'] !== 'Pending') {
-            $_SESSION['flash'] = "Only pending requests can be approved.";
-            $_SESSION['flash_type'] = "error";
+            Notifications::error("Only pending requests can be approved.");
             redirectToAdvisorRequestsDashboard();
         }
 
@@ -159,8 +157,7 @@ try {
         $slot = $slotStmt->fetch(PDO::FETCH_ASSOC);
 
         if (!$slot) {
-            $_SESSION['flash'] = "Office hour slot not found.";
-            $_SESSION['flash_type'] = "error";
+            Notifications::error("Office hour slot not found.");
             redirectToAdvisorRequestsDashboard();
         }
 
@@ -210,8 +207,7 @@ try {
 
         $pdo->commit();
 
-        $_SESSION['flash'] = "Appointment request approved successfully.";
-        $_SESSION['flash_type'] = "success";
+        Notifications::success("Appointment request approved successfully.");
         redirectToAdvisorRequestsDashboard();
     }
 
@@ -222,8 +218,7 @@ try {
     */
     if ($action === 'decline') {
         if ($request['Status'] !== 'Pending') {
-            $_SESSION['flash'] = "Only pending requests can be declined.";
-            $_SESSION['flash_type'] = "error";
+            Notifications::error("Only pending requests can be declined.");
             redirectToAdvisorRequestsDashboard();
         }
 
@@ -254,14 +249,11 @@ try {
         ]);
 
         $pdo->commit();
-
-        $_SESSION['flash'] = "Appointment request declined successfully.";
-        $_SESSION['flash_type'] = "success";
+        Notifications::success("Appointment request declined successfully.");
         redirectToAdvisorRequestsDashboard();
     }
 
-    $_SESSION['flash'] = "Invalid action.";
-    $_SESSION['flash_type'] = "error";
+    Notifications::error("Invalid action.");
     redirectToAdvisorRequestsDashboard();
 
 } catch (Throwable $e) {
@@ -269,7 +261,6 @@ try {
         $pdo->rollBack();
     }
 
-    $_SESSION['flash'] = "Database error while processing appointment request.";
-    $_SESSION['flash_type'] = "error";
+    Notifications::error("Database error while processing appointment request.");
     redirectToAdvisorRequestsDashboard();
 }

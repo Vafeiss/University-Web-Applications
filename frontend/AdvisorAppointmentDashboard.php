@@ -19,6 +19,7 @@ if (session_status() === PHP_SESSION_NONE) {
 require_once __DIR__ . '/../backend/modules/databaseconnect.php';
 require_once __DIR__ . '/../backend/modules/AdvisorClass.php';
 require_once __DIR__ . '/../backend/modules/UsersClass.php';
+require_once __DIR__ . '/../backend/modules/NotificationsClass.php';
 
 $user = new Users();
 $user->Check_Session('Advisor');
@@ -261,22 +262,9 @@ try {
 </head>
 <body>
 
-<?php if ($flash): ?>
-<div class="flash-toast alert alert-<?= $flashType === 'error' ? 'danger' : 'success' ?> mb-0" id="flashToast">
-  <span class="flash-content">
-    <i class="bi bi-<?= $flashType === 'error' ? 'x-circle' : 'check-circle' ?>-fill"></i>
-    <?= htmlspecialchars($flash) ?>
-  </span>
-</div>
-<script>
-  setTimeout(function () {
-    const toast = document.getElementById('flashToast');
-    if (toast) {
-      toast.remove();
-    }
-  }, 3500);
-</script>
-<?php endif; ?>
+<?php
+Notifications::createNotification();
+?>
 
 <header class="top-navbar">
   <img src="../documents/tepaklogo.png" alt="Logo" class="logo">

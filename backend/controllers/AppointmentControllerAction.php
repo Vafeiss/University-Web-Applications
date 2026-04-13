@@ -6,6 +6,7 @@ if (session_status() === PHP_SESSION_NONE) {
 }
 
 require_once __DIR__ . '/../modules/AppointmentApprovalClass.php';
+require_once __DIR__ . '/../modules/NotificationsClass.php';
 
 class AppointmentControllerAction
 {
@@ -27,20 +28,35 @@ class AppointmentControllerAction
         }
 
         try {
-            if ($appointmentAction === 'approve') {
-                $ok = $this->appointmentApproval->approveAppointment($requestId, $advisorId);
-                $this->redirectToAdvisorRequests($ok ? '?msg=approved' : '?error=failed');
+           if ($appointmentAction === 'approve') {
+             $ok = $this->appointmentApproval->approveAppointment($requestId, $advisorId);
+
+            if (!$ok) {
+             Notifications::error("Failed to approve appointment.");
+             $this->redirectToAdvisorRequests();
             }
 
+            Notifications::success("Appointment approved successfully.");
+            $this->redirectToAdvisorRequests();
+        }
+
             if ($appointmentAction === 'decline') {
-                $reason = trim((string)($_POST['decline_reason'] ?? 'Declined by advisor'));
-                $ok = $this->appointmentApproval->declineAppointment($requestId, $advisorId, $reason);
-                $this->redirectToAdvisorRequests($ok ? '?msg=declined' : '?error=failed');
+                 $reason = trim((string)($_POST['decline_reason'] ?? 'Declined by advisor'));
+                 $ok = $this->appointmentApproval->declineAppointment($requestId, $advisorId, $reason);
+
+            if (!$ok) {
+                Notifications::error("Failed to decline appointment.");
+                $this->redirectToAdvisorRequests();
             }
+
+            Notifications::success("Appointment declined successfully.");
+            $this->redirectToAdvisorRequests();
+        }
 
             $this->redirectToAdvisorRequests('?error=invalid');
         } catch (Throwable $e) {
-            $this->redirectToAdvisorRequests('?error=failed');
+            Notifications::error("Database error while processing request.");
+            $this->redirectToAdvisorRequests();
         }
     }
 

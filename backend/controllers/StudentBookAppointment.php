@@ -7,13 +7,14 @@
    Inputs: POST inputs for student id, office hour slot, appointment date and reason
    Outputs: Inserts a new record into appointment_requests and redirects back to the student dashboard
    Error Messages: If validation fails or database action fails, a flash error message is created
-    Files in use: StudentBookAppointment.php, StudentAppointmentDashboard.php, databaseconnect.php
+   Files in use: StudentBookAppointment.php, StudentAppointmentDashboard.php, databaseconnect.php
 */
 
 declare(strict_types=1);
 
 session_start();
 
+require_once __DIR__ . '/../modules/NotificationsClass.php';
 require_once __DIR__ . '/../modules/databaseconnect.php';
 
 $pdo = ConnectToDatabase();
@@ -29,8 +30,7 @@ function redirectToStudentDashboard(string $section = 'book'): void
 
 // Only allow POST
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    $_SESSION['flash'] = "Invalid request method.";
-    $_SESSION['flash_type'] = "error";
+    Notifications::error("Invalid request method.");
     redirectToStudentDashboard('book');
 }
 
@@ -42,8 +42,7 @@ $reason = isset($_POST['reason']) ? trim((string)$_POST['reason']) : '';
 
 // Validate basic input
 if ($studentId <= 0 || $slotId <= 0 || $appointmentDate === '' || $reason === '') {
-    $_SESSION['flash'] = "All booking fields are required.";
-    $_SESSION['flash_type'] = "error";
+    Notifications::error("All booking fields are required.");
     redirectToStudentDashboard('book');
 }
 
@@ -53,13 +52,13 @@ try {
     FETCH STUDENT ADVISOR
     ------------------------------------------------------------
     */
-        $advisorSql = "SELECT advisor.User_ID AS Advisor_User_ID
-                                     FROM users student
-                                     INNER JOIN student_advisors sa ON sa.Student_ID = student.External_ID
-                                     INNER JOIN users advisor ON advisor.External_ID = sa.Advisor_ID AND advisor.Role = 'Advisor'
-                                     WHERE student.User_ID = :student_id
-                                         AND student.Role = 'Student'
-                                     LIMIT 1";
+    $advisorSql = "SELECT advisor.User_ID AS Advisor_User_ID
+                   FROM users student
+                   INNER JOIN student_advisors sa ON sa.Student_ID = student.External_ID
+                   INNER JOIN users advisor ON advisor.External_ID = sa.Advisor_ID AND advisor.Role = 'Advisor'
+                   WHERE student.User_ID = :student_id
+                     AND student.Role = 'Student'
+                   LIMIT 1";
 
     $advisorStmt = $pdo->prepare($advisorSql);
     $advisorStmt->execute([
@@ -69,8 +68,7 @@ try {
     $advisorRow = $advisorStmt->fetch(PDO::FETCH_ASSOC);
 
     if (!$advisorRow || !isset($advisorRow['Advisor_User_ID'])) {
-        $_SESSION['flash'] = "No advisor is assigned to this student.";
-        $_SESSION['flash_type'] = "error";
+        Notifications::error("No advisor is assigned to this student.");
         redirectToStudentDashboard('book');
     }
 
@@ -96,8 +94,7 @@ try {
     $slotRow = $slotStmt->fetch(PDO::FETCH_ASSOC);
 
     if (!$slotRow) {
-        $_SESSION['flash'] = "Selected slot is invalid.";
-        $_SESSION['flash_type'] = "error";
+        Notifications::error("Selected slot is invalid.");
         redirectToStudentDashboard('book');
     }
 
@@ -122,8 +119,7 @@ try {
     ]);
 
     if ($duplicateStmt->fetch(PDO::FETCH_ASSOC)) {
-        $_SESSION['flash'] = "You already have a pending request for this slot and date.";
-        $_SESSION['flash_type'] = "error";
+        Notifications::error("You already have a pending request for this slot and date.");
         redirectToStudentDashboard('book');
     }
 
@@ -138,7 +134,7 @@ try {
                   (:student_id, :advisor_id, :office_hour_id, :appointment_date, :student_reason, NULL, 'Pending')";
 
     $insertStmt = $pdo->prepare($insertSql);
-    $insertStmt->execute([
+    $inserted = $insertStmt->execute([
         'student_id' => $studentId,
         'advisor_id' => $advisorId,
         'office_hour_id' => $slotId,
@@ -146,12 +142,15 @@ try {
         'student_reason' => $reason
     ]);
 
-    $_SESSION['flash'] = "Appointment request submitted successfully.";
-    $_SESSION['flash_type'] = "success";
+    if (!$inserted) {
+        Notifications::error("Failed to submit appointment request.");
+        redirectToStudentDashboard('book');
+    }
+
+    Notifications::success("Appointment request submitted successfully.");
     redirectToStudentDashboard('requests');
 
 } catch (Throwable $e) {
-    $_SESSION['flash'] = "Database error while submitting appointment request.";
-    $_SESSION['flash_type'] = "error";
+    Notifications::error("Database error while submitting appointment request.");
     redirectToStudentDashboard('book');
 }

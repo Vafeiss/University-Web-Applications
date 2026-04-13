@@ -298,3 +298,20 @@ body {
     overflow-x: auto;
   }
 }
+/* Make boxes look clickable */
+.info-box {
+  cursor: pointer !important;
+  transition: all 0.2s ease;
+}
+
+/* Hover effect */
+.info-box:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 15px rgba(0,0,0,0.1);
+}
+
+/* Fix button look */
+.info-box {
+  background: white;
+  border-radius: 10px;
+}

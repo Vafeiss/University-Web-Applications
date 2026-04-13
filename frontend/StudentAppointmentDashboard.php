@@ -23,6 +23,7 @@ if (session_status() === PHP_SESSION_NONE) {
 require_once __DIR__ . '/init.php';
 require_once __DIR__ . '/../backend/modules/UsersClass.php';
 require_once __DIR__ . '/../backend/modules/StudentClass.php';
+require_once __DIR__ . '/../backend/modules/NotificationsClass.php';
 
 $user = new Users();
 $user->Check_Session('Student');
@@ -316,23 +317,7 @@ try {
 
 </head>
 <body>
-
-<?php if ($flash): ?>
-<div class="flash-toast alert alert-<?= $flashType === 'error' ? 'danger' : 'success' ?> mb-0" id="flashToast">
-  <span class="flash-content">
-    <i class="bi bi-<?= $flashType === 'error' ? 'x-circle' : 'check-circle' ?>-fill"></i>
-    <?= htmlspecialchars($flash) ?>
-  </span>
-</div>
-<script>
-  setTimeout(function () {
-    const toast = document.getElementById('flashToast');
-    if (toast) {
-      toast.remove();
-    }
-  }, 3500);
-</script>
-<?php endif; ?>
+<?php Notifications::createNotification(); ?>
 
 <header class="top-navbar">
   <img src="../documents/tepaklogo.png" alt="Logo" class="logo">
@@ -436,43 +421,37 @@ try {
         </button>
       </div>
 
-      <div class="row g-3 mb-4">
-        <div class="col-12 col-md-4">
-          <div class="info-box d-flex align-items-center gap-3">
-            <div class="info-icon">
-              <i class="bi bi-person-badge"></i>
-            </div>
-            <div>
-              <div class="fw-semibold">Assigned Advisor</div>
-              <div class="text-muted small"><?= htmlspecialchars($advisorName) ?></div>
-            </div>
-          </div>
-        </div>
+<div class="row g-3 mb-4">
 
-        <div class="col-12 col-md-4">
-          <div class="info-box d-flex align-items-center gap-3">
-            <div class="info-icon">
-              <i class="bi bi-calendar-week"></i>
-            </div>
-            <div>
-              <div class="fw-semibold">Available Slots</div>
-              <div class="text-muted small">Weekly advisor office hours</div>
-            </div>
-          </div>
-        </div>
-
-        <div class="col-12 col-md-4">
-          <div class="info-box d-flex align-items-center gap-3">
-            <div class="info-icon">
-              <i class="bi bi-send-check"></i>
-            </div>
-            <div>
-              <div class="fw-semibold">Request Status</div>
-              <div class="text-muted small">Track pending and approved requests</div>
-            </div>
-          </div>
-        </div>
+  <div class="col-12 col-md-6">
+    <button type="button"
+            class="info-box d-flex align-items-center gap-3 w-100 border-0 text-start"
+            onclick="document.querySelector('.tab-btn[data-section=\'communications\']').click();">
+      <div class="info-icon">
+        <i class="bi bi-person-badge"></i>
       </div>
+      <div>
+        <div class="fw-semibold">Assigned Advisor</div>
+        <div class="text-muted small"><?= htmlspecialchars($advisorName) ?></div>
+      </div>
+    </button>
+  </div>
+
+  <div class="col-12 col-md-6">
+    <button type="button"
+            class="info-box d-flex align-items-center gap-3 w-100 border-0 text-start"
+            onclick="document.querySelector('.tab-btn[data-section=\'requests\']').click();">
+      <div class="info-icon">
+        <i class="bi bi-send-check"></i>
+      </div>
+      <div>
+        <div class="fw-semibold">Request Status</div>
+        <div class="text-muted small">Track pending and approved requests</div>
+      </div>
+    </button>
+  </div>
+
+</div>
 
       <?php if ($availableSlotsError !== ''): ?>
         <div class="alert alert-danger">
