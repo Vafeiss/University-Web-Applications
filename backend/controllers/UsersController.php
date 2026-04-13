@@ -11,6 +11,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../modules/UsersClass.php';
+require_once __DIR__ . '/../modules/NotificationsClass.php';
 
 class UsersController {
 
@@ -22,12 +23,14 @@ class UsersController {
     public function changePassword()
     {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            Notifications::error("Invalid request method.");
             header('Location: ../../frontend/changepassword.php');
             exit();
         }
 
         if (!isset($_SESSION['UserID'])) {
-            header('Location: ../../frontend/index.php?error=not_logged_in');
+            Notifications::error("You must be logged in to change your password.");
+            header('Location: ../../frontend/index.php');
             exit();
         }
 
@@ -36,35 +39,35 @@ class UsersController {
         $confirmPassword = $_POST['confirmNewPassword'] ?? ($_POST['confirm_password'] ?? '');
 
         if ($newPassword !== $confirmPassword) {
-            header('Location: ../../frontend/changepassword.php?error=passwords_do_not_match');
+            Notifications::error("Passwords do not match.");
+            header('Location: ../../frontend/changepassword.php');
             exit();
         }
-
 
         $user = new Users();
         $result = $user->Change_Password((int)$_SESSION['UserID'], $currentPassword, $newPassword);
 
-        if ($result) {
-            header('Location: ../../frontend/index.php?success=password_changed');
-        } else {
-            header('Location: ../../frontend/changepassword.php?error=invalid_current_password');
+        if (!$result) {
+            Notifications::error("Invalid current password.");
+            header('Location: ../../frontend/changepassword.php');
+            exit();
         }
+
+        Notifications::success("Password changed successfully.");
+        header('Location: ../../frontend/index.php');
         exit();
     }
 
-        public function Authentication(){
-            if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-                header('Location: ../../frontend/index.php');
+    public function Authentication(){
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            header('Location: ../../frontend/index.php');
             exit();
-            }
+        }
 
-            $email = trim($_POST['email'] ?? '');
-            $password = $_POST['password'] ?? '';
+        $email = trim($_POST['email'] ?? '');
+        $password = $_POST['password'] ?? '';
 
-            $user = new Users();
-            $user->Log_in($email, $password);
-            }
-            
+        $user = new Users();
+        $user->Log_in($email, $password);
+    }
 }
-
-   

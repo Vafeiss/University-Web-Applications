@@ -6,8 +6,12 @@
    30-Mar-2026 v2.0
    Inputs: GET inputs for action and request id
    Outputs: Updates appointment request status, inserts appointment record, inserts history record and redirects back to the advisor dashboard
-   Error Messages: If the request is invalid or a database operation fails, a flash error message is created
-    Files in use: AppointmentController.php, AdvisorAppointmentDashboard.php, databaseconnect.php
+   Error Messages: If the request is invalid or a database operation fails, a notification message is created
+   Files in use: AppointmentController.php, AdvisorAppointmentDashboard.php, databaseconnect.php, NotificationsClass.php
+
+   13-Apr-2026 v2.1
+   Updated notification handling to use NotificationsClass consistently for approve and decline actions
+   Panteleimoni Alexandrou
 */
 
 declare(strict_types=1);
@@ -249,7 +253,7 @@ try {
         ]);
 
         $pdo->commit();
-        Notifications::success("Appointment request declined successfully.");
+        Notifications::success("Appointment request declined.");
         redirectToAdvisorRequestsDashboard();
     }
 

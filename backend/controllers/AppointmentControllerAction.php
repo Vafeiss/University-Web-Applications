@@ -1,4 +1,31 @@
 <?php
+/*
+NAME: AppointmentControllerAction.php
+Description: This controller handles advisor actions for approving and declining appointment requests using the AppointmentApproval class. It processes POST/GET requests and uses the Notifications system to display success or error messages.
+Panteleimoni Alexandrou
+13-Apr-2026 v2.1
+
+Inputs:
+- POST: appointment_action (approve/decline), request_id, decline_reason (optional)
+- GET: action, id (for testing)
+
+Outputs:
+- Updates appointment request status (Approved / Declined)
+- Uses Notifications class for success/error messages
+- Redirects back to AdvisorAppointmentRequests page
+
+Error Messages:
+- Invalid request ID
+- Failed to approve/decline appointment
+- Database error while processing request
+
+Files in use:
+- AppointmentControllerAction.php
+- AppointmentApprovalClass.php
+- NotificationsClass.php
+- dispatcher.php
+- AdvisorAppointmentRequests.php
+*/
 declare(strict_types=1);
 
 if (session_status() === PHP_SESSION_NONE) {
@@ -24,7 +51,8 @@ class AppointmentControllerAction
         $advisorId = isset($_SESSION['UserID']) && is_numeric($_SESSION['UserID']) ? (int)$_SESSION['UserID'] : 2;
 
         if ($requestId <= 0) {
-            $this->redirectToAdvisorRequests('?error=invalid');
+            Notifications::error("Invalid request ID.");
+            $this->redirectToAdvisorRequests();
         }
 
         try {
@@ -53,7 +81,8 @@ class AppointmentControllerAction
             $this->redirectToAdvisorRequests();
         }
 
-            $this->redirectToAdvisorRequests('?error=invalid');
+            Notifications::error("Invalid action.");
+            $this->redirectToAdvisorRequests();
         } catch (Throwable $e) {
             Notifications::error("Database error while processing request.");
             $this->redirectToAdvisorRequests();

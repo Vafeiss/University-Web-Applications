@@ -1,13 +1,17 @@
 <?php
 /*
    NAME: Advisor Appointment Dashboard
-   Description: This page displays the advisor dashboard for managing appointment requests, office hours, appointments and history
+   Description: This page displays the advisor dashboard for managing appointment requests, office hours, appointments, history, assigned students, and communications
    Panteleimoni Alexandrou
-   30-Mar-2026 v2.1
-   Inputs: Section parameter from URL, session flash messages and database records for office hours, requests and appointments
+   13-Apr-2026 v2.2
+   Inputs: Section parameter from URL and database records for office hours, requests, appointments, history, calendar events, and assigned students
    Outputs: Advisor dashboard interface with real database data
-   Error Messages: If database fetch fails, an error message is displayed inside the relevant section
-  Files in use: AdvisorAppointmentDashboard.php, AdvisorOfficeHours.php, AppointmentController.php, databaseconnect.php
+   Error Messages: If database fetch fails, an error message is displayed inside the relevant section, while action feedback is displayed using NotificationsClass
+   Files in use: AdvisorAppointmentDashboard.php, AdvisorOfficeHours.php, AppointmentController.php, databaseconnect.php, AdvisorClass.php, UsersClass.php, NotificationsClass.php
+
+   13-Apr-2026 v2.3
+   Removed old flash message handling and retained centralized NotificationsClass rendering for advisor actions
+   Panteleimoni Alexandrou
 */
 
 declare(strict_types=1);
@@ -70,16 +74,6 @@ if ($advisorId > 0) {
 |--------------------------------------------------------------------------
 */
 $activeSection = isset($_GET['section']) ? (string) $_GET['section'] : 'calendar';
-
-/*
-|--------------------------------------------------------------------------
-| FLASH MESSAGES
-|--------------------------------------------------------------------------
-*/
-$flash = isset($_SESSION['flash']) ? (string) $_SESSION['flash'] : null;
-$flashType = isset($_SESSION['flash_type']) ? (string) $_SESSION['flash_type'] : 'success';
-
-unset($_SESSION['flash'], $_SESSION['flash_type']);
 
 /*
 |--------------------------------------------------------------------------

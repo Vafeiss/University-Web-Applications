@@ -1,9 +1,17 @@
 <?php
 /*
-  NAME: Admin Appointment Reports Page
-  Description: Standalone admin page for appointment reports without modifying the existing admin dashboard
-  Panteleimoni Alexandrou
-  06-Apr-2026 v0.2
+   NAME: Admin Appointment Reports Page
+   Description: Standalone admin page for displaying appointment reports and advisor request statistics without modifying the existing admin dashboard
+   Panteleimoni Alexandrou
+   06-Apr-2026 v1.0
+   Inputs: Session role validation and internal report data retrieval from AdminAppointmentReportsClass
+   Outputs: HTML page showing appointment summary statistics and advisor appointment breakdown
+   Error Messages: Redirects unauthorized users back to index page with forbidden access control
+   Files in use: init.php, UsersClass.php, AdminAppointmentReportsClass.php, admin_appointment_reports.css
+
+   06-Apr-2026 v1.1
+   Improved layout and reporting presentation for standalone appointment statistics page
+   Panteleimoni Alexandrou
 */
 
 declare(strict_types=1);

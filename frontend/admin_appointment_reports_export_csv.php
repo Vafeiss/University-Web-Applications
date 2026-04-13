@@ -1,9 +1,17 @@
 <?php
 /*
-  NAME: Admin Appointment Reports CSV Export
-  Description: Exports appointment report data to CSV
-  Panteleimoni Alexandrou
-  06-Apr-2026 v0.1
+   NAME: Admin Appointment Reports CSV Export
+   Description: This script generates and exports appointment report data in CSV format, including overall summary statistics and per-advisor appointment breakdown
+   Panteleimoni Alexandrou
+   06-Apr-2026 v1.0
+   Inputs: None (data retrieved internally from AdminAppointmentReportsClass)
+   Outputs: CSV file download containing appointment reports
+   Error Messages: If data retrieval fails, CSV may be incomplete or empty
+   Files in use: AdminAppointmentReportsClass.php
+
+   06-Apr-2026 v1.1
+   Improved structure and formatting of exported CSV data for better readability
+   Panteleimoni Alexandrou
 */
 
 declare(strict_types=1);

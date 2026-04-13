@@ -1,9 +1,17 @@
 <?php
 /*
-  NAME: Admin Appointment Reports PDF Page
-  Description: Print-friendly standalone page for saving appointment reports as PDF
-  Panteleimoni Alexandrou
-  06-Apr-2026 v0.1
+   NAME: Admin Appointment Reports PDF Page
+   Description: This page displays a print-friendly version of appointment reports for administrators and supports saving the report as PDF
+   Panteleimoni Alexandrou
+   06-Apr-2026 v1.0
+   Inputs: None (data retrieved internally from AdminAppointmentReportsClass)
+   Outputs: HTML page formatted for printing or saving as PDF
+   Error Messages: If report data is unavailable, empty sections or fallback messages are displayed
+   Files in use: AdminAppointmentReportsClass.php, reports_pdf.css
+
+   06-Apr-2026 v1.1
+   Improved report layout and presentation for PDF export readability
+   Panteleimoni Alexandrou
 */
 
 declare(strict_types=1);

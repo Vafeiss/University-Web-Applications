@@ -2,24 +2,32 @@
 /* 
 NAME: Advisor Attendance Page
 Description: Displays approved appointments for an advisor and allows marking attendance as Present or Absent.
-Author: Panteleimoni Alexandrou
-Date: 23/03/2026 v1.0
+Panteleimoni Alexandrou
+23-Mar-2026 v1.0
 Inputs:
 - GET: action (present / absent)
 - GET: id (Appointment_ID)
-Outputs: HTML page showing approved appointments + attendance actions
-Error Messages: Shows database/query error if something fails
-Files in use: backend/modules/databaseconnect.php, users table, appointment_history table, Bootstrap CSS from the web
+Outputs: HTML page showing approved appointments and attendance actions
+Error Messages: Displays notifications using NotificationsClass for success and error actions
+Files in use: databaseconnect.php, NotificationsClass.php, users table, appointment_history table, Bootstrap CSS from the web
+
+13-Apr-2026 v1.1
+Replaced URL-based messages with centralized notification system
+Panteleimoni Alexandrou
 */
 
 declare(strict_types=1);
 
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
 require_once __DIR__ . '/../modules/databaseconnect.php';
+require_once __DIR__ . '/../modules/NotificationsClass.php';
 
 $pdo = ConnectToDatabase();
 
 $errorMessage = "";
-$successMessage = "";
 $advisorName = "Advisor Name";
 
 /*
@@ -126,7 +134,8 @@ if (isset($_GET['action'], $_GET['id'])) {
     $appointmentId = (int)$_GET['id'];
 
     if ($appointmentId <= 0 || !in_array($action, ['present', 'absent'], true)) {
-        header("Location: AdvisorAttendance.php?error=invalid");
+        Notifications::error("Invalid action or appointment ID.");
+        header("Location: AdvisorAttendance.php");
         exit;
     }
 
@@ -135,40 +144,24 @@ if (isset($_GET['action'], $_GET['id'])) {
     try {
         $updated = updateAttendance($pdo, $appointmentId, $advisorId, $attendanceValue);
 
-        if ($updated) {
-            $msg = ($action === 'present') ? 'present' : 'absent';
-            header("Location: AdvisorAttendance.php?msg=" . $msg);
-            exit;
-        } else {
-            header("Location: AdvisorAttendance.php?error=notfound");
+        if (!$updated) {
+            Notifications::error("No approved appointment found for this advisor.");
+            header("Location: AdvisorAttendance.php");
             exit;
         }
-    } catch (Throwable $e) {
-        header("Location: AdvisorAttendance.php?error=dberror");
+
+        if ($action === 'present') {
+            Notifications::success("Attendance marked as Present.");
+        } else {
+            Notifications::success("Attendance marked as Absent.");
+        }
+
+        header("Location: AdvisorAttendance.php");
         exit;
-    }
-}
-
-/*
-------------------------------------------------------------
-MESSAGES AFTER REDIRECT
-------------------------------------------------------------
-*/
-if (isset($_GET['msg'])) {
-    if ($_GET['msg'] === 'present') {
-        $successMessage = "Attendance marked as Present.";
-    } elseif ($_GET['msg'] === 'absent') {
-        $successMessage = "Attendance marked as Absent.";
-    }
-}
-
-if (isset($_GET['error'])) {
-    if ($_GET['error'] === 'invalid') {
-        $errorMessage = "Invalid action or appointment ID.";
-    } elseif ($_GET['error'] === 'notfound') {
-        $errorMessage = "No approved appointment found for this advisor.";
-    } elseif ($_GET['error'] === 'dberror') {
-        $errorMessage = "Database error while updating attendance.";
+    } catch (Throwable $e) {
+        Notifications::error("Database error while updating attendance.");
+        header("Location: AdvisorAttendance.php");
+        exit;
     }
 }
 
@@ -239,15 +232,11 @@ try {
                         <h5 class="mb-0"><?= htmlspecialchars($advisorName) ?></h5>
                     </div>
 
+                    <?php Notifications::createNotification(); ?>
+
                     <?php if ($errorMessage !== ""): ?>
                         <div class="alert alert-danger text-center">
                             Error: <?= htmlspecialchars($errorMessage) ?>
-                        </div>
-                    <?php endif; ?>
-
-                    <?php if ($successMessage !== ""): ?>
-                        <div class="alert alert-success text-center">
-                            <?= htmlspecialchars($successMessage) ?>
                         </div>
                     <?php endif; ?>
 

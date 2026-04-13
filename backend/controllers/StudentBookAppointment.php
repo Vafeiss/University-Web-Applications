@@ -3,11 +3,15 @@
    NAME: Student Book Appointment Controller
    Description: This controller handles student appointment request submission
    Panteleimoni Alexandrou
-   30-Mar-2026 v1.0
+   30-Mar-2026 v1.1
    Inputs: POST inputs for student id, office hour slot, appointment date and reason
    Outputs: Inserts a new record into appointment_requests and redirects back to the student dashboard
-   Error Messages: If validation fails or database action fails, a flash error message is created
-   Files in use: StudentBookAppointment.php, StudentAppointmentDashboard.php, databaseconnect.php
+   Error Messages: If validation fails or database action fails, a notification message is created
+   Files in use: StudentBookAppointment.php, StudentAppointmentDashboard.php, databaseconnect.php, NotificationsClass.php
+
+   13-Apr-2026 v1.2
+   Updated notification handling to use NotificationsClass consistently for booking actions
+   Panteleimoni Alexandrou
 */
 
 declare(strict_types=1);

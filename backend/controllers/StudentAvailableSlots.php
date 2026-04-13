@@ -1,13 +1,17 @@
 <?php
 /* 
-NAME: Student Available Slots Page
-Description: Displays available advisor office hours to the student and allows slot selection for booking.
-Author: Panteleimoni Alexandrou
-Date: 20/03/2026 v1.5
-Inputs: None
-Outputs: HTML page showing available slots + Select button
-Error Messages: Shows database/query error if something fails
-Files in use: backend/modules/databaseconnect.php, users table, office_hours table, appointment_history table, student_advisors table, Bootstrap CSS from the web
+   NAME: Student Available Slots Page
+   Description: Displays available advisor office hour slots assigned to the student and allows slot selection for appointment booking
+   Panteleimoni Alexandrou
+   20-Mar-2026 v1.7
+   Inputs: Student ID from session or test variable
+   Outputs: HTML page showing available advisor slots and slot selection action
+   Error Messages: Shows database or query errors if advisor or slot data cannot be loaded
+   Files in use: databaseconnect.php, users table, office_hours table, appointment_history table, student_advisors table, StudentBookAppointment.php, Bootstrap CSS from the web
+
+   13-Apr-2026 v1.8
+   Updated booking form to send all required fields (student_id, slot_id, appointment_date, reason)
+   Panteleimoni Alexandrou
 */
 
 declare(strict_types=1);
@@ -22,7 +26,6 @@ $advisorName = "";
 
 /*
 TEMP: hardcoded student for testing
-Student User_ID = 4
 Later this must come from session/login
 */
 $studentUserId = 4;
@@ -69,7 +72,6 @@ try {
 /*
 ------------------------------------------------------------
 FETCH AVAILABLE SLOTS
-Hide slots that already have Pending (0) or Approved (1) appointments
 ------------------------------------------------------------
 */
 if ($errorMessage === "") {
@@ -122,7 +124,7 @@ if ($errorMessage === "") {
 
                     <?php if ($errorMessage !== ""): ?>
                         <div class="alert alert-danger text-center">
-                            Error: <?= htmlspecialchars($errorMessage) ?>
+                            <?= htmlspecialchars($errorMessage) ?>
                         </div>
                     <?php endif; ?>
 
@@ -152,10 +154,16 @@ if ($errorMessage === "") {
                                             <td><?= htmlspecialchars((string)$s['Start_Time']) ?></td>
                                             <td><?= htmlspecialchars((string)$s['End_Time']) ?></td>
                                             <td>
-                                                <form action="StudentBookAppointment.php" method="POST" class="m-0">
+                                                <form action="../controllers/StudentBookAppointment.php" method="POST">
+                                                    <input type="hidden" name="student_id" value="<?= $studentUserId ?>">
                                                     <input type="hidden" name="slot_id" value="<?= (int)$s['OfficeHour_ID'] ?>">
-                                                    <button type="submit" class="btn btn-primary btn-sm">
-                                                        Select
+
+                                                    <input type="date" name="appointment_date" class="form-control form-control-sm mb-2" required>
+
+                                                    <textarea name="reason" class="form-control form-control-sm mb-2" rows="2" placeholder="Enter reason..." required></textarea>
+
+                                                    <button type="submit" class="btn btn-primary btn-sm w-100">
+                                                        Send Request
                                                     </button>
                                                 </form>
                                             </td>

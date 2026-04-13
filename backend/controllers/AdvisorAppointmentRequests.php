@@ -1,4 +1,19 @@
 <?php
+/*
+   NAME: Advisor Appointment Requests
+   Description: This page displays all pending appointment requests for the advisor and allows approval or decline actions
+   Panteleimoni Alexandrou
+   30-Mar-2026 v1.0
+   Inputs: Advisor ID from session or test variable
+   Outputs: Displays pending appointment requests and provides approve/decline functionality
+   Error Messages: Displays notifications using NotificationsClass for success and error actions
+   Files in use: AppointmentApprovalClass.php, dispatcher.php, NotificationsClass.php
+
+   13-Apr-2026 v1.1
+   Replaced URL-based messages with centralized notification system and improved UI actions
+   Panteleimoni Alexandrou
+*/
+
 declare(strict_types=1);
 
 if (session_status() === PHP_SESSION_NONE) {
@@ -6,32 +21,12 @@ if (session_status() === PHP_SESSION_NONE) {
 }
 
 require_once __DIR__ . '/../modules/AppointmentApprovalClass.php';
+require_once __DIR__ . '/../modules/NotificationsClass.php';
 
 $appointmentApproval = new AppointmentApproval();
 
 $advisorId = 2;
 $advisorName = "Advisor Test User";
-
-$errorMessage = "";
-$successMessage = "";
-
-if (isset($_GET['msg'])) {
-    if ($_GET['msg'] === 'approved') {
-        $successMessage = "Appointment request approved successfully.";
-    } elseif ($_GET['msg'] === 'declined') {
-        $successMessage = "Appointment request declined successfully.";
-    }
-}
-
-if (isset($_GET['error'])) {
-    if ($_GET['error'] === 'invalid') {
-        $errorMessage = "Invalid request data.";
-    } elseif ($_GET['error'] === 'invalid_reason') {
-        $errorMessage = "Decline reason is required.";
-    } elseif ($_GET['error'] === 'failed') {
-        $errorMessage = "Action failed. Please try again.";
-    }
-}
 
 $requests = [];
 if ($advisorId > 0) {
@@ -57,13 +52,7 @@ if ($advisorId > 0) {
                         <h5 class="mb-0"><?= htmlspecialchars($advisorName) ?></h5>
                     </div>
 
-                    <?php if ($errorMessage !== ""): ?>
-                        <div class="alert alert-danger rounded-3"><?= htmlspecialchars($errorMessage) ?></div>
-                    <?php endif; ?>
-
-                    <?php if ($successMessage !== ""): ?>
-                        <div class="alert alert-success rounded-3"><?= htmlspecialchars($successMessage) ?></div>
-                    <?php endif; ?>
+                    <?php Notifications::createNotification(); ?>
 
                     <?php if (count($requests) === 0): ?>
                         <div class="alert alert-secondary rounded-3 mb-0">No pending appointment requests.</div>

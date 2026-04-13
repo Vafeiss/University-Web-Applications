@@ -1,4 +1,18 @@
 <?php
+/*
+   NAME: Advisor Appointment History
+   Description: This page displays the appointment history for the advisor including all past approved, declined, and completed appointments
+   Panteleimoni Alexandrou
+   30-Mar-2026 v1.0
+   Inputs: Advisor ID from session or test variable
+   Outputs: Displays advisor appointment history in a structured table format
+   Error Messages: Displays an error message if advisor data cannot be loaded
+   Files in use: AppointmentHistoryClass.php, databaseconnect.php
+
+   10-Apr-2026 v1.1
+   Added dynamic advisor name loading and improved table UI with status badges
+   Panteleimoni Alexandrou
+*/
 declare(strict_types=1);
 
 require_once __DIR__ . '/../modules/databaseconnect.php';

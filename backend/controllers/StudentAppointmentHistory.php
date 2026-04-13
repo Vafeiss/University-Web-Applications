@@ -1,4 +1,18 @@
 <?php
+/*
+   NAME: Student Appointment History
+   Description: This page displays the appointment history for the student including approved, declined, cancelled, and completed appointments
+   Panteleimoni Alexandrou
+   30-Mar-2026 v2.3
+   Inputs: Student ID from session or test variable
+   Outputs: Displays student appointment history in a structured table format
+   Error Messages: Displays an error message if student data cannot be loaded
+   Files in use: AppointmentHistoryClass.php, databaseconnect.php
+
+   13-Apr-2026 v2.4
+   Added dynamic student name loading and improved table UI with status badges
+   Panteleimoni Alexandrou
+*/
 declare(strict_types=1);
 
 require_once __DIR__ . '/../modules/databaseconnect.php';
