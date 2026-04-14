@@ -161,7 +161,59 @@ class AdminController {
             exit();
         }
 
-        $result = $this->admin->addStudentByCSV($_FILES['csv_file']['tmp_name']);
+        $upload = $_FILES['csv_file'];
+        $uploadError = (int)($upload['error'] ?? UPLOAD_ERR_NO_FILE);
+        if ($uploadError !== UPLOAD_ERR_OK) {
+            Notifications::error("CSV upload failed.");
+            header("Location: ../../frontend/admin_dashboard.php?tab=students");
+            exit();
+        }
+
+        $uploadSize = (int)($upload['size'] ?? 0);
+        if ($uploadSize <= 0 || $uploadSize > 2 * 1024 * 1024) {
+            Notifications::error("CSV file must be between 1 byte and 2 MB.");
+            header("Location: ../../frontend/admin_dashboard.php?tab=students");
+            exit();
+        }
+
+        $originalName = (string)($upload['name'] ?? '');
+        $extension = strtolower(pathinfo($originalName, PATHINFO_EXTENSION));
+        if ($extension !== 'csv') {
+            Notifications::error("Only .csv files are allowed.");
+            header("Location: ../../frontend/admin_dashboard.php?tab=students");
+            exit();
+        }
+
+        $tmpPath = (string)$upload['tmp_name'];
+        $mime = '';
+        if (function_exists('finfo_open')) {
+            $finfo = finfo_open(FILEINFO_MIME_TYPE);
+            if ($finfo !== false) {
+                $detected = finfo_file($finfo, $tmpPath);
+                if (is_string($detected)) {
+                    $mime = $detected;
+                }
+                finfo_close($finfo);
+            }
+        }
+
+        if ($mime !== '') {
+            $allowedMimes = [
+                'text/csv',
+                'text/plain',
+                'application/csv',
+                'text/x-csv',
+                'application/vnd.ms-excel',
+            ];
+
+            if (!in_array($mime, $allowedMimes, true)) {
+                Notifications::error("Uploaded file is not a valid CSV.");
+                header("Location: ../../frontend/admin_dashboard.php?tab=students");
+                exit();
+            }
+        }
+
+        $result = $this->admin->addStudentByCSV($tmpPath);
         if ($result === false) {
             Notifications::error("Failed to add students.");
             header("Location: ../../frontend/admin_dashboard.php?tab=students");

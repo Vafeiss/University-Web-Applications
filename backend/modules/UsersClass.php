@@ -36,6 +36,14 @@ Paraskevas Vafeiadis
 */
 
 if (session_status() === PHP_SESSION_NONE) {
+    $isHttps = !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off';
+    session_set_cookie_params([
+        'lifetime' => 0,
+        'path' => '/',
+        'secure' => $isHttps,
+        'httponly' => true,
+        'samesite' => 'Lax',
+    ]);
     session_start();
 }
 
@@ -168,11 +176,14 @@ public function Check_Session(?string $requiredRole = null) {
 
 public function Validate_Credentials($row) {
     if($row != NULL) {
+            if (session_status() === PHP_SESSION_ACTIVE) {
+                session_regenerate_id(true);
+            }
             $_SESSION['email'] = $row['Uni_Email']; //storing info while user logged in
             $_SESSION['UserID'] = $row['User_ID'];
             $_SESSION['role'] = $row['Role'];}
         else {
-        echo "Invalid credentials";
+        $this->redirectTo('/frontend/index.php?error=invalid1');
         }
             //redirect them to the right dashboard based on their role if the session it's valid and the credentials are correct
             if ($_SESSION['role'] == 'Student') {

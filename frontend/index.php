@@ -13,6 +13,27 @@ Files in use: Bootstrap CSS from the web
 24-feb-2026: changed the where the form is sent to the backend to validate if the inputs are correct.
 Paraskevas Vafeiadis
 */
+
+declare(strict_types=1);
+
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
+require_once __DIR__ . '/../backend/modules/NotificationsClass.php';
+
+$loginError = (string)($_GET['error'] ?? '');
+if ($loginError === 'invalid1') {
+    Notifications::error('Incorrect username or password.');
+} elseif ($loginError === 'invalid2') {
+    Notifications::error('Incorrect username or password.');
+} elseif ($loginError === 'database') {
+    Notifications::error('A database error occurred while logging in.');
+} elseif ($loginError === 'unauthorized') {
+    Notifications::error('Please log in to continue.');
+} elseif ($loginError === 'forbidden') {
+    Notifications::error('You do not have permission to access that page.');
+}
 ?>
 
 <!DOCTYPE html>
@@ -25,6 +46,7 @@ Paraskevas Vafeiadis
     </head>
 
     <body class="Log-in body auth-page">
+        <?php Notifications::createNotification(); ?>
         <div class="container d-flex justify-content-center align-items-center vh-100 auth-shell">
         <div class="card shadow p-4 auth-card" style="width:400px;">
         <h3 class="text-center mb-4">Welcome to AdviCUT!</h3>

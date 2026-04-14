@@ -43,12 +43,17 @@ $studentId = isset($_SESSION['UserID']) && is_numeric($_SESSION['UserID'])
 $currentStudent = [];
 $myAdvisor = null;
 $studentExternalId = 0;
+$studentDisplayName = 'Student';
 
 if ($studentId > 0) {
   try {
     $studentModule = new StudentClass();
     $currentStudent = $studentModule->getStudentInfo($studentId);
     $myAdvisor = $studentModule->getStudentAdvisor($studentId);
+    $studentDisplayName = trim((string)($currentStudent['First_name'] ?? '') . ' ' . (string)($currentStudent['Last_Name'] ?? ''));
+    if ($studentDisplayName === '') {
+      $studentDisplayName = 'Student';
+    }
     $studentExternalId = isset($currentStudent['Student_ID']) && is_numeric($currentStudent['Student_ID'])
       ? (int)$currentStudent['Student_ID']
       : 0;
@@ -316,14 +321,15 @@ try {
   <link rel="stylesheet" href="css/student_appointment_dashboard.css">
 
 </head>
-<body>
+<body data-student-calendar-events="<?= htmlspecialchars(json_encode($studentCalendarEvents, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), ENT_QUOTES, 'UTF-8') ?>"
+  data-comm-student-id="<?= (int)$studentMessageUserId ?>">
 <?php Notifications::createNotification(); ?>
 
 <header class="top-navbar">
   <img src="../documents/tepaklogo.png" alt="Logo" class="logo">
 
   <div class="navbar-center">
-    <span class="welcome-text">Welcome To Advicut! 👋</span>
+    <span class="welcome-text">Welcome to AdviCut, <?= htmlspecialchars($studentDisplayName) ?>! 👋</span>
   </div>
 
   <div class="d-flex align-items-center gap-3">
@@ -751,7 +757,6 @@ try {
             </div>
           </div>
 
-          <script>window.commStudentId = <?= json_encode($studentMessageUserId) ?>;</script>
         <?php endif; ?>
 
       </div>
@@ -890,299 +895,7 @@ try {
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
-
-<script>
-const COMM_MAX_WORDS = 200;
-let commLoaded = false;
-let studentCalendarLoaded = false;
-let studentCalendarInstance = null;
-let historyDetailsModal = null;
-
-function openHistoryDetailsModal(reasonText) {
-  const content = document.getElementById('historyDetailsText');
-  if (!content || !historyDetailsModal) return;
-
-  const cleanReason = String(reasonText ?? '').trim();
-  content.textContent = cleanReason !== '' ? cleanReason : '-';
-  historyDetailsModal.show();
-}
-
-const studentCalendarEvents = <?= json_encode($studentCalendarEvents, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
-
-function setCalendarReason(buttonId, wrapId, contentId, value) {
-  const button = document.getElementById(buttonId);
-  const wrap = document.getElementById(wrapId);
-  const content = document.getElementById(contentId);
-
-  if (!button || !wrap || !content) return;
-
-  const text = String(value ?? '').trim();
-  const hasValue = text !== '' && text !== '-';
-
-  content.textContent = hasValue ? text : '';
-  button.style.display = hasValue ? 'inline-flex' : 'none';
-
-  if (!hasValue) {
-    const collapse = bootstrap.Collapse.getOrCreateInstance(wrap, { toggle: false });
-    collapse.hide();
-  }
-}
-
-function resetCalendarReasonState(wrapId) {
-  const wrap = document.getElementById(wrapId);
-  if (!wrap) return;
-
-  const collapse = bootstrap.Collapse.getOrCreateInstance(wrap, { toggle: false });
-  collapse.hide();
-}
-
-function renderStudentCalendar() {
-  if (studentCalendarLoaded) return;
-
-  const calendarEl = document.getElementById('studentCalendar');
-  const modalEl = document.getElementById('studentCalendarModal');
-  if (!calendarEl || !modalEl) return;
-
-  const detailsModal = new bootstrap.Modal(modalEl);
-
-  studentCalendarInstance = new FullCalendar.Calendar(calendarEl, {
-    initialView: 'dayGridMonth',
-    height: 'auto',
-    events: studentCalendarEvents,
-    eventClick: function (info) {
-      const props = info.event.extendedProps || {};
-      document.getElementById('calendarModalAdvisor').textContent = props.advisor || '-';
-      document.getElementById('calendarModalDate').textContent = props.date || '-';
-      document.getElementById('calendarModalTime').textContent = props.time || '-';
-      document.getElementById('calendarModalStatus').textContent = props.status || '-';
-      setCalendarReason('calendarModalStudentReasonBtn', 'calendarModalStudentReasonWrap', 'calendarModalStudentReason', props.student_reason);
-      setCalendarReason('calendarModalAdvisorReasonBtn', 'calendarModalAdvisorReasonWrap', 'calendarModalAdvisorReason', props.advisor_reason);
-      resetCalendarReasonState('calendarModalStudentReasonWrap');
-      resetCalendarReasonState('calendarModalAdvisorReasonWrap');
-      detailsModal.show();
-    }
-  });
-
-  studentCalendarInstance.render();
-  studentCalendarLoaded = true;
-}
-
-function commLoad() {
-  if (!window.commStudentId) return;
-  commLoaded = true;
-  commFetchThread();
-}
-
-function commFetchThread() {
-  const box = document.getElementById('commMessages');
-  if (!box) return;
-
-  box.innerHTML = '<div class="comm-loading">Loading messages...</div>';
-
-  const fd = new FormData();
-  fd.append('action', '/student/message/thread');
-  fd.append('student_id', window.commStudentId);
-
-  fetch('../backend/modules/dispatcher.php', { method: 'POST', body: fd })
-    .then(r => r.json())
-    .then(messages => {
-      if (!messages.length) {
-        box.innerHTML = [
-          '<div class="comm-placeholder">',
-          '<i class="bi bi-chat"></i>',
-          '<p>No messages yet. Send your first message to your advisor!</p>',
-          '</div>'
-        ].join('');
-        return;
-      }
-
-      box.innerHTML = messages.map(m => commBubble(m)).join('');
-      box.scrollTop = box.scrollHeight;
-
-      const markReadFd = new FormData();
-      markReadFd.append('action', '/student/message/read');
-      markReadFd.append('student_id', window.commStudentId);
-      fetch('../backend/modules/dispatcher.php', { method: 'POST', body: markReadFd }).catch(() => {});
-    })
-    .catch(() => {
-      box.innerHTML = [
-        '<div class="comm-placeholder" style="color:#ef4444">',
-        '<i class="bi bi-exclamation-circle"></i>',
-        '<p>Failed to load messages. Please refresh the page.</p>',
-        '</div>'
-      ].join('');
-    });
-}
-
-function commBubble(m) {
-  const isStudent = m.sender === 'student';
-  const side = isStudent ? 'from-student' : 'from-advisor';
-  const senderLabel = isStudent ? 'You' : (m.sender_name || 'Advisor');
-  const time = m.sent_at ? new Date(m.sent_at).toLocaleString() : '';
-
-  return [
-    '<div class="msg-bubble-wrap ' + side + '">',
-    '<div class="msg-meta">',
-    '<span class="msg-sender">' + commEsc(senderLabel) + '</span>',
-    '<span>' + commEsc(time) + '</span>',
-    '</div>',
-    '<div class="msg-bubble">' + commEsc(m.body) + '</div>',
-    '</div>'
-  ].join('');
-}
-
-function commWordCount(textarea) {
-  const words = textarea.value.trim() === '' ? 0 : textarea.value.trim().split(/\s+/).length;
-  const el = document.getElementById('commWordCount');
-  const btn = document.getElementById('commSendBtn');
-  if (!el || !btn) return;
-
-  el.textContent = words + ' / ' + COMM_MAX_WORDS + ' words';
-  el.classList.toggle('over', words > COMM_MAX_WORDS);
-  btn.disabled = (words === 0 || words > COMM_MAX_WORDS);
-}
-
-function commSend() {
-  const textarea = document.getElementById('commTextarea');
-  const btn = document.getElementById('commSendBtn');
-  if (!textarea || !btn) return;
-
-  const body = textarea.value.trim();
-  if (!body || !window.commStudentId) return;
-
-  btn.disabled = true;
-  btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Sending...';
-
-  const fd = new FormData();
-  fd.append('action', '/student/message/send');
-  fd.append('student_id', window.commStudentId);
-  fd.append('message_body', body);
-
-  fetch('../backend/modules/dispatcher.php', { method: 'POST', body: fd })
-    .then(r => r.json())
-    .then(data => {
-      if (data.success) {
-        textarea.value = '';
-        commWordCount(textarea);
-        commFetchThread();
-      } else {
-        alert(data.error || 'Failed to send message. Please try again.');
-        btn.disabled = false;
-      }
-    })
-    .catch(() => {
-      alert('Network error. Please try again.');
-      btn.disabled = false;
-    })
-    .finally(() => {
-      btn.innerHTML = '<i class="bi bi-send-fill"></i> Send Message';
-    });
-}
-
-function commEsc(str) {
-  return String(str ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
-
-document.addEventListener("DOMContentLoaded", function () {
-  const historyModalEl = document.getElementById('historyDetailsModal');
-  if (historyModalEl) {
-    historyDetailsModal = new bootstrap.Modal(historyModalEl);
-  }
-
-  document.querySelectorAll('.history-details-btn').forEach(function (btn) {
-    btn.addEventListener('click', function () {
-      openHistoryDetailsModal(btn.getAttribute('data-history-reason'));
-    });
-  });
-
-  const params = new URLSearchParams(window.location.search);
-  const section = params.get("section");
-
-  if (section) {
-    const btn = document.querySelector('.tab-btn[data-section="' + section + '"]');
-    const panel = document.getElementById('section-' + section);
-
-    if (btn && panel) {
-      document.querySelectorAll('.tab-btn').forEach(function (b) {
-        b.classList.remove('active');
-      });
-
-      document.querySelectorAll('.section-panel').forEach(function (p) {
-        p.classList.remove('active');
-      });
-
-      btn.classList.add('active');
-      panel.classList.add('active');
-    }
-  }
-
-  document.querySelectorAll('.tab-btn').forEach(function (btn) {
-    btn.addEventListener('click', function () {
-      const sectionName = btn.getAttribute('data-section');
-
-      document.querySelectorAll('.tab-btn').forEach(function (b) {
-        b.classList.remove('active');
-      });
-
-      document.querySelectorAll('.section-panel').forEach(function (p) {
-        p.classList.remove('active');
-      });
-
-      btn.classList.add('active');
-
-      const targetPanel = document.getElementById('section-' + sectionName);
-      if (targetPanel) {
-        targetPanel.classList.add('active');
-      }
-
-      const url = new URL(window.location);
-      url.searchParams.set('section', sectionName);
-      window.history.replaceState({}, '', url);
-
-      if (sectionName === 'communications' && !commLoaded) {
-        commLoad();
-      }
-
-      if (sectionName === 'calendar') {
-        renderStudentCalendar();
-      }
-    });
-  });
-
-  if (document.getElementById('section-communications')?.classList.contains('active')) {
-    commLoad();
-  }
-
-  if (document.getElementById('section-calendar')?.classList.contains('active')) {
-    renderStudentCalendar();
-  }
-
-  const studentRequestSearch = document.getElementById('studentRequestSearch');
-  if (studentRequestSearch) {
-    studentRequestSearch.addEventListener('input', function () {
-      const q = this.value.toLowerCase();
-      document.querySelectorAll('.student-request-row').forEach(function (row) {
-        row.style.display = row.textContent.toLowerCase().includes(q) ? '' : 'none';
-      });
-    });
-  }
-
-  document.querySelectorAll('.open-book-modal-btn').forEach(function (btn) {
-    btn.addEventListener('click', function () {
-      const slotId = btn.getAttribute('data-slot-id');
-      const slotSelect = document.getElementById('bookSlotSelect');
-
-      if (slotSelect && slotId) {
-        slotSelect.value = slotId;
-      }
-    });
-  });
-});
-</script>
+<script src="js/student-appointment-dashboard.js"></script>
 
 </body>
 </html>

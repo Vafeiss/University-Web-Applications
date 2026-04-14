@@ -22,6 +22,7 @@ if (session_status() === PHP_SESSION_NONE) {
 
 require_once __DIR__ . '/../modules/databaseconnect.php';
 require_once __DIR__ . '/../modules/NotificationsClass.php';
+require_once __DIR__ . '/../modules/UsersClass.php';
 
 $pdo = ConnectToDatabase();
 
@@ -81,14 +82,16 @@ if (realpath($_SERVER['SCRIPT_FILENAME'] ?? '') !== __FILE__) {
     return;
 }
 
-/*
-TEMP TEST MODE
-Use logged-in advisor user id if available.
-Fallback to hardcoded advisor user id until login/session is fully connected.
-*/
-$advisorId = 2;
-if (isset($_SESSION['UserID']) && is_numeric($_SESSION['UserID'])) {
-    $advisorId = (int) $_SESSION['UserID'];
+$user = new Users();
+$user->Check_Session('Advisor');
+
+$advisorId = isset($_SESSION['UserID']) && is_numeric($_SESSION['UserID'])
+    ? (int)$_SESSION['UserID']
+    : 0;
+
+if ($advisorId <= 0) {
+    Notifications::error('Unauthorized advisor session.');
+    redirectToAdvisorRequestsDashboard();
 }
 
 // Read action and request id from URL

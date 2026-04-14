@@ -69,6 +69,24 @@ function resultFetchAllAssoc($result): array
 $user = new Admin();
 $user->Check_Session('Admin');
 
+$adminDisplayName = 'Admin';
+if (!empty($_SESSION['UserID']) && is_numeric($_SESSION['UserID'])) {
+  try {
+    $adminNamePdo = ConnectToDatabase();
+    $adminNameStmt = $adminNamePdo->prepare('SELECT First_name, Last_Name FROM users WHERE User_ID = :user_id AND Role = "Admin" LIMIT 1');
+    $adminNameStmt->execute(['user_id' => (int)$_SESSION['UserID']]);
+    $adminNameRow = $adminNameStmt->fetch(PDO::FETCH_ASSOC);
+    if (is_array($adminNameRow)) {
+      $adminDisplayName = trim((string)($adminNameRow['First_name'] ?? '') . ' ' . (string)($adminNameRow['Last_Name'] ?? ''));
+      if ($adminDisplayName === '') {
+        $adminDisplayName = (string)($_SESSION['email'] ?? 'Admin');
+      }
+    }
+  } catch (Throwable $e) {
+    $adminDisplayName = (string)($_SESSION['email'] ?? 'Admin');
+  }
+}
+
 $activeTab = $_GET['tab'] ?? 'advisors';
 
 //promote students automaticly
@@ -247,9 +265,6 @@ $YearOptions = [
     <?= htmlspecialchars($flash) ?>
   </span>
 </div>
-<script>
-  setTimeout(() => document.getElementById('flashToast')?.remove(), 3500);
-</script>
 <?php endif; ?>
 
 
@@ -259,7 +274,7 @@ $YearOptions = [
   <img src="../documents/tepaklogo.png" alt="Logo" class="logo">
 
   <div class="navbar-center">
-    <span class="welcome-text">Welcome To Advicut!👋</span>
+    <span class="welcome-text">Welcome to AdviCut, <?= htmlspecialchars($adminDisplayName) ?>! 👋</span>
   </div>
 
   <div class="d-flex align-items-center gap-3">
@@ -625,7 +640,7 @@ $YearOptions = [
           <h5 class="mb-0 fw-semibold">Assign Students to Advisors</h5>
           <p class="text-muted mb-0" style="font-size:.85rem;">Expand an advisor to select which students to assign</p>
         </div>
-        <form action="../backend/modules/dispatcher.php" method="POST" class="mb-0" onsubmit="return confirm('Run random assignment for all students?');">
+        <form action="../backend/modules/dispatcher.php" method="POST" class="mb-0" data-confirm="Run random assignment for all students?">
           <input type="hidden" name="action" value="/advisor/students/random">
           <button type="submit" class="btn btn-primary btn-sm">
             <i class="bi bi-person-plus me-1"></i> Random Assignment
@@ -859,7 +874,7 @@ $YearOptions = [
           <!-- Pie chart -->
           <div class="col-md-5 d-flex justify-content-center">
             <div style="position:relative; width:100%; max-width:300px;">
-              <canvas id="advisorPieChart"></canvas>
+              <canvas id="advisorPieChart" data-advisor-chart='<?= htmlspecialchars(json_encode(array_values($advisorChartData), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT), ENT_QUOTES, "UTF-8") ?>'></canvas>
               <div id="chartCenterLabel" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;pointer-events:none;">
                 <div style="font-size:1.6rem;font-weight:700;color:#111827;line-height:1;" id="chartCenterCount">0</div>
                 <div style="font-size:.75rem;color:#6b7280;">students</div>
@@ -872,11 +887,6 @@ $YearOptions = [
             <div id="advisorLegend"></div>
           </div>
         </div>
- 
-        <!-- Pass PHP data to JS -->
-        <script>
-          window.advisorChartData = <?= json_encode(array_values($advisorChartData), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
-        </script>
  
       <?php endif; ?>
     </div>
@@ -1367,8 +1377,8 @@ $YearOptions = [
                 <button type="button" class="btn btn-sm btn-outline-primary" onclick="degToggleEdit('<?= htmlspecialchars($degree['DegreeID']) ?>')">
                   <i class="bi bi-pencil me-1"></i>Edit
                 </button>
-                <form action="../backend/modules/dispatcher.php" method="POST" class="mb-0"
-                      onsubmit="return confirm('Delete this degree? This cannot be undone.')">
+                    <form action="../backend/modules/dispatcher.php" method="POST" class="mb-0"
+                      data-confirm="Delete this degree? This cannot be undone.">
                   <input type="hidden" name="action" value="/degree/delete">
                   <input type="hidden" name="degree_id" value="<?= htmlspecialchars($degree['DegreeID']) ?>">
                   <button type="submit" class="btn btn-sm btn-outline-danger">
@@ -1454,8 +1464,8 @@ $YearOptions = [
                 <button type="button" class="btn btn-sm btn-outline-primary" onclick="deptToggleEdit('<?= htmlspecialchars($department['DepartmentID']) ?>')">
                   <i class="bi bi-pencil me-1"></i>Edit
                 </button>
-                <form action="../backend/modules/dispatcher.php" method="POST" class="mb-0"
-                      onsubmit="return confirm('Delete this department? This cannot be undone.')">
+                    <form action="../backend/modules/dispatcher.php" method="POST" class="mb-0"
+                      data-confirm="Delete this department? This cannot be undone.">
                   <input type="hidden" name="action" value="/department/delete">
                   <input type="hidden" name="department_id" value="<?= htmlspecialchars($department['DepartmentID']) ?>">
                   <button type="submit" class="btn btn-sm btn-outline-danger">
@@ -1506,411 +1516,8 @@ $YearOptions = [
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-<script>
-
-//script to maintain active tab on page reload and handle tab switching with URL
-document.addEventListener("DOMContentLoaded", () => {
-
-  const params = new URLSearchParams(window.location.search);
-  const tab = params.get("tab");
-
-  if (tab) {
-    const btn = document.querySelector(`.tab-btn[data-section="${tab}"]`);
-    const panel = document.getElementById("section-" + tab);
-
-    if (btn && panel) {
-      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-      document.querySelectorAll('.section-panel').forEach(p => p.classList.remove('active'));
-
-      btn.classList.add('active');
-      panel.classList.add('active');
-    }
-  }
-
-  //Tab switching script
-  document.querySelectorAll('.tab-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-
-      const section = btn.dataset.section;
-
-      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-      document.querySelectorAll('.section-panel').forEach(p => p.classList.remove('active'));
-
-      btn.classList.add('active');
-      document.getElementById('section-' + section).classList.add('active');
-
-      // update URL without reload
-      const url = new URL(window.location);
-      url.searchParams.set('tab', section);
-      window.history.replaceState({}, '', url);
-
-    });
-  });
-
-});
-
-//searching advisors script
-document.getElementById('advisorSearch').addEventListener('input', function () {
-  const q = this.value.toLowerCase();
-  document.querySelectorAll('.advisor-row').forEach(row => {
-    row.style.display = row.textContent.toLowerCase().includes(q) ? '' : 'none';
-  });
-});
-
-//searching students script
-document.getElementById('studentSearch').addEventListener('input', function () {
-  const q = this.value.toLowerCase();
-  document.querySelectorAll('.student-row').forEach(row => {
-    row.style.display = row.textContent.toLowerCase().includes(q) ? '' : 'none';
-  });
-});
-
-//searching superusers script
-document.getElementById('superuserSearch').addEventListener('input', function () {
-  const q = this.value.toLowerCase();
-  document.querySelectorAll('.superuser-row').forEach(row => {
-    row.style.display = row.textContent.toLowerCase().includes(q) ? '' : 'none';
-  });
-});
-
-//assignment searching script
-document.querySelectorAll('.assign-search').forEach(input => {
-  input.addEventListener('input', function () {
-    const q = this.value.toLowerCase();
-    this.closest('.accordion-body').querySelectorAll('.assign-student-row').forEach(row => {
-      row.style.display = row.textContent.toLowerCase().includes(q) ? '' : 'none';
-    });
-  });
-});
-
-//edit advisor script
-const editAdvisorBtn = document.getElementById('editAdvisorBtn');
-if (editAdvisorBtn) {
-  editAdvisorBtn.addEventListener('click', function () {
-    const checked = document.querySelectorAll('input[name="advisor_id[]"]:checked');
-
-    if (checked.length === 0) {
-      alert('Please select one advisor to edit.');
-      return;
-    }
-
-    if (checked.length > 1) {
-      alert('Please select only one advisor to edit.');
-      return;
-    }
-
-    const advisor = checked[0];
-    document.getElementById('editAdvisorFirstName').value = advisor.dataset.firstName || '';
-    document.getElementById('editAdvisorLastName').value = advisor.dataset.lastName || '';
-    document.getElementById('editAdvisorEmail').value = advisor.dataset.email || '';
-    document.getElementById('editAdvisorPhone').value = advisor.dataset.phone || '';
-    document.getElementById('editAdvisorExternalId').value = advisor.value || '';
-
-    const departmentSelect = document.getElementById('editAdvisorDepartment');
-    const departmentId = advisor.dataset.departmentId || '1';
-    departmentSelect.value = departmentId;
-
-    if (departmentSelect.value !== departmentId) {
-      const option = document.createElement('option');
-      option.value = departmentId;
-      option.textContent = `Department ${departmentId}`;
-      departmentSelect.appendChild(option);
-      departmentSelect.value = departmentId;
-    }
-
-    const editAdvisorModal = new bootstrap.Modal(document.getElementById('editAdvisorModal'));
-    editAdvisorModal.show();
-  });
-}
-
-//student edit script
-const editStudentBtn = document.getElementById('editStudentBtn');
-if (editStudentBtn) {
-  editStudentBtn.addEventListener('click', function () {
-    const checked = document.querySelectorAll('input[name="student_ID[]"]:checked');
-
-    if (checked.length === 0) {
-      alert('Please select one student to edit.');
-      return;
-    }
-
-    if (checked.length > 1) {
-      alert('Please select only one student to edit.');
-      return;
-    }
-
-    const student = checked[0];
-    document.getElementById('editStudentExternalId').value = student.dataset.externalId || '';
-    document.getElementById('editStudentFirstName').value = student.dataset.firstName || '';
-    document.getElementById('editStudentLastName').value = student.dataset.lastName || '';
-    document.getElementById('editStudentEmail').value = student.dataset.email || '';
-    document.getElementById('editStudentYear').value = student.dataset.year || '';
-    document.getElementById('editStudentAdvisor').value = student.dataset.advisorId || '';
-
-    const degreeSelect = document.getElementById('editStudentDegree');
-    const degreeId = student.dataset.degreeId || '1';
-    degreeSelect.value = degreeId;
-
-    if (degreeSelect.value !== degreeId) {
-      const option = document.createElement('option');
-      option.value = degreeId;
-      option.textContent = `Degree ${degreeId}`;
-      degreeSelect.appendChild(option);
-      degreeSelect.value = degreeId;
-    }
-
-    const editStudentModal = new bootstrap.Modal(document.getElementById('editStudentModal'));
-    editStudentModal.show();
-  });
-}
-
-//delete confirmation script
-['advisorForm', 'studentForm', 'superuserForm'].forEach(id => {
-  const form = document.getElementById(id);
-  if (!form) return;
-  form.addEventListener('submit', function (e) {
-    const checked = form.querySelectorAll('input[type=checkbox]:checked');
-    if (checked.length === 0) {
-      e.preventDefault();
-      alert('Please select at least one item to delete.');
-      return;
-    }
-    if (!confirm(`Delete ${checked.length} selected item(s)? This cannot be undone.`)) {
-      e.preventDefault();
-    }
-  });
-});
-
-//script for maintaining filter collapse state using localstorage
-document.addEventListener("DOMContentLoaded", function () {
-  const filter = document.getElementById("filterSection");
-
-  if (!filter) return;
-
-  // Restore state
-  if (localStorage.getItem("filtersOpen") === "true") {
-    filter.classList.add("show");
-  }
-
-  // Listen for open
-  filter.addEventListener("shown.bs.collapse", function () {
-    localStorage.setItem("filtersOpen", "true");
-  });
-
-  // Listen for close
-  filter.addEventListener("hidden.bs.collapse", function () {
-    localStorage.setItem("filtersOpen", "false");
-  });
-});
-
-//script for maintaining assign filter collapse state using localstorage
-document.addEventListener("DOMContentLoaded", function () {
-  const assignFilter = document.getElementById("assignFilterSection");
-
-  if (!assignFilter) return;
-
-  if (localStorage.getItem("assignFiltersOpen") === "true") {
-    assignFilter.classList.add("show");
-  }
-
-  assignFilter.addEventListener("shown.bs.collapse", function () {
-    localStorage.setItem("assignFiltersOpen", "true");
-  });
-
-  assignFilter.addEventListener("hidden.bs.collapse", function () {
-    localStorage.setItem("assignFiltersOpen", "false");
-  });
-});
-
-
-// degree edit toggle
-function degToggleEdit(id) {
-  const item = document.getElementById('degItem-' + id);
-  const form = document.getElementById('degForm-' + id);
-  const isOpen = item.classList.contains('editing');
-  document.querySelectorAll('.deg-list-item.editing').forEach(el => {
-    el.classList.remove('editing');
-    el.querySelector('.deg-inline-form').style.display = 'none';
-  });
-  if (!isOpen) {
-    item.classList.add('editing');
-    form.style.display = 'flex';
-    item.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-  }
-}
- 
-// degree search
-const degreeSearchInput = document.getElementById('degreeSearch');
-if (degreeSearchInput) {
-  degreeSearchInput.addEventListener('input', function () {
-    const q = this.value.toLowerCase();
-    document.querySelectorAll('.deg-list-item').forEach(item => {
-      item.style.display = item.textContent.toLowerCase().includes(q) ? '' : 'none';
-    });
-  });
-}
-
-// department edit toggle
-function deptToggleEdit(id) {
-  const item = document.getElementById('deptItem-' + id);
-  const form = document.getElementById('deptForm-' + id);
-  const isOpen = item.classList.contains('editing');
-  document.querySelectorAll('.deg-list-item.editing').forEach(el => {
-    el.classList.remove('editing');
-    el.querySelector('.deg-inline-form').style.display = 'none';
-  });
-  if (!isOpen) {
-    item.classList.add('editing');
-    form.style.display = 'flex';
-    item.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-  }
-}
-
-// department search
-const departmentSearchInput = document.getElementById('departmentSearch');
-if (departmentSearchInput) {
-  departmentSearchInput.addEventListener('input', function () {
-    const q = this.value.toLowerCase();
-    document.querySelectorAll('#departmentEditList .deg-list-item').forEach(item => {
-      item.style.display = item.textContent.toLowerCase().includes(q) ? '' : 'none';
-    });
-  });
-}
-
-// Advisor Pie Chart
-(function () {
-  const canvas  = document.getElementById('advisorPieChart');
-  if (!Array.isArray(window.advisorChartData) || !canvas) return;
-
-  if (typeof Chart === 'undefined') {
-    console.error('Chart.js failed to load. Advisor pie chart cannot render.');
-    return;
-  }
- 
-  const COLORS = [
-    '#4f46e5','#06b6d4','#10b981','#f59e0b','#ef4444',
-    '#8b5cf6','#ec4899','#14b8a6','#f97316','#6366f1'
-  ];
- 
-  const legend  = document.getElementById('advisorLegend');
-  const center  = document.getElementById('chartCenterCount');
-  const buttons = document.querySelectorAll('.year-filter-btn');
- 
-  let currentYear = 0; // 0 = all
-  let chartInstance = null;
- 
-  function getCounts(year) {
-    return window.advisorChartData.map(a =>
-      year === 0 ? a.total : (a.byYear[year] || 0)
-    );
-  }
- 
-  function buildLegend(counts, total) {
-    if (!legend) return;
-    legend.innerHTML = '';
-
-    counts.forEach((c, i) => {
-      const a   = window.advisorChartData[i];
-      const pct = total > 0 ? Math.round((c / total) * 100) : 0;
-
-      const row = document.createElement('div');
-      row.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f3f4f6;';
-
-      const left = document.createElement('div');
-      left.style.cssText = 'display:flex;align-items:center;gap:10px;flex:1;min-width:0;';
-
-      const swatch = document.createElement('span');
-      swatch.style.cssText = `width:12px;height:12px;border-radius:3px;background:${COLORS[i % COLORS.length]};flex-shrink:0;display:inline-block;`;
-
-      const name = document.createElement('span');
-      name.style.cssText = 'font-size:.875rem;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
-      name.textContent = String(a?.name ?? '');
-
-      const right = document.createElement('span');
-      right.style.cssText = 'font-size:.82rem;color:#6b7280;white-space:nowrap;margin-left:12px;';
-      right.textContent = `${c} student${c !== 1 ? 's' : ''} (${pct}%)`;
-
-      left.appendChild(swatch);
-      left.appendChild(name);
-      row.appendChild(left);
-      row.appendChild(right);
-      legend.appendChild(row);
-    });
-  }
- 
-  function renderChart(year) {
-    const counts = getCounts(year);
-    const total  = counts.reduce((s, v) => s + v, 0);
-    const labels = window.advisorChartData.map(a => a.name);
-    const colors = COLORS.slice(0, counts.length);
- 
-    if (center) center.textContent = total;
-    buildLegend(counts, total);
- 
-    // All-zero → show placeholder
-    const displayCounts = total === 0 ? [1] : counts;
-    const displayColors = total === 0 ? ['#e5e7eb'] : colors;
-    const displayLabels = total === 0 ? ['No data'] : labels;
- 
-    if (chartInstance) {
-      chartInstance.data.labels             = displayLabels;
-      chartInstance.data.datasets[0].data   = displayCounts;
-      chartInstance.data.datasets[0].backgroundColor = displayColors;
-      chartInstance.update();
-      return;
-    }
- 
-    chartInstance = new Chart(canvas, {
-      type: 'doughnut',
-      data: {
-        labels: displayLabels,
-        datasets: [{
-          data: displayCounts,
-          backgroundColor: displayColors,
-          borderWidth: 2,
-          borderColor: '#fff',
-          hoverOffset: 6,
-        }]
-      },
-      options: {
-        cutout: '68%',
-        plugins: {
-          legend: { display: false },
-          tooltip: {
-            callbacks: {
-              label: ctx => {
-                if (total === 0) return ' No students assigned';
-                const val = counts[ctx.dataIndex];
-                const pct = total > 0 ? Math.round((val / total) * 100) : 0;
-                return ` ${val} student${val !== 1 ? 's' : ''} (${pct}%)`;
-              }
-            }
-          }
-        },
-        animation: { animateRotate: true, duration: 500 }
-      }
-    });
-  }
- 
-  // Init
-  renderChart(0);
- 
-  // Year filter buttons
-  buttons.forEach(btn => {
-    btn.addEventListener('click', function () {
-      buttons.forEach(b => {
-        b.classList.remove('btn-primary');
-        b.classList.add('btn-outline-primary');
-      });
-      this.classList.remove('btn-outline-primary');
-      this.classList.add('btn-primary');
-      currentYear = parseInt(this.dataset.year, 10) || 0;
-      renderChart(currentYear);
-    });
-  });
-})();
-
-</script>
+<script src="js/confirm-dialog.js"></script>
+<script src="js/admin-dashboard.js"></script>
 
 </body>
 </html>

@@ -1,6 +1,0 @@
-backend/config/db.php
-backend/controllers/AdvisorAppointmentRequests.php
-backend/controllers/AdvisorOfficeHours.php
-backend/controllers/AppointmentController.php
-backend/controllers/StudentAvailableSlots.php
-backend/controllers/StudentBookAppointment.php

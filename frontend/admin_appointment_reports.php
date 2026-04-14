@@ -103,7 +103,7 @@ $advisorAppointmentCounts = $appointmentReports->getAdvisorAppointmentCounts();
         <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
             <div>
                 <h3 class="section-title mb-1">Appointment System Overview</h3>
-                <p class="page-subtitle">Standalone admin page for appointment request statistics and advisor report overview.</p>
+                <p class="page-subtitle">Admin page for appointment request statistics and advisor report overview.</p>
             </div>
         </div>
     </div>

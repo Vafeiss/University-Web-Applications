@@ -11,9 +11,28 @@ declare(strict_types=1);
 require_once 'init.php';
 require_once '../backend/modules/UsersClass.php';
 require_once '../backend/modules/SuperUserReportsClass.php';
+require_once '../backend/modules/NotificationsClass.php';
 
 $user = new Users();
 $user->Check_Session('SuperUser');
+
+$superUserDisplayName = 'Super User';
+if (!empty($_SESSION['UserID']) && is_numeric($_SESSION['UserID'])) {
+  try {
+    $superUserPdo = ConnectToDatabase();
+    $superUserStmt = $superUserPdo->prepare('SELECT First_name, Last_Name FROM users WHERE User_ID = :user_id AND Role = "SuperUser" LIMIT 1');
+    $superUserStmt->execute(['user_id' => (int)$_SESSION['UserID']]);
+    $superUserRow = $superUserStmt->fetch(PDO::FETCH_ASSOC);
+    if (is_array($superUserRow)) {
+      $superUserDisplayName = trim((string)($superUserRow['First_name'] ?? '') . ' ' . (string)($superUserRow['Last_Name'] ?? ''));
+      if ($superUserDisplayName === '') {
+        $superUserDisplayName = (string)($_SESSION['email'] ?? 'Super User');
+      }
+    }
+  } catch (Throwable $e) {
+    $superUserDisplayName = (string)($_SESSION['email'] ?? 'Super User');
+  }
+}
 
 $reports = new SuperUserReportsClass();
 
@@ -82,13 +101,16 @@ $advisorCounts = $reports->getAdvisorStudentCounts(
   <link rel="stylesheet" href="css/superuser_reports.css">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 </head>
-<body>
+<body data-assigned-students="<?= (int)$summary['assigned_students'] ?>"
+  data-unassigned-students="<?= (int)$summary['unassigned_students'] ?>">
+
+<?php Notifications::createNotification(); ?>
 
 <header class="top-navbar">
   <img src="../documents/tepaklogo.png" alt="Logo" class="logo">
 
   <div class="navbar-center">
-    <span class="welcome-text">Welcome To Advicut!👋</span>
+    <span class="welcome-text">Welcome to AdviCut, <?= htmlspecialchars($superUserDisplayName) ?>!👋</span>
   </div>
 
   <div class="d-flex align-items-center gap-3">
@@ -435,58 +457,7 @@ $advisorCounts = $reports->getAdvisorStudentCounts(
 <?php require_once __DIR__ . '/footer/dashboard_footer.php'; ?>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-<script>
-document.addEventListener('DOMContentLoaded', function () {
-  document.querySelectorAll('.tab-btn').forEach(function (btn) {
-    btn.addEventListener('click', function () {
-      const sectionName = btn.getAttribute('data-section');
-
-      document.querySelectorAll('.tab-btn').forEach(function (b) {
-        b.classList.remove('active');
-      });
-
-      document.querySelectorAll('.section-panel').forEach(function (p) {
-        p.classList.remove('active');
-      });
-
-      btn.classList.add('active');
-
-      const targetPanel = document.getElementById('section-' + sectionName);
-      if (targetPanel) {
-        targetPanel.classList.add('active');
-      }
-
-      const url = new URL(window.location);
-      url.searchParams.set('section', sectionName);
-      window.history.replaceState({}, '', url);
-    });
-  });
-
-  const assignmentChart = document.getElementById('assignmentChart');
-  if (assignmentChart) {
-    const assignedStudents = <?= (int)$summary['assigned_students'] ?>;
-    const unassignedStudents = <?= (int)$summary['unassigned_students'] ?>;
-
-    new Chart(assignmentChart, {
-      type: 'pie',
-      data: {
-        labels: ['Assigned Students', 'Unassigned Students'],
-        datasets: [{
-          data: [assignedStudents, unassignedStudents]
-        }]
-      },
-      options: {
-        responsive: true,
-        plugins: {
-          legend: {
-            position: 'bottom'
-          }
-        }
-      }
-    });
-  }
-});
-</script>
+<script src="js/superuser-reports.js"></script>
 
 </body>
 </html>

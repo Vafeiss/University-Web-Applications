@@ -37,7 +37,7 @@ class Router {
         }
 
         http_response_code(404);
-        echo "Route not found";
+        echo "Not Found";
 
     }
 }

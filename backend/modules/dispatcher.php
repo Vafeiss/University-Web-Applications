@@ -16,6 +16,21 @@ require_once __DIR__ . '/../controllers/AppointmentController.php';
 require_once __DIR__ . '/../controllers/AppointmentControllerAction.php';
 require_once __DIR__ . '/../controllers/AdvisorController.php';
 require_once __DIR__ . '/../controllers/StudentController.php';
+require_once __DIR__ . '/Csrf.php';
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+	$action = trim((string)($_POST['action'] ?? ''));
+	$resolvedPath = $action !== ''
+		? '/' . ltrim($action, '/')
+		: (string)parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH);
+
+	$expectsJson = str_starts_with($resolvedPath, '/message/')
+		|| str_starts_with($resolvedPath, '/student/message/');
+
+	if (!Csrf::validateRequestToken()) {
+		Csrf::reject($expectsJson);
+	}
+}
 
 
 $router = new Router();
