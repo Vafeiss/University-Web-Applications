@@ -121,7 +121,19 @@
 
     fetch('../backend/modules/dispatcher.php', { method: 'POST', body: fd })
       .then(function (r) { return r.json(); })
-      .then(function (messages) {
+      .then(function (payload) {
+        const messages = Array.isArray(payload)
+          ? payload
+          : (payload && Array.isArray(payload.data) ? payload.data : []);
+
+        if (payload && payload.success === false) {
+          if (window.showSystemNotification) {
+            window.showSystemNotification('danger', payload.message || 'Failed to load messages.');
+          }
+          box.innerHTML = '<div class="comm-placeholder" style="color:#ef4444"><i class="bi bi-exclamation-circle"></i><p>Failed to load messages. Please try again.</p></div>';
+          return;
+        }
+
         if (!Array.isArray(messages) || messages.length === 0) {
           box.innerHTML = '<div class="comm-placeholder"><i class="bi bi-chat"></i><p>No messages yet. Send the first reply.</p></div>';
         } else {
@@ -191,7 +203,7 @@
           commWordCount(textarea);
           commLoadThread(commActiveStudentId);
         } else if (window.showSystemNotification) {
-          window.showSystemNotification('danger', (data && data.error) ? data.error : 'Failed to send message.');
+          window.showSystemNotification('danger', (data && data.message) ? data.message : 'Failed to send message.');
         }
       })
       .catch(function () {

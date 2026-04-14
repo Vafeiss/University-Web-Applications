@@ -17,16 +17,26 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../modules/databaseconnect.php';
 require_once __DIR__ . '/../modules/AppointmentHistoryClass.php';
+require_once __DIR__ . '/../modules/UsersClass.php';
 
 $pdo = ConnectToDatabase();
 
-$advisorId = 2;
-$advisorName = "Advisor Test User";
+$user = new Users();
+$user->Check_Session('Advisor');
+
+$advisorId = isset($_SESSION['UserID']) && is_numeric($_SESSION['UserID'])
+    ? (int)$_SESSION['UserID']
+    : 0;
+$advisorName = trim((string)($_SESSION['email'] ?? 'Advisor'));
 
 $errorMessage = "";
 $history = [];
 
 $appointmentHistory = new AppointmentHistory();
+
+if ($advisorId <= 0) {
+    $errorMessage = "Unauthorized advisor session.";
+}
 
 try {
     $nameSql = "SELECT First_name, Last_Name
@@ -49,7 +59,9 @@ try {
     $errorMessage = "Could not load advisor name.";
 }
 
-$history = $appointmentHistory->getAdvisorHistory($advisorId);
+if ($advisorId > 0) {
+    $history = $appointmentHistory->getAdvisorHistory($advisorId);
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">

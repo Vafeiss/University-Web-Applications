@@ -12,10 +12,21 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../modules/UsersClass.php';
 require_once __DIR__ . '/../modules/NotificationsClass.php';
+require_once __DIR__ . '/../modules/Csrf.php';
 
 class UsersController {
 
     public function logout(){
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            header('Location: ../../frontend/index.php');
+            exit();
+        }
+
+        if (!Csrf::validateRequestToken()) {
+            header('Location: ../../frontend/index.php?error=unauthorized');
+            exit();
+        }
+
         $user = new Users();
         $user->Log_out();
     }
@@ -24,6 +35,12 @@ class UsersController {
     {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             Notifications::error("Invalid request method.");
+            header('Location: ../../frontend/changepassword.php');
+            exit();
+        }
+
+        if (!Csrf::validateRequestToken()) {
+            Notifications::error("Request validation failed.");
             header('Location: ../../frontend/changepassword.php');
             exit();
         }
@@ -37,6 +54,19 @@ class UsersController {
         $currentPassword = $_POST['currentPassword'] ?? ($_POST['current_password'] ?? '');
         $newPassword = $_POST['newPassword'] ?? ($_POST['new_password'] ?? '');
         $confirmPassword = $_POST['confirmNewPassword'] ?? ($_POST['confirm_password'] ?? '');
+
+        if (
+            $currentPassword === '' ||
+            $newPassword === '' ||
+            $confirmPassword === '' ||
+            strlen($currentPassword) > 255 ||
+            strlen($newPassword) > 255 ||
+            strlen($confirmPassword) > 255
+        ) {
+            Notifications::error("Invalid password input.");
+            header('Location: ../../frontend/changepassword.php');
+            exit();
+        }
 
         if ($newPassword !== $confirmPassword) {
             Notifications::error("Passwords do not match.");
@@ -64,8 +94,24 @@ class UsersController {
             exit();
         }
 
+        if (!Csrf::validateRequestToken()) {
+            header('Location: ../../frontend/index.php?error=unauthorized');
+            exit();
+        }
+
         $email = trim($_POST['email'] ?? '');
         $password = $_POST['password'] ?? '';
+
+        if (
+            $email === '' ||
+            $password === '' ||
+            strlen($email) > 254 ||
+            strlen($password) > 255 ||
+            !filter_var($email, FILTER_VALIDATE_EMAIL)
+        ) {
+            header('Location: ../../frontend/index.php?error=invalid');
+            exit();
+        }
 
         $user = new Users();
         $user->Log_in($email, $password);

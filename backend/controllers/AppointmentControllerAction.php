@@ -34,6 +34,8 @@ if (session_status() === PHP_SESSION_NONE) {
 
 require_once __DIR__ . '/../modules/AppointmentApprovalClass.php';
 require_once __DIR__ . '/../modules/NotificationsClass.php';
+require_once __DIR__ . '/../modules/UsersClass.php';
+require_once __DIR__ . '/../modules/Csrf.php';
 
 class AppointmentControllerAction
 {
@@ -46,9 +48,32 @@ class AppointmentControllerAction
 
     public function handle(): void
     {
-        $appointmentAction = trim((string)($_POST['appointment_action'] ?? $_GET['action'] ?? ''));
-        $requestId = (int)($_POST['request_id'] ?? $_GET['id'] ?? 0);
-        $advisorId = isset($_SESSION['UserID']) && is_numeric($_SESSION['UserID']) ? (int)$_SESSION['UserID'] : 2;
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            Notifications::error('Invalid request method.');
+            $this->redirectToAdvisorRequests();
+        }
+
+        if (!Csrf::validateRequestToken()) {
+            Notifications::error('Request validation failed.');
+            $this->redirectToAdvisorRequests();
+        }
+
+        $user = new Users();
+        $user->Check_Session('Advisor');
+
+        if (!isset($_SESSION['UserID']) || !is_numeric($_SESSION['UserID'])) {
+            Notifications::error('Unauthorized advisor session.');
+            $this->redirectToAdvisorRequests();
+        }
+
+        $appointmentAction = trim((string)($_POST['appointment_action'] ?? ''));
+        $requestId = (int)($_POST['request_id'] ?? 0);
+        $advisorId = (int)$_SESSION['UserID'];
+
+        if (!in_array($appointmentAction, ['approve', 'decline'], true)) {
+            Notifications::error('Invalid action.');
+            $this->redirectToAdvisorRequests();
+        }
 
         if ($requestId <= 0) {
             Notifications::error("Invalid request ID.");
@@ -56,30 +81,41 @@ class AppointmentControllerAction
         }
 
         try {
-           if ($appointmentAction === 'approve') {
-             $ok = $this->appointmentApproval->approveAppointment($requestId, $advisorId);
+            if ($appointmentAction === 'approve') {
+                $ok = $this->appointmentApproval->approveAppointment($requestId, $advisorId);
 
-            if (!$ok) {
-             Notifications::error("Failed to approve appointment.");
-             $this->redirectToAdvisorRequests();
-            }
+                if (!$ok) {
+                    Notifications::error("Failed to approve appointment.");
+                    $this->redirectToAdvisorRequests();
+                }
 
-            Notifications::success("Appointment approved successfully.");
-            $this->redirectToAdvisorRequests();
-        }
-
-            if ($appointmentAction === 'decline') {
-                 $reason = trim((string)($_POST['decline_reason'] ?? 'Declined by advisor'));
-                 $ok = $this->appointmentApproval->declineAppointment($requestId, $advisorId, $reason);
-
-            if (!$ok) {
-                Notifications::error("Failed to decline appointment.");
+                Notifications::success("Appointment approved successfully.");
                 $this->redirectToAdvisorRequests();
             }
 
-            Notifications::success("Appointment declined successfully.");
-            $this->redirectToAdvisorRequests();
-        }
+            if ($appointmentAction === 'decline') {
+                $reason = trim((string)($_POST['decline_reason'] ?? 'Declined by advisor'));
+
+                if ($reason === '') {
+                    Notifications::error("Decline reason is required.");
+                    $this->redirectToAdvisorRequests();
+                }
+
+                if (mb_strlen($reason, 'UTF-8') > 1000) {
+                    Notifications::error("Decline reason is too long.");
+                    $this->redirectToAdvisorRequests();
+                }
+
+                $ok = $this->appointmentApproval->declineAppointment($requestId, $advisorId, $reason);
+
+                if (!$ok) {
+                    Notifications::error("Failed to decline appointment.");
+                    $this->redirectToAdvisorRequests();
+                }
+
+                Notifications::success("Appointment declined successfully.");
+                $this->redirectToAdvisorRequests();
+            }
 
             Notifications::error("Invalid action.");
             $this->redirectToAdvisorRequests();

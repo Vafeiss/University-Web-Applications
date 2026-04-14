@@ -20,8 +20,12 @@ session_start();
 
 require_once __DIR__ . '/../modules/NotificationsClass.php';
 require_once __DIR__ . '/../modules/databaseconnect.php';
+require_once __DIR__ . '/../modules/UsersClass.php';
+require_once __DIR__ . '/../modules/Csrf.php';
 
 $pdo = ConnectToDatabase();
+$user = new Users();
+$user->Check_Session('Student');
 
 /*
 Helper function for redirecting back to student dashboard
@@ -32,11 +36,53 @@ function redirectToStudentDashboard(string $section = 'book'): void
     exit;
 }
 
+function getNextBookingDate(string $dayOfWeek): string
+{
+    $dayLookup = [
+        'monday' => 1,
+        'tuesday' => 2,
+        'wednesday' => 3,
+        'thursday' => 4,
+        'friday' => 5,
+        'saturday' => 6,
+        'sunday' => 7,
+    ];
+
+    $targetDay = $dayLookup[strtolower(trim($dayOfWeek))] ?? 0;
+    $today = new DateTimeImmutable('today');
+
+    if ($targetDay <= 0) {
+        return $today->format('Y-m-d');
+    }
+
+    $currentDay = (int)$today->format('N');
+    $difference = $targetDay - $currentDay;
+    if ($difference < 0) {
+        $difference += 7;
+    }
+
+    return $difference === 0
+        ? $today->format('Y-m-d')
+        : $today->modify('+' . $difference . ' days')->format('Y-m-d');
+}
+
 // Only allow POST
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     Notifications::error("Invalid request method.");
     redirectToStudentDashboard('book');
 }
+
+if (!Csrf::validateRequestToken()) {
+    Notifications::error("Request validation failed.");
+    redirectToStudentDashboard('book');
+}
+
+if (!isset($_SESSION['UserID']) || !is_numeric($_SESSION['UserID'])) {
+    Notifications::error("Unauthorized student session.");
+    redirectToStudentDashboard('book');
+}
+
+$sessionStudentId = (int)$_SESSION['UserID'];
 
 // Read form inputs
 $studentId = isset($_POST['student_id']) ? (int)$_POST['student_id'] : 0;
@@ -47,6 +93,21 @@ $reason = isset($_POST['reason']) ? trim((string)$_POST['reason']) : '';
 // Validate basic input
 if ($studentId <= 0 || $slotId <= 0 || $appointmentDate === '' || $reason === '') {
     Notifications::error("All booking fields are required.");
+    redirectToStudentDashboard('book');
+}
+
+if ($studentId !== $sessionStudentId) {
+    Notifications::error("Forbidden.");
+    redirectToStudentDashboard('book');
+}
+
+if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $appointmentDate)) {
+    Notifications::error("Invalid appointment date.");
+    redirectToStudentDashboard('book');
+}
+
+if (mb_strlen($reason, 'UTF-8') > 2000) {
+    Notifications::error("Reason is too long.");
     redirectToStudentDashboard('book');
 }
 
@@ -84,6 +145,7 @@ try {
     ------------------------------------------------------------
     */
     $slotSql = "SELECT OfficeHour_ID, Advisor_ID
+                                        , Day_of_Week
                 FROM office_hours
                 WHERE OfficeHour_ID = :slot_id
                   AND Advisor_ID = :advisor_id
@@ -99,6 +161,12 @@ try {
 
     if (!$slotRow) {
         Notifications::error("Selected slot is invalid.");
+        redirectToStudentDashboard('book');
+    }
+
+    $expectedDate = getNextBookingDate((string)($slotRow['Day_of_Week'] ?? ''));
+    if ($appointmentDate !== $expectedDate) {
+        Notifications::error("Selected appointment date does not match the chosen slot.");
         redirectToStudentDashboard('book');
     }
 

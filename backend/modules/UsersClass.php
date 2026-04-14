@@ -99,6 +99,114 @@ private function dashboardPathForRole(string $role): ?string {
     return null;
 }
 
+private function getLoginThrottleConfig(): array {
+    return [
+        'max_attempts' => 5,
+        'window_seconds' => 900,
+        'lockout_seconds' => 900,
+    ];
+}
+
+private function getLoginThrottleBucketKey(string $email): string {
+    $normalizedEmail = strtolower(trim($email));
+    $clientIp = trim((string)($_SERVER['REMOTE_ADDR'] ?? 'unknown'));
+    return hash('sha256', $normalizedEmail . '|' . $clientIp);
+}
+
+private function isLoginThrottled(string $email): bool {
+    $config = $this->getLoginThrottleConfig();
+    $key = $this->getLoginThrottleBucketKey($email);
+    $now = time();
+
+    if (!isset($_SESSION['login_throttle']) || !is_array($_SESSION['login_throttle'])) {
+        $_SESSION['login_throttle'] = [];
+    }
+
+    $bucket = $_SESSION['login_throttle'][$key] ?? ['attempts' => [], 'locked_until' => 0];
+    $lockedUntil = (int)($bucket['locked_until'] ?? 0);
+
+    if ($lockedUntil > $now) {
+        return true;
+    }
+
+    $attempts = array_values(array_filter(
+        (array)($bucket['attempts'] ?? []),
+        static function ($timestamp) use ($now, $config): bool {
+            return (int)$timestamp >= ($now - $config['window_seconds']);
+        }
+    ));
+
+    $_SESSION['login_throttle'][$key] = [
+        'attempts' => $attempts,
+        'locked_until' => 0,
+    ];
+
+    return false;
+}
+
+private function recordFailedLoginAttempt(string $email): void {
+    $config = $this->getLoginThrottleConfig();
+    $key = $this->getLoginThrottleBucketKey($email);
+    $now = time();
+
+    if (!isset($_SESSION['login_throttle']) || !is_array($_SESSION['login_throttle'])) {
+        $_SESSION['login_throttle'] = [];
+    }
+
+    $bucket = $_SESSION['login_throttle'][$key] ?? ['attempts' => [], 'locked_until' => 0];
+    $attempts = array_values(array_filter(
+        (array)($bucket['attempts'] ?? []),
+        static function ($timestamp) use ($now, $config): bool {
+            return (int)$timestamp >= ($now - $config['window_seconds']);
+        }
+    ));
+
+    $attempts[] = $now;
+    $lockedUntil = 0;
+    if (count($attempts) >= $config['max_attempts']) {
+        $lockedUntil = $now + $config['lockout_seconds'];
+        $attempts = [];
+    }
+
+    $_SESSION['login_throttle'][$key] = [
+        'attempts' => $attempts,
+        'locked_until' => $lockedUntil,
+    ];
+}
+
+private function clearLoginThrottle(string $email): void {
+    if (!isset($_SESSION['login_throttle']) || !is_array($_SESSION['login_throttle'])) {
+        return;
+    }
+
+    $key = $this->getLoginThrottleBucketKey($email);
+    unset($_SESSION['login_throttle'][$key]);
+}
+
+private function isStrongPassword(string $password): bool {
+    if (strlen($password) < 10 || strlen($password) > 72) {
+        return false;
+    }
+
+    if (!preg_match('/[a-z]/', $password)) {
+        return false;
+    }
+
+    if (!preg_match('/[A-Z]/', $password)) {
+        return false;
+    }
+
+    if (!preg_match('/[0-9]/', $password)) {
+        return false;
+    }
+
+    if (!preg_match('/[^a-zA-Z0-9]/', $password)) {
+        return false;
+    }
+
+    return true;
+}
+
 public function __construct() {
     //connect using the shared PDO connection used by backend modules
     $this->conn = ConnectToDatabase();
@@ -108,6 +216,10 @@ public function __construct() {
     //method to log in the user by checking email and password to the advicut database
     public function Log_in(string $email, string $password) {
         try {
+            if ($this->isLoginThrottled($email)) {
+                $this->redirectTo('/frontend/index.php?error=throttled');
+            }
+
             //query to get all the students where email and password match the input parameters
             $sql = "SELECT User_ID , Uni_Email , Role , Password FROM users WHERE Uni_Email = ? LIMIT 1";
             $stmt1 = $this->conn->prepare($sql);
@@ -115,14 +227,17 @@ public function __construct() {
             $row = $stmt1->fetch(PDO::FETCH_ASSOC);
 
             if ($row === false) { //error handling if email not found go back to index
-                $this->redirectTo('/frontend/index.php?error=invalid1');
+                $this->recordFailedLoginAttempt($email);
+                $this->redirectTo('/frontend/index.php?error=invalid');
             }
 
             //error handling if password wrong go back to index
             if (!password_verify($password, (string)$row["Password"])) {
-                $this->redirectTo('/frontend/index.php?error=invalid2');
+                $this->recordFailedLoginAttempt($email);
+                $this->redirectTo('/frontend/index.php?error=invalid');
             }
 
+            $this->clearLoginThrottle($email);
             $this->Validate_Credentials($row);
         } catch (PDOException $e) {
             error_log('Users::Log_in PDO error: ' . $e->getMessage());
@@ -133,6 +248,11 @@ public function __construct() {
 
 //method to kill the session of the user and log them out.
 public function Log_out() {
+    if (session_status() === PHP_SESSION_ACTIVE) {
+        $params = session_get_cookie_params();
+        setcookie(session_name(), '', time() - 3600, $params['path'], $params['domain'] ?? '', (bool)$params['secure'], (bool)$params['httponly']);
+    }
+
     $_SESSION = [];
     session_destroy();
 
@@ -183,7 +303,7 @@ public function Validate_Credentials($row) {
             $_SESSION['UserID'] = $row['User_ID'];
             $_SESSION['role'] = $row['Role'];}
         else {
-        $this->redirectTo('/frontend/index.php?error=invalid1');
+        $this->redirectTo('/frontend/index.php?error=invalid');
         }
             //redirect them to the right dashboard based on their role if the session it's valid and the credentials are correct
             if ($_SESSION['role'] == 'Student') {
@@ -210,7 +330,7 @@ public function Validate_Credentials($row) {
 //method to reset the given password of the user to his own.
 public function Change_Password(int $userId, string $currentPassword, string $newPassword): bool
 {
-    if (strlen($newPassword) < 8) {
+    if (!$this->isStrongPassword($newPassword)) {
         return false;
     }
     try {
@@ -226,6 +346,10 @@ public function Change_Password(int $userId, string $currentPassword, string $ne
 
         //verify existing password
         if (!password_verify($currentPassword, (string)$row["Password"])) {
+            return false;
+        }
+
+        if (password_verify($newPassword, (string)$row["Password"])) {
             return false;
         }
 

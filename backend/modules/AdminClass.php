@@ -203,42 +203,76 @@ class Admin extends Users
         }
     }
 
-    //delete a degree from the database
-    public function deleteDegree(int $degreeId): bool
+    //delete a degree from the database and return structured result details
+    public function deleteDegreeDetailed(int $degreeId): array
     {
         if ($degreeId <= 0) {
-            return false;
+            return ['success' => false, 'code' => 'invalid_id'];
         }
 
         try {
+            // Do not delete a degree that is still assigned to students.
+            $inUseStmt = $this->conn->prepare('SELECT 1 FROM studentdegree WHERE DegreeID = ? LIMIT 1');
+            $inUseStmt->execute([$degreeId]);
+            if ($inUseStmt->fetchColumn() !== false) {
+                return ['success' => false, 'code' => 'in_use'];
+            }
+
             $stmt = $this->conn->prepare('DELETE FROM degree WHERE DegreeID = ?');
             $stmt->execute([$degreeId]);
             if ($stmt->rowCount() === 0) {
-                return false;
+                return ['success' => false, 'code' => 'not_found'];
             }
-            return true;
+            return ['success' => true, 'code' => 'deleted'];
         } catch (Exception $e) {
-            return false;
+            return ['success' => false, 'code' => 'error'];
         }
     }
 
-    //delete a department from the database
-    public function deleteDepartment(int $departmentId)
+    //backward-compatible wrapper used by older codepaths
+    public function deleteDegree(int $degreeId): bool
+    {
+        $result = $this->deleteDegreeDetailed($degreeId);
+        return (bool)($result['success'] ?? false);
+    }
+
+    //delete a department from the database and return structured result details
+    public function deleteDepartmentDetailed(int $departmentId): array
     {
         if ($departmentId <= 0) {
-            return false;
+            return ['success' => false, 'code' => 'invalid_id'];
         }
 
         try {
+            // Do not delete a department that still has related degrees/advisors.
+            $degreeDepStmt = $this->conn->prepare('SELECT 1 FROM degree WHERE DepartmentID = ? LIMIT 1');
+            $degreeDepStmt->execute([$departmentId]);
+            if ($degreeDepStmt->fetchColumn() !== false) {
+                return ['success' => false, 'code' => 'in_use_degree'];
+            }
+
+            $advisorDepStmt = $this->conn->prepare('SELECT 1 FROM advisordepartment WHERE DepartmentID = ? LIMIT 1');
+            $advisorDepStmt->execute([$departmentId]);
+            if ($advisorDepStmt->fetchColumn() !== false) {
+                return ['success' => false, 'code' => 'in_use_advisor'];
+            }
+
             $stmt = $this->conn->prepare('DELETE FROM departments WHERE DepartmentID = ?');
             $stmt->execute([$departmentId]);
             if ($stmt->rowCount() === 0) {
-                return false;
+                return ['success' => false, 'code' => 'not_found'];
             }
-            return true;
+            return ['success' => true, 'code' => 'deleted'];
         } catch (Exception $e) {
-            return false;
+            return ['success' => false, 'code' => 'error'];
         }
+    }
+
+    //backward-compatible wrapper used by older codepaths
+    public function deleteDepartment(int $departmentId): bool
+    {
+        $result = $this->deleteDepartmentDetailed($departmentId);
+        return (bool)($result['success'] ?? false);
     }
 
     //edit department information in the database according with the information provided by the admin

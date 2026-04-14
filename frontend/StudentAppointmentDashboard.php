@@ -24,6 +24,7 @@ require_once __DIR__ . '/init.php';
 require_once __DIR__ . '/../backend/modules/UsersClass.php';
 require_once __DIR__ . '/../backend/modules/StudentClass.php';
 require_once __DIR__ . '/../backend/modules/NotificationsClass.php';
+require_once __DIR__ . '/../backend/modules/Csrf.php';
 
 $user = new Users();
 $user->Check_Session('Student');
@@ -779,6 +780,7 @@ try {
 
       <form action="../backend/controllers/StudentBookAppointment.php" method="POST">
         <div class="modal-body">
+          <input type="hidden" name="_csrf" value="<?= htmlspecialchars(Csrf::ensureToken(), ENT_QUOTES, 'UTF-8') ?>">
           <input type="hidden" name="student_id" value="<?= (int)$studentId ?>">
 
           <div class="row g-3">

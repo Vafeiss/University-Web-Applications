@@ -6,6 +6,8 @@
    Files in use: reset_password.php, ResetPassword.php
 */
 
+require_once '../backend/modules/Csrf.php';
+
 $token = trim($_GET['token'] ?? '');
 $error = trim($_GET['error'] ?? '');
 ?>
@@ -33,15 +35,20 @@ $error = trim($_GET['error'] ?? '');
 
                 <form method="POST" action="update_password.php">
                     <input type="hidden" name="token" value="<?= htmlspecialchars($token) ?>">
+                    <input type="hidden" name="_csrf" value="<?= htmlspecialchars(Csrf::ensureToken(), ENT_QUOTES, 'UTF-8') ?>">
+
+                    <div class="alert alert-info small py-2" role="note">
+                        Password requirements: 10-72 characters, with at least one uppercase letter, one lowercase letter, one number, and one symbol.
+                    </div>
 
                     <div class="mb-3">
                         <label class="form-label">New Password</label>
-                        <input type="password" class="form-control" name="password" required minlength="8">
+                        <input type="password" class="form-control" name="password" required minlength="10">
                     </div>
 
                     <div class="mb-3">
                         <label class="form-label">Confirm New Password</label>
-                        <input type="password" class="form-control" name="confirm_password" required minlength="8">
+                        <input type="password" class="form-control" name="confirm_password" required minlength="10">
                     </div>
 
                     <button type="submit" class="btn btn-primary w-100">Update Password</button>

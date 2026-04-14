@@ -22,11 +22,24 @@ if (session_status() === PHP_SESSION_NONE) {
 
 require_once __DIR__ . '/../modules/AppointmentApprovalClass.php';
 require_once __DIR__ . '/../modules/NotificationsClass.php';
+require_once __DIR__ . '/../modules/UsersClass.php';
+require_once __DIR__ . '/../modules/Csrf.php';
 
 $appointmentApproval = new AppointmentApproval();
 
-$advisorId = 2;
-$advisorName = "Advisor Test User";
+$user = new Users();
+$user->Check_Session('Advisor');
+
+$advisorId = isset($_SESSION['UserID']) && is_numeric($_SESSION['UserID'])
+    ? (int)$_SESSION['UserID']
+    : 0;
+$advisorName = trim((string)($_SESSION['email'] ?? 'Advisor'));
+
+if ($advisorId <= 0) {
+    Notifications::error('Unauthorized advisor session.');
+    header('Location: ../../frontend/index.php');
+    exit();
+}
 
 $requests = [];
 if ($advisorId > 0) {
@@ -91,6 +104,7 @@ if ($advisorId > 0) {
                                             <div class="d-flex flex-column gap-2">
                                                 <form method="POST" action="../modules/dispatcher.php" class="m-0">
                                                     <input type="hidden" name="action" value="/appointment/action">
+                                                    <input type="hidden" name="_csrf" value="<?= htmlspecialchars(Csrf::ensureToken(), ENT_QUOTES, 'UTF-8') ?>">
                                                     <input type="hidden" name="appointment_action" value="approve">
                                                     <input type="hidden" name="request_id" value="<?= (int)($request['Request_ID'] ?? 0) ?>">
                                                     <button type="submit" class="btn btn-success btn-sm w-100" onclick="return confirm('Approve this appointment request?');">
@@ -100,6 +114,7 @@ if ($advisorId > 0) {
 
                                                 <form method="POST" action="../modules/dispatcher.php" class="m-0">
                                                     <input type="hidden" name="action" value="/appointment/action">
+                                                    <input type="hidden" name="_csrf" value="<?= htmlspecialchars(Csrf::ensureToken(), ENT_QUOTES, 'UTF-8') ?>">
                                                     <input type="hidden" name="appointment_action" value="decline">
                                                     <input type="hidden" name="request_id" value="<?= (int)($request['Request_ID'] ?? 0) ?>">
                                                     <textarea name="decline_reason" class="form-control form-control-sm" rows="2" placeholder="Enter decline reason..." required></textarea>

@@ -8,10 +8,12 @@
    ErrorMessages: Promotion failed, Query failed, Database connection failed, Invalid log in status.
    Files in use: database.php, routes.php , admin_dashboard.php
 */  
+declare(strict_types=1);
+
 require_once __DIR__ . '/databaseconnect.php';
 
 class PromotionClass {
-private $conn;
+private PDO $conn;
 
 function __construct() {
     $this->conn = ConnectToDatabase();
@@ -64,7 +66,8 @@ function promoteStudents(){
             if ($this->conn->inTransaction()) {
             $this->conn->rollBack();
             }
-            die("Promotion failed: " . $e->getMessage());
+            error_log('PromotionClass::promoteStudents error: ' . $e->getMessage());
+            return false;
             }
     }
 }

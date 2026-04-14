@@ -21,6 +21,7 @@ session_start();
 require_once __DIR__ . '/../modules/databaseconnect.php';
 require_once __DIR__ . '/../modules/UsersClass.php';
 require_once __DIR__ . '/../modules/NotificationsClass.php';
+require_once __DIR__ . '/../modules/Csrf.php';
 
 $user = new Users();
 $user->Check_Session('Advisor');
@@ -54,8 +55,13 @@ function redirectToOfficeHoursDashboard(): void
 DELETE SLOT
 ------------------------------------------------------------
 */
-if (isset($_GET['delete'])) {
-    $deleteId = (int)($_GET['delete']);
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') === 'delete') {
+    if (!Csrf::validateRequestToken()) {
+        Notifications::error("Request validation failed.");
+        redirectToOfficeHoursDashboard();
+    }
+
+    $deleteId = (int)($_POST['delete_id'] ?? 0);
 
     if ($deleteId <= 0) {
         Notifications::error("Invalid slot ID.");
@@ -90,6 +96,11 @@ ADD SLOT
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = trim((string)($_POST['action'] ?? ''));
 
+    if (!Csrf::validateRequestToken()) {
+        Notifications::error("Request validation failed.");
+        redirectToOfficeHoursDashboard();
+    }
+
     if ($action !== 'add') {
         Notifications::error("Invalid action.");
         redirectToOfficeHoursDashboard();
@@ -101,6 +112,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($day === '' || $start === '' || $end === '') {
         Notifications::error("All fields are required.");
+        redirectToOfficeHoursDashboard();
+    }
+
+    if (!in_array($day, ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'], true)) {
+        Notifications::error("Invalid day selected.");
         redirectToOfficeHoursDashboard();
     }
 

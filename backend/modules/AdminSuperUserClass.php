@@ -46,6 +46,15 @@ class AdminSuperUserClass
 
     //add superusers to the database with the information provided by the admin
     public function addSuperUser(string $email, int $externalId): bool{
+        if ($externalId <= 0) {
+            return false;
+        }
+
+        $externalCheck = $this->conn->prepare('SELECT User_ID FROM users WHERE External_ID = ? LIMIT 1');
+        $externalCheck->execute([$externalId]);
+        if ($externalCheck->fetch(PDO::FETCH_ASSOC) !== false) {
+            return false;
+        }
         
         if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
             return false;
@@ -72,7 +81,7 @@ class AdminSuperUserClass
             return false;
         }
 
-        $stmt = $this->conn->prepare('DELETE FROM users WHERE User_ID = ?');
+        $stmt = $this->conn->prepare('DELETE FROM users WHERE User_ID = ? AND Role = "SuperUser"');
         return $stmt->execute([$user_ID]);
     }
 }

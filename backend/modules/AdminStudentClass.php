@@ -346,7 +346,7 @@ class AdminStudentClass
             return false;
         }
 
-        $stmt = $this->conn->prepare('DELETE FROM users WHERE User_ID = ?');
+        $stmt = $this->conn->prepare('DELETE FROM users WHERE User_ID = ? AND Role = "Student"');
         return $stmt->execute([$student_ID]);
     }
 

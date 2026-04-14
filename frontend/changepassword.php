@@ -1,8 +1,11 @@
 <?php
 require_once('init.php');
 require_once("../backend/modules/UsersClass.php");
+require_once("../backend/modules/Csrf.php");
 $user = new Users();
 $user->Check_Session();
+
+$csrfToken = Csrf::ensureToken();
 
 if (!isset($_SESSION["UserID"])) {
     header("Location: index.php?error=not_logged_in");
@@ -26,6 +29,11 @@ if (!isset($_SESSION["UserID"])) {
 
 <form method="POST" action="../backend/modules/dispatcher.php">
     <input type="hidden" name="action" value="/password/change">
+    <input type="hidden" name="_csrf" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
+
+    <div class="alert alert-info small py-2" role="note">
+        Password requirements: 10-72 characters, with at least one uppercase letter, one lowercase letter, one number, and one symbol.
+    </div>
 
     <div class="mb-3">
         <label>Current Password</label>
@@ -34,12 +42,12 @@ if (!isset($_SESSION["UserID"])) {
 
     <div class="mb-3">
         <label>New Password</label>
-        <input type="password" class="form-control" name="newPassword" required minlength="8">
+        <input type="password" class="form-control" name="newPassword" required minlength="10">
     </div>
 
     <div class="mb-3">
         <label>Confirm New Password</label>
-        <input type="password" class="form-control" name="confirmNewPassword" required minlength="8">
+        <input type="password" class="form-control" name="confirmNewPassword" required minlength="10">
     </div>
 
     <button type="submit" class="btn btn-primary w-100">Update Password</button>

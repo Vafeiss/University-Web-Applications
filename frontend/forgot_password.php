@@ -6,16 +6,23 @@
    Files in use: ResetPassword.php
 */
 require '../backend/modules/ResetPassword.php';
+require '../backend/modules/Csrf.php';
 
 $message = '';
+
 $isError = false;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!Csrf::validateRequestToken()) {
+        $message = 'Request validation failed.';
+        $isError = true;
+    } else {
     $pr     = new PasswordReset();
     $result = $pr->Handle_Forgot_Password(trim($_POST['email'] ?? ''));
 
     $message = $result['message'];
     $isError = !$result['success'];
+    }
 }
 ?>
 
@@ -41,6 +48,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <?php endif; ?>
 
             <form action="" method="POST">
+                <input type="hidden" name="_csrf" value="<?= htmlspecialchars(Csrf::ensureToken(), ENT_QUOTES, 'UTF-8') ?>">
                 <div class="mb-3">
                     <label class="form-label" for="email">University Email</label>
                     <input type="email" class="form-control" id="email" name="email" required placeholder="you@edu.cut.ac.cy">

@@ -8,6 +8,8 @@
    Error Messages: If the connection to the database fails || queries fails throw PDO exception with message
    Files in use: databaseconnect.php , students_dashboard.php, advisor_dashboard.php
 */
+declare(strict_types=1);
+
 require_once __DIR__ . '/databaseconnect.php';
 
 class CommunicationsClass {
@@ -33,27 +35,47 @@ class CommunicationsClass {
     }
     }
 
-    //find the conversation ID between advisor and student if it exists otherwise create it and return the conversation ID
-    public function findConversation(int $advisorID , int $studentID){
-        try{
-            $sql = "SELECT Conversation_ID FROM conversations WHERE Advisor_ID = ? AND Student_ID = ?";
+    //get the conversation id without creating records
+    public function getConversationId(int $advisorID, int $studentID): ?int
+    {
+        try {
+            $sql = "SELECT Conversation_ID FROM conversations WHERE Advisor_ID = ? AND Student_ID = ? LIMIT 1";
             $stmt = $this->conn->prepare($sql);
             $stmt->execute([$advisorID, $studentID]);
             $result = $stmt->fetch(PDO::FETCH_ASSOC);
-            if($result){
-                return $result['Conversation_ID'];
-            } else {
-                $result = $this->createConversation($advisorID, $studentID);
-                if(!$result){
-                    return false;
-                }else {
-                    return $result;
-                }
+
+            if (!$result || !isset($result['Conversation_ID'])) {
+                return null;
             }
-        } catch(PDOException $e){
-            error_log("Error finding conversation: " . $e->getMessage());
-            return false;
+
+            return (int)$result['Conversation_ID'];
+        } catch (PDOException $e) {
+            error_log("Error getting conversation id: " . $e->getMessage());
+            return null;
         }
+    }
+
+    //get existing conversation id or create one if none exists
+    public function getOrCreateConversationId(int $advisorID, int $studentID): ?int
+    {
+        $existingId = $this->getConversationId($advisorID, $studentID);
+        if ($existingId !== null) {
+            return $existingId;
+        }
+
+        $createdId = $this->createConversation($advisorID, $studentID);
+        if ($createdId === false) {
+            return null;
+        }
+
+        return (int)$createdId;
+    }
+
+    //backward compatible alias
+    public function findConversation(int $advisorID, int $studentID)
+    {
+        $conversationId = $this->getOrCreateConversationId($advisorID, $studentID);
+        return $conversationId ?? false;
     }
 
     //send a message between advisor and student and update the database with the message conversation, sender and timestamp of the message
@@ -84,7 +106,8 @@ class CommunicationsClass {
     }
 
     //when a students/advisors opens the tab mark it as read in the database.
-    public function getMessages(int $conversationID, int $senderID){
+    public function markMessagesRead(int $conversationID, int $senderID): bool
+    {
         try{
             $sql = "UPDATE messages set Is_Read = 1 WHERE Conversation_ID = ? AND Sender_ID != ?";
             $stmt = $this->conn->prepare($sql);
@@ -94,5 +117,11 @@ class CommunicationsClass {
             error_log("Error marking messages as read: " . $e->getMessage());
             return false;
         }
+    }
+
+    //backward compatible alias
+    public function getMessages(int $conversationID, int $senderID)
+    {
+        return $this->markMessagesRead($conversationID, $senderID);
     }
 }

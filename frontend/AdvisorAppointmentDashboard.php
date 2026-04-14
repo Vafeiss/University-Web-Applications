@@ -24,6 +24,7 @@ require_once __DIR__ . '/../backend/modules/databaseconnect.php';
 require_once __DIR__ . '/../backend/modules/AdvisorClass.php';
 require_once __DIR__ . '/../backend/modules/UsersClass.php';
 require_once __DIR__ . '/../backend/modules/NotificationsClass.php';
+require_once __DIR__ . '/../backend/modules/Csrf.php';
 
 $user = new Users();
 $user->Check_Session('Advisor');
@@ -474,11 +475,16 @@ try {
                                     <td><?= htmlspecialchars(substr((string)$slot['End_Time'], 0, 5)) ?></td>
                                     <td><span class="badge bg-success">Active</span></td>
                                     <td>
-                                        <a href="../backend/controllers/AdvisorOfficeHours.php?delete=<?= (int)$slot['OfficeHour_ID'] ?>"
-                                           class="btn btn-outline-danger btn-sm"
-                                                         data-confirm="Delete this office hour slot?">
-                                            <i class="bi bi-trash"></i>
-                                        </a>
+                                        <form action="../backend/controllers/AdvisorOfficeHours.php" method="POST" class="mb-0 d-inline">
+                                            <input type="hidden" name="_csrf" value="<?= htmlspecialchars(Csrf::ensureToken(), ENT_QUOTES, 'UTF-8') ?>">
+                                            <input type="hidden" name="action" value="delete">
+                                            <input type="hidden" name="delete_id" value="<?= (int)$slot['OfficeHour_ID'] ?>">
+                                            <button type="submit"
+                                                    class="btn btn-outline-danger btn-sm"
+                                                    data-confirm="Delete this office hour slot?">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </form>
                                     </td>
                                 </tr>
                             <?php endforeach; ?>
@@ -799,6 +805,7 @@ try {
 
             <form action="../backend/controllers/AdvisorOfficeHours.php" method="POST">
                 <div class="modal-body">
+                    <input type="hidden" name="_csrf" value="<?= htmlspecialchars(Csrf::ensureToken(), ENT_QUOTES, 'UTF-8') ?>">
                     <input type="hidden" name="action" value="add">
 
                     <div class="row g-3">

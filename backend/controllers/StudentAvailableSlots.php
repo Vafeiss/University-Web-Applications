@@ -17,19 +17,26 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../modules/databaseconnect.php';
+require_once __DIR__ . '/../modules/UsersClass.php';
+require_once __DIR__ . '/../modules/Csrf.php';
 
 $pdo = ConnectToDatabase();
+
+$user = new Users();
+$user->Check_Session('Student');
 
 $errorMessage = "";
 $slots = [];
 $advisorName = "";
 
-/*
-TEMP: hardcoded student for testing
-Later this must come from session/login
-*/
-$studentUserId = 4;
+$studentUserId = isset($_SESSION['UserID']) && is_numeric($_SESSION['UserID'])
+    ? (int)$_SESSION['UserID']
+    : 0;
 $advisorUserId = 0;
+
+if ($studentUserId <= 0) {
+    $errorMessage = "Unauthorized student session.";
+}
 
 /*
 ------------------------------------------------------------
@@ -66,7 +73,8 @@ try {
     }
 
 } catch (Throwable $e) {
-    $errorMessage = $e->getMessage();
+    error_log('StudentAvailableSlots advisor lookup error: ' . $e->getMessage());
+    $errorMessage = 'Unable to load your advisor right now.';
 }
 
 /*
@@ -97,7 +105,8 @@ if ($errorMessage === "") {
         $slots = $stmt->fetchAll();
 
     } catch (Throwable $e) {
-        $errorMessage = $e->getMessage();
+        error_log('StudentAvailableSlots slots lookup error: ' . $e->getMessage());
+        $errorMessage = 'Unable to load available slots right now.';
     }
 }
 ?>
@@ -155,6 +164,7 @@ if ($errorMessage === "") {
                                             <td><?= htmlspecialchars((string)$s['End_Time']) ?></td>
                                             <td>
                                                 <form action="../controllers/StudentBookAppointment.php" method="POST">
+                                                    <input type="hidden" name="_csrf" value="<?= htmlspecialchars(Csrf::ensureToken(), ENT_QUOTES, 'UTF-8') ?>">
                                                     <input type="hidden" name="student_id" value="<?= $studentUserId ?>">
                                                     <input type="hidden" name="slot_id" value="<?= (int)$s['OfficeHour_ID'] ?>">
 

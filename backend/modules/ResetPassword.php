@@ -11,6 +11,7 @@ use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
 
 require_once __DIR__ . '/databaseconnect.php';
+require_once __DIR__ . '/Env.php';
 require_once __DIR__ . '/../config/PHPMailer/Exception.php';
 require_once __DIR__ . '/../config/PHPMailer/PHPMailer.php';
 require_once __DIR__ . '/../config/PHPMailer/SMTP.php';
@@ -19,19 +20,50 @@ require_once __DIR__ . '/../config/PHPMailer/SMTP.php';
 class PasswordReset{
 
     private PDO $conn;
-    private $email = 'noreply.advicutsystem@gmail.com';
-    private $password = 'clpa osxs aaik kzvn';
-    private $baseurl = 'http://localhost/University-Web-Applications-System-A/';
+    private string $email;
+    private string $password;
+    private string $baseurl;
+
+    private function isStrongPassword(string $password): bool
+    {
+        if (strlen($password) < 10 || strlen($password) > 72) {
+            return false;
+        }
+
+        if (!preg_match('/[a-z]/', $password)) {
+            return false;
+        }
+
+        if (!preg_match('/[A-Z]/', $password)) {
+            return false;
+        }
+
+        if (!preg_match('/[0-9]/', $password)) {
+            return false;
+        }
+
+        if (!preg_match('/[^a-zA-Z0-9]/', $password)) {
+            return false;
+        }
+
+        return true;
+    }
 
     public function __construct(?PDO $conn = null)
     {
+        Env::loadFromProjectRoot();
         $this->conn = $conn ?? ConnectToDatabase();
+        $this->email = (string)(getenv('PASSWORD_RESET_SMTP_USER') ?: '');
+        $this->password = (string)(getenv('PASSWORD_RESET_SMTP_PASS') ?: '');
+        $this->baseurl = (string)(getenv('APP_BASE_URL') ?: 'http://localhost/University-Web-Applications-System-A/');
     }
 
     //function to handle the forgot password process
     public function Handle_Forgot_Password(string $email): array {
+        $genericMessage = 'Reset link has been sent.';
+
         if(!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-            return ['success' => false, 'message' => 'Invalid email address.'];
+            return ['success' => true, 'message' => $genericMessage];
         }
 
         $stmt = $this->conn->prepare('SELECT User_ID FROM users WHERE Uni_Email = :email');
@@ -43,12 +75,12 @@ class PasswordReset{
             $sent = $this->sendResetEmail($email, $token);
 
             if(!$sent){
-                return ['success' => false, 'message' => 'Failed to send reset email. Please try again later.'];
+                return ['success' => true, 'message' => $genericMessage];
             }
 
-            return ['success' => true, 'message' => 'Reset Link Sent. Please check your email.'];
+            return ['success' => true, 'message' => $genericMessage];
         } else {
-            return ['success' => false, 'message' => 'Email not found.'];
+            return ['success' => true, 'message' => $genericMessage];
         }
     }
 
@@ -67,6 +99,11 @@ class PasswordReset{
 
     //function to send the reset email to the user
     private function sendResetEmail(string $email, string $token): bool {
+        if ($this->email === '' || $this->password === '') {
+            error_log('Password reset email configuration missing: set PASSWORD_RESET_SMTP_USER and PASSWORD_RESET_SMTP_PASS.');
+            return false;
+        }
+
         $resetLink = rtrim($this->baseurl, '/') . '/frontend/reset_password.php?token=' . $token;
         $mail = new PHPMailer(true);
 
@@ -138,8 +175,8 @@ class PasswordReset{
             return ['success' => false, 'message' => 'Passwords do not match.'];
         }
 
-        if(strlen($newPassword) < 8){
-            return ['success' => false, 'message' => 'Password must be at least 8 characters long.'];
+        if(!$this->isStrongPassword($newPassword)){
+            return ['success' => false, 'message' => 'Password must be 10-72 characters and include upper, lower, number, and symbol.'];
         }
 
         $email = $this->ValidateToken($token);
@@ -148,16 +185,39 @@ class PasswordReset{
             return ['success' => false, 'message' => 'Invalid or expired token.'];
         }
 
-        //updated password in the database
-        $hashedPassword = password_hash($newPassword, PASSWORD_DEFAULT);
-        $update = $this->conn->prepare('UPDATE users SET Password = :password WHERE Uni_Email = :email');
-        $update->execute(['password' => $hashedPassword, 'email' => $email['email']]);
+        $existingPasswordStmt = $this->conn->prepare('SELECT Password FROM users WHERE Uni_Email = :email LIMIT 1');
+        $existingPasswordStmt->execute(['email' => $email['email']]);
+        $existingPasswordRow = $existingPasswordStmt->fetch(PDO::FETCH_ASSOC);
+        if ($existingPasswordRow !== false && password_verify($newPassword, (string)$existingPasswordRow['Password'])) {
+            return ['success' => false, 'message' => 'New password must be different from your current password.'];
+        }
 
-        //mark the token as used to prevent reuse
-        $used = $this->conn->prepare('UPDATE password_resets SET used = 1 WHERE token = :token');
-        $used->execute(['token' => $token]);
+        try {
+            $this->conn->beginTransaction();
 
-        return ['success' => true, 'message' => 'Password updated successfully.'];
+            //updated password in the database
+            $hashedPassword = password_hash($newPassword, PASSWORD_DEFAULT);
+            $update = $this->conn->prepare('UPDATE users SET Password = :password WHERE Uni_Email = :email');
+            $update->execute(['password' => $hashedPassword, 'email' => $email['email']]);
+
+            //mark the token as used to prevent reuse
+            $used = $this->conn->prepare('UPDATE password_resets SET used = 1 WHERE token = :token AND used = 0');
+            $used->execute(['token' => $token]);
+
+            if ($used->rowCount() !== 1) {
+                $this->conn->rollBack();
+                return ['success' => false, 'message' => 'Invalid or expired token.'];
+            }
+
+            $this->conn->commit();
+            return ['success' => true, 'message' => 'Password updated successfully.'];
+        } catch (Throwable $e) {
+            if ($this->conn->inTransaction()) {
+                $this->conn->rollBack();
+            }
+            error_log('Password reset update failed: ' . $e->getMessage());
+            return ['success' => false, 'message' => 'Could not update password. Please try again.'];
+        }
     }
 
 

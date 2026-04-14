@@ -5,8 +5,8 @@ Description: Displays approved appointments for an advisor and allows marking at
 Panteleimoni Alexandrou
 23-Mar-2026 v1.0
 Inputs:
-- GET: action (present / absent)
-- GET: id (Appointment_ID)
+- POST: attendance_action (present / absent)
+- POST: appointment_id (Appointment_ID)
 Outputs: HTML page showing approved appointments and attendance actions
 Error Messages: Displays notifications using NotificationsClass for success and error actions
 Files in use: databaseconnect.php, NotificationsClass.php, users table, appointment_history table, Bootstrap CSS from the web
@@ -24,17 +24,26 @@ if (session_status() === PHP_SESSION_NONE) {
 
 require_once __DIR__ . '/../modules/databaseconnect.php';
 require_once __DIR__ . '/../modules/NotificationsClass.php';
+require_once __DIR__ . '/../modules/UsersClass.php';
+require_once __DIR__ . '/../modules/Csrf.php';
 
 $pdo = ConnectToDatabase();
 
+$user = new Users();
+$user->Check_Session('Advisor');
+
+$advisorId = isset($_SESSION['UserID']) && is_numeric($_SESSION['UserID'])
+    ? (int)$_SESSION['UserID']
+    : 0;
+
+if ($advisorId <= 0) {
+    Notifications::error('Unauthorized advisor session.');
+    header('Location: ../../frontend/index.php');
+    exit;
+}
+
 $errorMessage = "";
 $advisorName = "Advisor Name";
-
-/*
-TEMP: hardcoded advisor User_ID for testing
-Later this must come from session/login
-*/
-$advisorId = 2;
 
 /*
 ------------------------------------------------------------
@@ -129,9 +138,15 @@ function getAttendanceBadgeClass(int $attendance): string
 HANDLE ATTENDANCE ACTION
 ------------------------------------------------------------
 */
-if (isset($_GET['action'], $_GET['id'])) {
-    $action = (string)$_GET['action'];
-    $appointmentId = (int)$_GET['id'];
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['attendance_action'], $_POST['appointment_id'])) {
+    if (!Csrf::validateRequestToken()) {
+        Notifications::error('Request validation failed.');
+        header('Location: AdvisorAttendance.php');
+        exit;
+    }
+
+    $action = trim((string)$_POST['attendance_action']);
+    $appointmentId = (int)$_POST['appointment_id'];
 
     if ($appointmentId <= 0 || !in_array($action, ['present', 'absent'], true)) {
         Notifications::error("Invalid action or appointment ID.");
@@ -208,7 +223,8 @@ try {
     $appointments = $stmt->fetchAll();
 
 } catch (Throwable $e) {
-    $errorMessage = $e->getMessage();
+    error_log('AdvisorAttendance query error: ' . $e->getMessage());
+    $errorMessage = 'Unable to load attendance records right now.';
 }
 ?>
 
@@ -275,17 +291,27 @@ try {
                                             </td>
                                             <td>
                                                 <div class="d-flex justify-content-center gap-2 flex-wrap">
-                                                    <a href="AdvisorAttendance.php?action=present&id=<?= (int)$a['Appointment_ID'] ?>"
-                                                       class="btn btn-success btn-sm"
-                                                       onclick="return confirm('Mark this student as Present?');">
-                                                        Present
-                                                    </a>
+                                                    <form method="POST" action="AdvisorAttendance.php" class="mb-0 d-inline">
+                                                        <input type="hidden" name="_csrf" value="<?= htmlspecialchars(Csrf::ensureToken(), ENT_QUOTES, 'UTF-8') ?>">
+                                                        <input type="hidden" name="attendance_action" value="present">
+                                                        <input type="hidden" name="appointment_id" value="<?= (int)$a['Appointment_ID'] ?>">
+                                                        <button type="submit"
+                                                                class="btn btn-success btn-sm"
+                                                                onclick="return confirm('Mark this student as Present?');">
+                                                            Present
+                                                        </button>
+                                                    </form>
 
-                                                    <a href="AdvisorAttendance.php?action=absent&id=<?= (int)$a['Appointment_ID'] ?>"
-                                                       class="btn btn-danger btn-sm"
-                                                       onclick="return confirm('Mark this student as Absent?');">
-                                                        Absent
-                                                    </a>
+                                                    <form method="POST" action="AdvisorAttendance.php" class="mb-0 d-inline">
+                                                        <input type="hidden" name="_csrf" value="<?= htmlspecialchars(Csrf::ensureToken(), ENT_QUOTES, 'UTF-8') ?>">
+                                                        <input type="hidden" name="attendance_action" value="absent">
+                                                        <input type="hidden" name="appointment_id" value="<?= (int)$a['Appointment_ID'] ?>">
+                                                        <button type="submit"
+                                                                class="btn btn-danger btn-sm"
+                                                                onclick="return confirm('Mark this student as Absent?');">
+                                                            Absent
+                                                        </button>
+                                                    </form>
                                                 </div>
                                             </td>
                                         </tr>

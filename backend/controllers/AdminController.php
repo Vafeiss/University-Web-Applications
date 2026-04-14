@@ -38,6 +38,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/../modules/AdminClass.php';
 require_once __DIR__ . '/../modules/ParticipantsClass.php';
 require_once __DIR__ . '/../modules/NotificationsClass.php';
+require_once __DIR__ . '/../modules/Csrf.php';
 
 class AdminController {
 
@@ -108,14 +109,24 @@ class AdminController {
         return $digitsLength >= 8 && $digitsLength <= 15;
     }
 
+    private function requireMutationRequest(string $redirectUrl): void
+    {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            header('Location: ' . $redirectUrl);
+            exit();
+        }
+
+        if (!Csrf::validateRequestToken()) {
+            Notifications::error('Request validation failed.');
+            header('Location: ' . $redirectUrl);
+            exit();
+        }
+    }
+
     //get the post request from the frontend and call the function from adminclass
     public function addStudent()
     {
-
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            header('Location: ../../frontend/admin_dashboard.php');
-            exit();
-        }
+        $this->requireMutationRequest('../../frontend/admin_dashboard.php?tab=students');
 
         $externalId = $_POST['student_external_id'] ?? ($_POST['external_id'] ?? null);
         $first = trim((string)($_POST['first_name'] ?? ''));
@@ -150,10 +161,7 @@ class AdminController {
 
     public function importStudentsCSV()
     {
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            header('Location: ../../frontend/admin_dashboard.php');
-            exit();
-        }
+        $this->requireMutationRequest('../../frontend/admin_dashboard.php?tab=students');
 
         if (!isset($_FILES['csv_file']) || !is_uploaded_file($_FILES['csv_file']['tmp_name'])) {
             Notifications::error("Failed to upload CSV file.");
@@ -228,10 +236,7 @@ class AdminController {
     //get the post request from the frontend and call the function from adminclass
     public function deleteStudent()
     {
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            header('Location: ../../frontend/admin_dashboard.php');
-            exit();
-        }
+        $this->requireMutationRequest('../../frontend/admin_dashboard.php?tab=students');
 
         $studentIds = [];
         $bulk = $this->toIntList($_POST['student_ID'] ?? []);
@@ -257,11 +262,7 @@ class AdminController {
     //get the post request from the frontend and call the function from adminclass
     public function addAdvisor()
     {
-
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            header('Location: ../../frontend/admin_dashboard.php');
-            exit();
-        }
+        $this->requireMutationRequest('../../frontend/admin_dashboard.php?tab=advisors');
 
         $external_id = trim((string)($_POST['external_id'] ?? ($_POST['advisor_external_id'] ?? '')));
         $first_name = trim($_POST['first_name'] ?? '');
@@ -298,10 +299,7 @@ class AdminController {
     //get the post request from the frontend and call the function from adminclass
     public function deleteAdvisor()
     {
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            header('Location: ../../frontend/admin_dashboard.php');
-            exit();
-        }
+        $this->requireMutationRequest('../../frontend/admin_dashboard.php?tab=advisors');
 
         $advisorIds = [];
         $bulkExternalIds = $this->toIntList($_POST['advisor_id'] ?? []);
@@ -327,10 +325,7 @@ class AdminController {
     //get the post request from the frontend and call the function from adminclass
     public function addSuperUser()
     {
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            header('Location: ../../frontend/admin_dashboard.php');
-            exit();
-        }
+        $this->requireMutationRequest('../../frontend/admin_dashboard.php?tab=superusers');
 
         $email      = trim($_POST['email'] ?? '');
         $externalId = (int)($_POST['external_id'] ?? 0);
@@ -351,10 +346,7 @@ class AdminController {
     //get the post request from the frontend and call the function from adminclass
     public function deleteSuperUser()
     {
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            header('Location: ../../frontend/admin_dashboard.php');
-            exit();
-        }
+        $this->requireMutationRequest('../../frontend/admin_dashboard.php?tab=superusers');
 
         $superUserIds = [];
         $bulk = $this->toIntList($_POST['User_ID'] ?? []);
@@ -380,10 +372,7 @@ class AdminController {
     //get the post request from the frontend and call the function from adminclass
     public function assignStudentsToAdvisor()
     {
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            header('Location: ../../frontend/admin_dashboard.php');
-            exit();
-        }
+        $this->requireMutationRequest('../../frontend/admin_dashboard.php?tab=assignstudents');
 
         //validate IDs
         $advisorInput = $_POST['advisor_external_id'] ?? null;
@@ -424,10 +413,7 @@ class AdminController {
 
     public function randomAssignment()
     {
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            header('Location: ../../frontend/admin_dashboard.php');
-            exit();
-        }
+        $this->requireMutationRequest('../../frontend/admin_dashboard.php?tab=assignstudents');
 
         try {
             $participants = new Participants_Processing();
@@ -450,10 +436,7 @@ class AdminController {
     }
 
     public function editAdvisor(){
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            header('Location: ../../frontend/admin_dashboard.php');
-            exit();
-        }
+        $this->requireMutationRequest('../../frontend/admin_dashboard.php?tab=advisors');
 
         $external_id = trim((string)($_POST['external_id'] ?? ($_POST['advisor_external_id'] ?? '')));
         $first_name = trim($_POST['first_name'] ?? '');
@@ -480,10 +463,7 @@ class AdminController {
     }
 
     public function editStudent(){
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            header('Location: ../../frontend/admin_dashboard.php');
-            exit();
-        }
+        $this->requireMutationRequest('../../frontend/admin_dashboard.php?tab=students');
 
         $external_id = trim((string)($_POST['student_external_id'] ?? ($_POST['external_id'] ?? '')));
         $first_name = trim((string)($_POST['first_name'] ?? ''));
@@ -515,10 +495,7 @@ class AdminController {
     }
 
     public function editDegreeController(){
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            header('Location: ../../frontend/admin_dashboard.php');
-            exit();
-        }
+        $this->requireMutationRequest('../../frontend/admin_dashboard.php?tab=degrees');
 
         $degreeId = (int)($_POST['degree_id'] ?? 0);
         $degreeName = trim((string)($_POST['degree_name'] ?? ''));
@@ -540,8 +517,9 @@ class AdminController {
         Notifications::success("Degree edited successfully.");
         header("Location: ../../frontend/admin_dashboard.php?tab=degrees");
         exit();
-        } catch (Exception $e) {
-            Notifications::error("An error occurred while editing the degree: " . $e->getMessage());
+        } catch (Throwable $e) {
+            error_log('AdminController::editDegreeController error: ' . $e->getMessage());
+            Notifications::error("An error occurred while editing the degree.");
             header("Location: ../../frontend/admin_dashboard.php?tab=degrees");
             exit();
         }
@@ -549,10 +527,7 @@ class AdminController {
     }
 
     public function addDegreeController(){
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            header('Location: ../../frontend/admin_dashboard.php');
-            exit();
-        }
+        $this->requireMutationRequest('../../frontend/admin_dashboard.php?tab=degrees');
 
         $degreeName = trim((string)($_POST['degree_name'] ?? ''));
         $departmentId = (int)($_POST['department_id'] ?? 0);
@@ -574,17 +549,15 @@ class AdminController {
         header("Location: ../../frontend/admin_dashboard.php?tab=degrees");
         exit();
         } catch (Throwable $e) {
-            Notifications::error("An error occurred while adding the degree: " . $e->getMessage());
+            error_log('AdminController::addDegreeController error: ' . $e->getMessage());
+            Notifications::error("An error occurred while adding the degree.");
             header("Location: ../../frontend/admin_dashboard.php?tab=degrees");
             exit();
         }
     }
 
     public function addDepartmentController(){
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            header('Location: ../../frontend/admin_dashboard.php');
-            exit();
-        }
+        $this->requireMutationRequest('../../frontend/admin_dashboard.php?tab=degrees');
 
         $departmentName = trim((string)($_POST['department_name'] ?? ''));
 
@@ -606,48 +579,51 @@ class AdminController {
             header("Location: ../../frontend/admin_dashboard.php?tab=degrees");
             exit();
         } catch (Throwable $e) {
-            Notifications::error("An error occurred while adding the department: " . $e->getMessage());
+            error_log('AdminController::addDepartmentController error: ' . $e->getMessage());
+            Notifications::error("An error occurred while adding the department.");
             header("Location: ../../frontend/admin_dashboard.php?tab=degrees");
             exit();
         }
     }
 
     public function deleteDegreeController(){
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            header('Location: ../../frontend/admin_dashboard.php');
-            exit();
-        }
+        $this->requireMutationRequest('../../frontend/admin_dashboard.php?tab=degrees');
 
         $degreeId = (int)($_POST['degree_id'] ?? 0);
 
-        if ($degreeId < 0) {
+        if ($degreeId <= 0) {
             Notifications::error("Invalid degree ID.");
             header("Location: ../../frontend/admin_dashboard.php?tab=degrees");
             exit();
         }
 
         try{
-        $deleted = $this->admin->deleteDegree($degreeId);
-        if (!$deleted) {
-            Notifications::error("Failed to delete degree.");
+        $result = $this->admin->deleteDegreeDetailed($degreeId);
+        if (!($result['success'] ?? false)) {
+            $code = (string)($result['code'] ?? 'error');
+            if ($code === 'in_use') {
+                Notifications::error("Cannot delete degree because students are still assigned to it.");
+            } elseif ($code === 'not_found') {
+                Notifications::error("Degree not found.");
+            } else {
+                Notifications::error("Failed to delete degree.");
+            }
             header("Location: ../../frontend/admin_dashboard.php?tab=degrees");
             exit();
         }
         Notifications::success("Degree deleted successfully.");
         header("Location: ../../frontend/admin_dashboard.php?tab=degrees");
         exit();
-        } catch (Exception $e) {
-            Notifications::error("An error occurred while deleting the degree: " . $e->getMessage());
+        } catch (Throwable $e) {
+            error_log('AdminController::deleteDegreeController error: ' . $e->getMessage());
+            Notifications::error("An error occurred while deleting the degree.");
             header("Location: ../../frontend/admin_dashboard.php?tab=degrees");
             exit();
         }
     }
 
     public function deleteDepartmentController(){
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            header('Location: ../../frontend/admin_dashboard.php');
-            exit();
-        }
+        $this->requireMutationRequest('../../frontend/admin_dashboard.php?tab=degrees');
 
         $departmentid = (int)($_POST['department_id'] ?? 0);
 
@@ -658,27 +634,34 @@ class AdminController {
         }
 
         try{
-        $deleted = $this->admin->deleteDepartment($departmentid);
-        if (!$deleted) {
-            Notifications::error("Failed to delete department.");
+        $result = $this->admin->deleteDepartmentDetailed($departmentid);
+        if (!($result['success'] ?? false)) {
+            $code = (string)($result['code'] ?? 'error');
+            if ($code === 'in_use_degree') {
+                Notifications::error("Cannot delete department because degrees still belong to it.");
+            } elseif ($code === 'in_use_advisor') {
+                Notifications::error("Cannot delete department because advisors are still assigned to it.");
+            } elseif ($code === 'not_found') {
+                Notifications::error("Department not found.");
+            } else {
+                Notifications::error("Failed to delete department.");
+            }
             header("Location: ../../frontend/admin_dashboard.php?tab=degrees");
             exit();
         }
         Notifications::success("Department deleted successfully.");
         header("Location: ../../frontend/admin_dashboard.php?tab=degrees");
         exit();
-        } catch (Exception $e) {
-            Notifications::error("An error occurred while deleting the department: " . $e->getMessage());
+        } catch (Throwable $e) {
+            error_log('AdminController::deleteDepartmentController error: ' . $e->getMessage());
+            Notifications::error("An error occurred while deleting the department.");
             header("Location: ../../frontend/admin_dashboard.php?tab=degrees");
             exit();
         }
     }
 
     public function editDepartmentController(){
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            header('Location: ../../frontend/admin_dashboard.php');
-            exit();
-        }
+        $this->requireMutationRequest('../../frontend/admin_dashboard.php?tab=degrees');
 
         $departmentId = (int)($_POST['department_id'] ?? 0);
         $departmentName = trim((string)($_POST['department_name'] ?? ''));
@@ -699,8 +682,9 @@ class AdminController {
         Notifications::success("Department edited successfully.");
         header("Location: ../../frontend/admin_dashboard.php?tab=degrees");
         exit();
-        } catch (Exception $e) {
-            Notifications::error("An error occurred while editing the department: " . $e->getMessage());
+        } catch (Throwable $e) {
+            error_log('AdminController::editDepartmentController error: ' . $e->getMessage());
+            Notifications::error("An error occurred while editing the department.");
             header("Location: ../../frontend/admin_dashboard.php?tab=degrees");
             exit();
         }

@@ -6,7 +6,14 @@
    Files in use: reset_password.php, ResetPassword.php
 */
 
+require_once '../backend/modules/Csrf.php';
+
 require '../backend/modules/ResetPassword.php';
+
+if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !Csrf::validateRequestToken()) {
+    header('Location: reset_password.php?error=' . urlencode('Request validation failed.'));
+    exit();
+}
 
 $pr     = new PasswordReset();
 $result = $pr->updatePassword(
@@ -41,6 +48,6 @@ if ($result['success']) {
     </html>
     <?php
 } else {
-    header("Location: reset_password.php?token={$_POST['token']}&error=" . urlencode($result['message']));
+    header('Location: reset_password.php?token=' . urlencode((string)($_POST['token'] ?? '')) . '&error=' . urlencode($result['message']));
     exit();
 }

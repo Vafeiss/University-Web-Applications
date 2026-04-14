@@ -24,6 +24,31 @@ class AdvisorClass
         $this->communications = new CommunicationsClass();
     }
 
+    public function isStudentAssignedToAdvisor(int $advisorUserId, int $studentUserId): bool
+    {
+        try {
+            $advisorExternalId = $this->getAdvisorExternalId($advisorUserId);
+            if ($advisorExternalId === null) {
+                return false;
+            }
+
+            $sql = "SELECT 1
+                    FROM student_advisors sa
+                    INNER JOIN users s ON s.External_ID = sa.Student_ID AND s.Role = 'Student'
+                    WHERE sa.Advisor_ID = ?
+                      AND s.User_ID = ?
+                    LIMIT 1";
+
+            $stmt = $this->conn->prepare($sql);
+            $stmt->execute([$advisorExternalId, $studentUserId]);
+
+            return (bool)$stmt->fetchColumn();
+        } catch (Throwable $e) {
+            error_log('AdvisorClass::isStudentAssignedToAdvisor error: ' . $e->getMessage());
+            return false;
+        }
+    }
+
     //get the advisor's external id based on their user_id 
     private function getAdvisorExternalId(int $advisorUserId): ?int
     {
@@ -76,12 +101,16 @@ class AdvisorClass
     public function getMessageThread(int $advisorId, int $studentId): array
     {
         try {
-            $conversationId = $this->communications->findConversation($advisorId, $studentId);
-            if ($conversationId === false) {
+            if (!$this->isStudentAssignedToAdvisor($advisorId, $studentId)) {
                 return [];
             }
 
-            $history = $this->communications->getHistory((int)$conversationId);
+            $conversationId = $this->communications->getConversationId($advisorId, $studentId);
+            if ($conversationId === null) {
+                return [];
+            }
+
+            $history = $this->communications->getHistory($conversationId);
             if (!is_array($history)) {
                 return [];
             }
@@ -109,12 +138,16 @@ class AdvisorClass
     public function sendMessage(int $advisorId, int $studentId, string $messageBody): bool
     {
         try {
-            $conversationId = $this->communications->findConversation($advisorId, $studentId);
-            if ($conversationId === false) {
+            if (!$this->isStudentAssignedToAdvisor($advisorId, $studentId)) {
                 return false;
             }
 
-            return $this->communications->sendMessage((int)$conversationId, $advisorId, $messageBody);
+            $conversationId = $this->communications->getOrCreateConversationId($advisorId, $studentId);
+            if ($conversationId === null) {
+                return false;
+            }
+
+            return $this->communications->sendMessage($conversationId, $advisorId, $messageBody);
         } catch (Throwable $e) {
             error_log('AdvisorClass::sendMessage error: ' . $e->getMessage());
             return false;
@@ -125,12 +158,17 @@ class AdvisorClass
     public function markMessagesRead(int $advisorId, int $studentId): bool
     {
         try {
-            $conversationId = $this->communications->findConversation($advisorId, $studentId);
-            if ($conversationId === false) {
+            if (!$this->isStudentAssignedToAdvisor($advisorId, $studentId)) {
                 return false;
             }
 
-            return $this->communications->getMessages((int)$conversationId, $advisorId);
+            $conversationId = $this->communications->getConversationId($advisorId, $studentId);
+            if ($conversationId === null) {
+                // No conversation means nothing to mark; treat as successful no-op.
+                return true;
+            }
+
+            return $this->communications->markMessagesRead($conversationId, $advisorId);
         } catch (Throwable $e) {
             error_log('AdvisorClass::markMessagesRead error: ' . $e->getMessage());
             return false;
