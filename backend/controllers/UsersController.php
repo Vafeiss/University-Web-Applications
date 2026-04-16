@@ -74,11 +74,18 @@ class UsersController {
             exit();
         }
 
+        // Validate password strength before attempting to change
+        if (!$this->isStrongPassword($newPassword)) {
+            Notifications::error("Password does not meet requirements.");
+            header('Location: ../../frontend/changepassword.php');
+            exit();
+        }
+
         $user = new Users();
         $result = $user->Change_Password((int)$_SESSION['UserID'], $currentPassword, $newPassword);
 
         if (!$result) {
-            Notifications::error("Invalid current password.");
+            Notifications::error("Your current password is incorrect.");
             header('Location: ../../frontend/changepassword.php');
             exit();
         }
@@ -86,6 +93,30 @@ class UsersController {
         Notifications::success("Password changed successfully.");
         header('Location: ../../frontend/index.php');
         exit();
+    }
+
+    private function isStrongPassword(string $password): bool {
+        if (strlen($password) < 10 || strlen($password) > 72) {
+            return false;
+        }
+
+        if (!preg_match('/[a-z]/', $password)) {
+            return false;
+        }
+
+        if (!preg_match('/[A-Z]/', $password)) {
+            return false;
+        }
+
+        if (!preg_match('/[0-9]/', $password)) {
+            return false;
+        }
+
+        if (!preg_match('/[^a-zA-Z0-9]/', $password)) {
+            return false;
+        }
+
+        return true;
     }
 
     public function Authentication(){

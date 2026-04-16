@@ -42,11 +42,16 @@ if (!isset($advisorId)) {
 $advisorName = 'Advisor';
 if ($advisorId > 0) {
     try {
-        $advisorNameStmt = $pdo->prepare('SELECT First_name FROM users WHERE User_ID = :advisor_id AND Role = "Advisor" LIMIT 1');
+        $advisorNameStmt = $pdo->prepare('SELECT First_name, Last_Name FROM users WHERE User_ID = :advisor_id AND Role = "Advisor" LIMIT 1');
         $advisorNameStmt->execute(['advisor_id' => $advisorId]);
-        $advisorFirstName = trim((string)($advisorNameStmt->fetchColumn() ?: ''));
+        $row = $advisorNameStmt->fetch(PDO::FETCH_ASSOC);
+        $advisorFirstName = trim((string)($row['First_name'] ?? ''));
+        $advisorLastName = trim((string)($row['Last_Name'] ?? ''));
         if ($advisorFirstName !== '') {
             $advisorName = $advisorFirstName;
+        }
+        if ($advisorLastName !== '') {
+            $advisorLast = $advisorLastName;
         }
     } catch (Throwable $e) {
         if (isset($_SESSION['First_name']) && trim((string)$_SESSION['First_name']) !== '') {
@@ -275,7 +280,7 @@ try {
     <img src="../documents/tepaklogo.png" alt="Logo" class="logo">
 
     <div class="navbar-center">
-        <span class="welcome-text">Welcome to AdviCut, <?= htmlspecialchars($advisorName) ?>! 👋</span>
+        <span class="welcome-text">Welcome to AdviCut, <?= htmlspecialchars($advisorName) ?> <?= htmlspecialchars($advisorLast) ?> 👋</span>
     </div>
 
     <div class="d-flex align-items-center gap-3">
