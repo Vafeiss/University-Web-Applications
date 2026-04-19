@@ -12,6 +12,14 @@
    13-Apr-2026 v1.2
    Updated notification handling to use NotificationsClass consistently for booking actions
    Panteleimoni Alexandrou
+
+   19-Apr-2026 v1.3
+   Added booking validations for past dates, weekday mismatch and duplicate same-slot requests before insert
+   Panteleimoni Alexandrou
+
+   19-Apr-2026 v1.4
+   Added database notification inserts for appointment request, approve and decline actions
+   Panteleimoni Alexandrou
 */
 
 declare(strict_types=1);
@@ -172,16 +180,53 @@ try {
 
     /*
     ------------------------------------------------------------
+    VALIDATE APPOINTMENT DATE IS NOT IN THE PAST
+    ------------------------------------------------------------
+    */
+    $today = date('Y-m-d');
+    if ($appointmentDate < $today) {
+        Notifications::error("Appointment date cannot be in the past.");
+        redirectToStudentDashboard('book');
+    }
+
+    /*
+    ------------------------------------------------------------
+    VALIDATE APPOINTMENT DATE MATCHES SLOT WEEKDAY
+    ------------------------------------------------------------
+    */
+    $slotDaySql = "SELECT Day_of_Week
+                   FROM office_hours
+                   WHERE OfficeHour_ID = :slot_id
+                     AND Advisor_ID = :advisor_id
+                   LIMIT 1";
+
+    $slotDayStmt = $pdo->prepare($slotDaySql);
+    $slotDayStmt->execute([
+        'slot_id' => $slotId,
+        'advisor_id' => $advisorId
+    ]);
+
+    $slotDayRow = $slotDayStmt->fetch(PDO::FETCH_ASSOC);
+    $slotDayOfWeek = trim((string)($slotDayRow['Day_of_Week'] ?? ''));
+    $appointmentDayOfWeek = date('l', strtotime($appointmentDate));
+
+    if ($slotDayOfWeek === '' || strcasecmp($slotDayOfWeek, $appointmentDayOfWeek) !== 0) {
+        Notifications::error("Selected appointment date does not match the day of the chosen office hour slot.");
+        redirectToStudentDashboard('book');
+    }
+
+    /*
+    ------------------------------------------------------------
     CHECK IF SAME STUDENT ALREADY REQUESTED SAME SLOT / DATE PENDING
     ------------------------------------------------------------
     */
     $duplicateSql = "SELECT Request_ID
-                     FROM appointment_requests
-                     WHERE Student_ID = :student_id
-                       AND OfficeHour_ID = :slot_id
-                       AND Appointment_Date = :appointment_date
-                       AND LOWER(TRIM(Status)) = 'pending'
-                     LIMIT 1";
+                 FROM appointment_requests
+                 WHERE Student_ID = :student_id
+                   AND OfficeHour_ID = :slot_id
+                   AND Appointment_Date = :appointment_date
+                   AND LOWER(TRIM(Status)) IN ('pending', 'approved')
+                 LIMIT 1";
 
     $duplicateStmt = $pdo->prepare($duplicateSql);
     $duplicateStmt->execute([
@@ -191,7 +236,7 @@ try {
     ]);
 
     if ($duplicateStmt->fetch(PDO::FETCH_ASSOC)) {
-        Notifications::error("You already have a pending request for this slot and date.");
+        Notifications::error("You already have a request or approved appointment for this slot and date.");
         redirectToStudentDashboard('book');
     }
 
@@ -217,6 +262,28 @@ try {
     if (!$inserted) {
         Notifications::error("Failed to submit appointment request.");
         redirectToStudentDashboard('book');
+    }
+
+    $requestId = (int)$pdo->lastInsertId();
+
+    try {
+        $notificationSql = "INSERT INTO notifications
+                            (Recipient_ID, Sender_ID, Type, Title, Message, Related_Request_ID, Is_Read)
+                            VALUES
+                            (:recipient_id, :sender_id, :type, :title, :message, :related_request_id, :is_read)";
+
+        $notificationStmt = $pdo->prepare($notificationSql);
+        $notificationStmt->execute([
+            'recipient_id' => $advisorId,
+            'sender_id' => $studentId,
+            'type' => 'appointment_requested',
+            'title' => 'New Appointment Request',
+            'message' => 'A student has requested a new appointment.',
+            'related_request_id' => $requestId,
+            'is_read' => 0
+        ]);
+    } catch (Throwable $e) {
+        error_log('StudentBookAppointment notification insert error: ' . $e->getMessage());
     }
 
     Notifications::success("Appointment request submitted successfully.");

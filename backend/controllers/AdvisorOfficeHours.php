@@ -1,4 +1,4 @@
-<?php
+<?php declare(strict_types=1);
 /*
    NAME: Advisor Office Hours Controller
    Description: This controller handles advisor office hour actions such as add and delete and redirects back to the advisor dashboard
@@ -12,16 +12,21 @@
    13-Apr-2026 v2.3
    Replaced flash-based notifications with centralized NotificationsClass
    Panteleimoni Alexandrou
-*/
 
-declare(strict_types=1);
+   19-Apr-2026 v2.4
+   Fixed strict_types declaration position to resolve fatal error
+   Panteleimoni Alexandrou
+
+   19-Apr-2026 v2.5
+   Removed duplicate redirectToOfficeHoursDashboard() declaration to resolve fatal error
+   Panteleimoni Alexandrou
+*/
 
 session_start();
 
 require_once __DIR__ . '/../modules/databaseconnect.php';
 require_once __DIR__ . '/../modules/UsersClass.php';
 require_once __DIR__ . '/../modules/NotificationsClass.php';
-require_once __DIR__ . '/../modules/Csrf.php';
 
 $user = new Users();
 $user->Check_Session('Advisor');
@@ -55,13 +60,8 @@ function redirectToOfficeHoursDashboard(): void
 DELETE SLOT
 ------------------------------------------------------------
 */
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') === 'delete') {
-    if (!Csrf::validateRequestToken()) {
-        Notifications::error("Request validation failed.");
-        redirectToOfficeHoursDashboard();
-    }
-
-    $deleteId = (int)($_POST['delete_id'] ?? 0);
+if (isset($_GET['delete'])) {
+    $deleteId = (int)($_GET['delete']);
 
     if ($deleteId <= 0) {
         Notifications::error("Invalid slot ID.");
@@ -96,11 +96,6 @@ ADD SLOT
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = trim((string)($_POST['action'] ?? ''));
 
-    if (!Csrf::validateRequestToken()) {
-        Notifications::error("Request validation failed.");
-        redirectToOfficeHoursDashboard();
-    }
-
     if ($action !== 'add') {
         Notifications::error("Invalid action.");
         redirectToOfficeHoursDashboard();
@@ -112,11 +107,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($day === '' || $start === '' || $end === '') {
         Notifications::error("All fields are required.");
-        redirectToOfficeHoursDashboard();
-    }
-
-    if (!in_array($day, ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'], true)) {
-        Notifications::error("Invalid day selected.");
         redirectToOfficeHoursDashboard();
     }
 

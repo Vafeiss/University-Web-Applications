@@ -12,6 +12,10 @@
    13-Apr-2026 v2.1
    Updated notification handling to use NotificationsClass consistently for approve and decline actions
    Panteleimoni Alexandrou
+
+   19-Apr-2026 v2.2
+   Merged overlapping appointment action handling into AppointmentControllerAction while preserving direct-access compatibility
+   Panteleimoni Alexandrou
 */
 
 declare(strict_types=1);
@@ -19,12 +23,6 @@ declare(strict_types=1);
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
-
-require_once __DIR__ . '/../modules/databaseconnect.php';
-require_once __DIR__ . '/../modules/NotificationsClass.php';
-require_once __DIR__ . '/../modules/UsersClass.php';
-
-$pdo = ConnectToDatabase();
 
 class AppointmentController
 {
@@ -73,23 +71,16 @@ class AppointmentController
 
 /*
 |--------------------------------------------------------------------------
-| DIRECT REQUEST HANDLER
+| DIRECT REQUEST COMPATIBILITY WRAPPER
 |--------------------------------------------------------------------------
-| Run approve/decline logic only when this file is accessed directly.
-| Do not run this logic when the file is included by dispatcher.php.
+| Keep legacy direct access working by delegating approve/decline handling
+| to the main AppointmentControllerAction controller.
 */
 if (realpath($_SERVER['SCRIPT_FILENAME'] ?? '') !== __FILE__) {
     return;
 }
 
-function redirectToAdvisorRequestsDashboard(): void
-{
-    header("Location: ../../frontend/AdvisorAppointmentDashboard.php?section=requests");
-    exit;
-}
+require_once __DIR__ . '/AppointmentControllerAction.php';
 
-$user = new Users();
-$user->Check_Session('Advisor');
-
-Notifications::error('This legacy entrypoint is disabled. Use the dashboard form submission instead.');
-redirectToAdvisorRequestsDashboard();
+$controller = new AppointmentControllerAction();
+$controller->handle();
