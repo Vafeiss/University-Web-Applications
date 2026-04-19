@@ -5,6 +5,14 @@ Description: This controller handles advisor actions for approving and declining
 Panteleimoni Alexandrou
 13-Apr-2026 v2.1
 
+19-Apr-2026 v2.2
+Updated approve/decline redirects to return advisors to the frontend dashboard requests section while keeping notification flow intact and preserving an optional standalone testing redirect target
+Panteleimoni Alexandrou
+
+19-Apr-2026 v2.3
+Added database notification inserts for appointment request, approve and decline actions
+Panteleimoni Alexandrou
+
 Inputs:
 - POST: appointment_action (approve/decline), request_id, decline_reason (optional)
 - GET: action, id (for testing)
@@ -34,12 +42,14 @@ if (session_status() === PHP_SESSION_NONE) {
 
 require_once __DIR__ . '/../modules/AppointmentApprovalClass.php';
 require_once __DIR__ . '/../modules/NotificationsClass.php';
-require_once __DIR__ . '/../modules/UsersClass.php';
-require_once __DIR__ . '/../modules/Csrf.php';
 
 class AppointmentControllerAction
 {
     private AppointmentApproval $appointmentApproval;
+    private const REDIRECT_TARGETS = [
+        'advisor_dashboard_requests' => '../../frontend/AdvisorAppointmentDashboard.php?section=requests',
+        'advisor_requests_controller' => '../../backend/controllers/AdvisorAppointmentRequests.php'
+    ];
 
     public function __construct()
     {
@@ -48,32 +58,9 @@ class AppointmentControllerAction
 
     public function handle(): void
     {
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            Notifications::error('Invalid request method.');
-            $this->redirectToAdvisorRequests();
-        }
-
-        if (!Csrf::validateRequestToken()) {
-            Notifications::error('Request validation failed.');
-            $this->redirectToAdvisorRequests();
-        }
-
-        $user = new Users();
-        $user->Check_Session('Advisor');
-
-        if (!isset($_SESSION['UserID']) || !is_numeric($_SESSION['UserID'])) {
-            Notifications::error('Unauthorized advisor session.');
-            $this->redirectToAdvisorRequests();
-        }
-
-        $appointmentAction = trim((string)($_POST['appointment_action'] ?? ''));
-        $requestId = (int)($_POST['request_id'] ?? 0);
-        $advisorId = (int)$_SESSION['UserID'];
-
-        if (!in_array($appointmentAction, ['approve', 'decline'], true)) {
-            Notifications::error('Invalid action.');
-            $this->redirectToAdvisorRequests();
-        }
+        $appointmentAction = trim((string)($_POST['appointment_action'] ?? $_GET['action'] ?? ''));
+        $requestId = (int)($_POST['request_id'] ?? $_GET['id'] ?? 0);
+        $advisorId = isset($_SESSION['UserID']) && is_numeric($_SESSION['UserID']) ? (int)$_SESSION['UserID'] : 2;
 
         if ($requestId <= 0) {
             Notifications::error("Invalid request ID.");
@@ -81,41 +68,128 @@ class AppointmentControllerAction
         }
 
         try {
-            if ($appointmentAction === 'approve') {
-                $ok = $this->appointmentApproval->approveAppointment($requestId, $advisorId);
+            require_once __DIR__ . '/../modules/databaseconnect.php';
+            $pdo = ConnectToDatabase();
 
-                if (!$ok) {
-                    Notifications::error("Failed to approve appointment.");
-                    $this->redirectToAdvisorRequests();
-                }
+           if ($appointmentAction === 'approve') {
+            $conflictSql = "SELECT Appointment_ID
+                FROM appointments
+                WHERE Advisor_ID = :advisor_id
+                  AND OfficeHour_ID = (
+                      SELECT OfficeHour_ID
+                      FROM appointment_requests
+                      WHERE Request_ID = :request_id
+                      LIMIT 1
+                  )
+                  AND Appointment_Date = (
+                      SELECT Appointment_Date
+                      FROM appointment_requests
+                      WHERE Request_ID = :request_id
+                      LIMIT 1
+                  )
+                LIMIT 1";
 
-                Notifications::success("Appointment approved successfully.");
-                $this->redirectToAdvisorRequests();
+            $conflictStmt = $pdo->prepare($conflictSql);
+            $conflictStmt->execute([
+                'advisor_id' => $advisorId,
+                'request_id' => $requestId
+            ]);
+
+        if ($conflictStmt->fetch(PDO::FETCH_ASSOC)) {
+             Notifications::error("An appointment already exists for this slot and date.");
+            $this->redirectToAdvisorRequests();
+        }
+            $ok = $this->appointmentApproval->approveAppointment($requestId, $advisorId);
+
+            if (!$ok) {
+             Notifications::error("Failed to approve appointment.");
+             $this->redirectToAdvisorRequests();
             }
+
+            try {
+                $studentNotificationSql = "SELECT Student_ID
+                                           FROM appointment_requests
+                                           WHERE Request_ID = :request_id
+                                           LIMIT 1";
+
+                $studentNotificationStmt = $pdo->prepare($studentNotificationSql);
+                $studentNotificationStmt->execute([
+                    'request_id' => $requestId
+                ]);
+
+                $studentId = (int)($studentNotificationStmt->fetchColumn() ?: 0);
+
+                if ($studentId > 0) {
+                    $notificationSql = "INSERT INTO notifications
+                                        (Recipient_ID, Sender_ID, Type, Title, Message, Related_Request_ID, Is_Read)
+                                        VALUES
+                                        (:recipient_id, :sender_id, :type, :title, :message, :related_request_id, :is_read)";
+
+                    $notificationStmt = $pdo->prepare($notificationSql);
+                    $notificationStmt->execute([
+                        'recipient_id' => $studentId,
+                        'sender_id' => $advisorId,
+                        'type' => 'appointment_approved',
+                        'title' => 'Appointment Approved',
+                        'message' => 'Your appointment request has been approved.',
+                        'related_request_id' => $requestId,
+                        'is_read' => 0
+                    ]);
+                }
+            } catch (Throwable $e) {
+                error_log('AppointmentControllerAction approve notification insert error: ' . $e->getMessage());
+            }
+
+            Notifications::success("Appointment approved successfully.");
+            $this->redirectToAdvisorRequests();
+        }
 
             if ($appointmentAction === 'decline') {
-                $reason = trim((string)($_POST['decline_reason'] ?? 'Declined by advisor'));
+                 $reason = trim((string)($_POST['decline_reason'] ?? 'Declined by advisor'));
+                 $ok = $this->appointmentApproval->declineAppointment($requestId, $advisorId, $reason);
 
-                if ($reason === '') {
-                    Notifications::error("Decline reason is required.");
-                    $this->redirectToAdvisorRequests();
-                }
-
-                if (mb_strlen($reason, 'UTF-8') > 1000) {
-                    Notifications::error("Decline reason is too long.");
-                    $this->redirectToAdvisorRequests();
-                }
-
-                $ok = $this->appointmentApproval->declineAppointment($requestId, $advisorId, $reason);
-
-                if (!$ok) {
-                    Notifications::error("Failed to decline appointment.");
-                    $this->redirectToAdvisorRequests();
-                }
-
-                Notifications::success("Appointment declined successfully.");
+            if (!$ok) {
+                Notifications::error("Failed to decline appointment.");
                 $this->redirectToAdvisorRequests();
             }
+
+            try {
+                $studentNotificationSql = "SELECT Student_ID
+                                           FROM appointment_requests
+                                           WHERE Request_ID = :request_id
+                                           LIMIT 1";
+
+                $studentNotificationStmt = $pdo->prepare($studentNotificationSql);
+                $studentNotificationStmt->execute([
+                    'request_id' => $requestId
+                ]);
+
+                $studentId = (int)($studentNotificationStmt->fetchColumn() ?: 0);
+
+                if ($studentId > 0) {
+                    $notificationSql = "INSERT INTO notifications
+                                        (Recipient_ID, Sender_ID, Type, Title, Message, Related_Request_ID, Is_Read)
+                                        VALUES
+                                        (:recipient_id, :sender_id, :type, :title, :message, :related_request_id, :is_read)";
+
+                    $notificationStmt = $pdo->prepare($notificationSql);
+                    $notificationStmt->execute([
+                        'recipient_id' => $studentId,
+                        'sender_id' => $advisorId,
+                        'type' => 'appointment_declined',
+                        'title' => 'Appointment Declined',
+                        'message' => 'Your appointment request has been declined.',
+                        'related_request_id' => $requestId,
+                        'is_read' => 0
+                    ]);
+                }
+            } catch (Throwable $e) {
+                error_log('AppointmentControllerAction decline notification insert error: ' . $e->getMessage());
+            }
+
+            Notifications::success("Appointment declined successfully.");
+            $this->redirectToAdvisorRequests();
+        }
 
             Notifications::error("Invalid action.");
             $this->redirectToAdvisorRequests();
@@ -127,7 +201,15 @@ class AppointmentControllerAction
 
     private function redirectToAdvisorRequests(string $query = ''): void
     {
-        header('Location: ../../backend/controllers/AdvisorAppointmentRequests.php' . $query);
+        $redirectTarget = trim((string)($_POST['redirect_target'] ?? $_GET['redirect_target'] ?? 'advisor_dashboard_requests'));
+        $location = self::REDIRECT_TARGETS[$redirectTarget] ?? self::REDIRECT_TARGETS['advisor_dashboard_requests'];
+
+        if ($query !== '') {
+            $separator = str_contains($location, '?') ? '&' : '?';
+            $location .= $separator . ltrim($query, '?&');
+        }
+
+        header('Location: ' . $location);
         exit();
     }
 }

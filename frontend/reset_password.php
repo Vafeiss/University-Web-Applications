@@ -43,12 +43,22 @@ $error = trim($_GET['error'] ?? '');
 
                     <div class="mb-3">
                         <label class="form-label">New Password</label>
-                        <input type="password" class="form-control" name="password" required minlength="10">
+                        <div class="input-group">
+                            <input type="password" class="form-control" name="password" id="password" required minlength="10">
+                            <button type="button" class="btn btn-outline-secondary" id="toggleResetPassword">
+                                <i class="bi bi-eye"></i>
+                            </button>
+                        </div>
                     </div>
 
                     <div class="mb-3">
                         <label class="form-label">Confirm New Password</label>
-                        <input type="password" class="form-control" name="confirm_password" required minlength="10">
+                        <div class="input-group">
+                            <input type="password" class="form-control" name="confirm_password" id="confirm_password" required minlength="10">
+                            <button type="button" class="btn btn-outline-secondary" id="toggleResetConfirmPassword">
+                                <i class="bi bi-eye"></i>
+                            </button>
+                        </div>
                     </div>
 
                     <button type="submit" class="btn btn-primary w-100">Update Password</button>
@@ -56,5 +66,7 @@ $error = trim($_GET['error'] ?? '');
             <?php endif; ?>
         </div>
     </div>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+    <script src="js/reset-password-toggle.js"></script>
 </body>
 </html>

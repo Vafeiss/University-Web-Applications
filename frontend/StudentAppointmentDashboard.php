@@ -12,6 +12,34 @@
    30-Mar-2026 v1.8
    Added booking submit integration and appointments fallback logic
    Panteleimoni Alexandrou
+
+   19-Apr-2026 v1.9
+   Added database notifications display panel for appointment-related user notifications
+   Panteleimoni Alexandrou
+
+   19-Apr-2026 v2.0
+   Moved database notifications into top-navbar bell dropdown and added notification item redirects
+   Panteleimoni Alexandrou
+
+   19-Apr-2026 v2.1
+   Added mark-as-read functionality for notifications on click
+   Panteleimoni Alexandrou
+
+   19-Apr-2026 v2.2
+   Added small EN/EL language toggle for appointment dashboard interface text
+   Panteleimoni Alexandrou
+
+   19-Apr-2026 v2.3
+   Expanded EN/EL translation coverage for full appointment dashboard interface text
+   Panteleimoni Alexandrou
+
+   19-Apr-2026 v2.4
+   Completed remaining EN/EL translation coverage for communications, tables, counters and notification labels
+   Panteleimoni Alexandrou
+
+   19-Apr-2026 v2.5
+   Added FullCalendar localization (EN/EL) based on dashboard session language
+   Panteleimoni Alexandrou
 */
 
 declare(strict_types=1);
@@ -20,11 +48,22 @@ if (session_status() === PHP_SESSION_NONE) {
   session_start();
 }
 
+if (isset($_GET['set_lang']) && in_array((string)$_GET['set_lang'], ['en', 'el'], true)) {
+  $_SESSION['appointment_dashboard_lang'] = (string)$_GET['set_lang'];
+  $redirectParams = $_GET;
+  unset($redirectParams['set_lang']);
+  $redirectUrl = basename((string)($_SERVER['PHP_SELF'] ?? 'StudentAppointmentDashboard.php'));
+  if ($redirectParams !== []) {
+    $redirectUrl .= '?' . http_build_query($redirectParams);
+  }
+  header('Location: ' . $redirectUrl);
+  exit();
+}
+
 require_once __DIR__ . '/init.php';
 require_once __DIR__ . '/../backend/modules/UsersClass.php';
 require_once __DIR__ . '/../backend/modules/StudentClass.php';
 require_once __DIR__ . '/../backend/modules/NotificationsClass.php';
-require_once __DIR__ . '/../backend/modules/Csrf.php';
 
 $user = new Users();
 $user->Check_Session('Student');
@@ -39,22 +78,284 @@ login/session of student user
 $studentId = isset($_SESSION['UserID']) && is_numeric($_SESSION['UserID'])
   ? (int)$_SESSION['UserID']
   : 0;
+
+if ($studentId > 0 && isset($_GET['notification_id']) && is_numeric($_GET['notification_id'])) {
+  try {
+    $markNotificationSql = "UPDATE notifications
+                            SET Is_Read = 1
+                            WHERE Notification_ID = :notification_id
+                              AND Recipient_ID = :recipient_id";
+
+    $markNotificationStmt = $pdo->prepare($markNotificationSql);
+    $markNotificationStmt->execute([
+      'notification_id' => (int)$_GET['notification_id'],
+      'recipient_id' => $studentId
+    ]);
+  } catch (Throwable $e) {
+    error_log('StudentAppointmentDashboard mark notification read error: ' . $e->getMessage());
+  }
+}
+
+$lang = isset($_SESSION['appointment_dashboard_lang']) && in_array($_SESSION['appointment_dashboard_lang'], ['en', 'el'], true)
+  ? (string)$_SESSION['appointment_dashboard_lang']
+  : 'en';
+
+$translations = [
+  'en' => [
+    'page_title' => 'Student Appointment Portal',
+    'welcome' => 'Welcome To Advicut! 👋',
+    'notifications' => 'Notifications',
+    'notifications_subtitle' => 'Appointment-related updates',
+    'no_notifications' => 'No notifications yet.',
+    'unread' => 'Unread',
+    'manual' => 'Manual',
+    'change_password' => 'Change Password',
+    'logout' => 'Logout',
+    'manual_title' => 'Student Dashboard Manual',
+    'manual_item_1' => 'Use Book Appointment to schedule meetings with your advisor based on the available slots.',
+    'manual_item_2' => 'Use My Requests to view the status of your appointment requests.',
+    'manual_item_3' => 'Use My Appointments to see upcoming confirmed/denied appointments.',
+    'manual_item_4' => 'Use Appointment History to review past appointments and notes.',
+    'manual_item_5' => 'Use Communications to message your assigned advisor.',
+    'manual_item_6' => 'Use Change Password to update your login password.',
+    'manual_item_7' => 'If no advisor is assigned yet, contact the administration office.',
+    'close' => 'Close',
+    'tab_calendar' => 'Calendar',
+    'tab_book' => 'Book Appointment',
+    'tab_requests' => 'My Requests',
+    'tab_appointments' => 'My Appointments',
+    'tab_history' => 'History',
+    'tab_communications' => 'Communications',
+    'book_title' => 'Book Appointment',
+    'book_subtitle' => 'Select an available advisor slot and request a meeting',
+    'new_request' => 'New Request',
+        'requests_title' => 'My Requests'
+  ],
+  'el' => [
+    'page_title' => 'Πύλη Ραντεβού Φοιτητή',
+    'welcome' => 'Καλώς ήρθες στο Advicut! 👋',
+    'notifications' => 'Ειδοποιήσεις',
+    'notifications_subtitle' => 'Ενημερώσεις σχετικές με ραντεβού',
+    'no_notifications' => 'Δεν υπάρχουν ειδοποιήσεις ακόμη.',
+    'unread' => 'Μη αναγνωσμένο',
+    'manual' => 'Οδηγός',
+    'change_password' => 'Αλλαγή Κωδικού',
+    'logout' => 'Αποσύνδεση',
+    'manual_title' => 'Οδηγός Πίνακα Φοιτητή',
+    'manual_item_1' => 'Χρησιμοποιήστε την Κράτηση Ραντεβού για να προγραμματίσετε συνάντηση με τον σύμβουλό σας.',
+    'manual_item_2' => 'Χρησιμοποιήστε τα Αιτήματά Μου για να δείτε την κατάσταση των αιτημάτων σας.',
+    'manual_item_3' => 'Χρησιμοποιήστε τα Ραντεβού Μου για να δείτε επερχόμενα επιβεβαιωμένα ή απορριφθέντα ραντεβού.',
+    'manual_item_4' => 'Χρησιμοποιήστε το Ιστορικό Ραντεβού για να δείτε παλαιότερα ραντεβού και σημειώσεις.',
+    'manual_item_5' => 'Χρησιμοποιήστε τις Επικοινωνίες για να στείλετε μήνυμα στον σύμβουλό σας.',
+    'manual_item_6' => 'Χρησιμοποιήστε την Αλλαγή Κωδικού για να ενημερώσετε τον κωδικό σας.',
+    'manual_item_7' => 'Αν δεν έχει οριστεί σύμβουλος, επικοινωνήστε με τη διοίκηση.',
+    'close' => 'Κλείσιμο',
+    'tab_calendar' => 'Ημερολόγιο',
+    'tab_book' => 'Κράτηση Ραντεβού',
+    'tab_requests' => 'Τα Αιτήματά Μου',
+    'tab_appointments' => 'Τα Ραντεβού Μου',
+    'tab_history' => 'Ιστορικό',
+    'tab_communications' => 'Επικοινωνίες',
+    'book_title' => 'Κράτηση Ραντεβού',
+    'book_subtitle' => 'Επιλέξτε διαθέσιμη ώρα συμβούλου και ζητήστε συνάντηση',
+    'new_request' => 'Νέο Αίτημα',
+    'requests_title' => 'Τα Αιτήματά Μου'
+  ]
+];
+
+$translations['en'] = array_merge($translations['en'], [
+  'welcome' => 'Welcome To Advicut! 👋',
+  'requests_subtitle' => 'View all your pending appointment requests',
+  'search_requests' => 'Search requests...',
+  'advisor' => 'Advisor',
+  'day' => 'Day',
+  'start_time' => 'Start Time',
+  'end_time' => 'End Time',
+  'status' => 'Status',
+  'action' => 'Action',
+  'assigned_advisor' => 'Assigned Advisor',
+  'request_status' => 'Request Status',
+  'track_pending_requests' => 'Track pending and approved requests',
+  'no_office_hours_loaded' => 'No office hour slots loaded yet',
+  'available' => 'Available',
+  'book' => 'Book',
+  'date' => 'Date',
+  'reason' => 'Reason',
+  'decline_reason' => 'Decline Reason',
+  'no_pending_requests_loaded' => 'No pending requests loaded yet',
+  'pending' => 'Pending',
+  'my_appointments_title' => 'My Appointments',
+  'my_appointments_subtitle' => 'View all approved appointments with your advisor',
+  'no_approved_appointments' => 'No approved appointments loaded yet',
+  'scheduled' => 'Scheduled',
+  'completed' => 'Completed',
+  'cancelled' => 'Cancelled',
+  'approved' => 'Approved',
+  'history_title' => 'Appointment History',
+  'history_subtitle' => 'View previous appointment actions and decisions',
+  'details' => 'Details',
+  'no_history_loaded' => 'No history loaded yet',
+  'declined' => 'Declined',
+  'view_details' => 'View details',
+  'calendar_title' => 'Appointment Calendar',
+  'calendar_subtitle' => 'Track all your requests and appointment decisions by date',
+  'communications_title' => 'Communications',
+  'communications_subtitle' => 'Send and receive messages from your academic advisor.',
+  'no_advisor_assigned' => "You don't have an advisor assigned yet.<br>Please contact the administration.",
+  'loading_messages' => 'Loading messages...',
+  'send_message_to' => 'Send a message to %s',
+  'words_max' => '(200 words max)',
+  'message_placeholder' => 'Type your question or message here...',
+  'send_message' => 'Send Message',
+  'book_modal_title' => 'Book Appointment',
+  'available_slot' => 'Available Slot',
+  'select_slot' => 'Select a slot...',
+  'appointment_date' => 'Appointment Date',
+  'reason_for_appointment' => 'Reason for Appointment',
+  'request_reason_placeholder' => 'Write the reason for your appointment request...',
+  'cancel' => 'Cancel',
+  'send_request' => 'Send Request',
+  'appointment_details' => 'Appointment Details',
+  'time' => 'Time',
+  'your_reason' => 'Your Reason',
+  'view_reason' => 'View Reason',
+  'advisor_reason' => 'Advisor Reason',
+  'notifications_aria' => 'Notifications',
+  'could_not_load_notifications' => 'Could not load notifications.',
+  'words_suffix' => 'words',
+  'no_messages_yet' => 'No messages yet. Send your first message to your advisor!',
+  'failed_to_load_messages' => 'Failed to load messages. Please refresh the page.',
+  'sending' => 'Sending...',
+  'failed_to_send_message' => 'Failed to send message. Please try again.',
+  'network_error_sending' => 'Network error. Please try again.',
+  'you' => 'You'
+]);
+
+$translations['el'] = array_merge($translations['el'], [
+  'welcome' => 'Καλώς ήρθες στο Advicut! 👋',
+  'requests_subtitle' => 'Δείτε όλα τα εκκρεμή αιτήματα ραντεβού σας',
+  'search_requests' => 'Αναζήτηση αιτημάτων...',
+  'advisor' => 'Σύμβουλος',
+  'day' => 'Ημέρα',
+  'start_time' => 'Ώρα Έναρξης',
+  'end_time' => 'Ώρα Λήξης',
+  'status' => 'Κατάσταση',
+  'action' => 'Ενέργεια',
+  'assigned_advisor' => 'Ανατεθειμένος Σύμβουλος',
+  'request_status' => 'Κατάσταση Αιτημάτων',
+  'track_pending_requests' => 'Παρακολουθήστε εκκρεμή και εγκεκριμένα αιτήματα',
+  'no_office_hours_loaded' => 'Δεν έχουν φορτωθεί διαθέσιμες ώρες γραφείου ακόμη',
+  'available' => 'Διαθέσιμο',
+  'book' => 'Κράτηση',
+  'date' => 'Ημερομηνία',
+  'reason' => 'Λόγος',
+  'decline_reason' => 'Λόγος Απόρριψης',
+  'no_pending_requests_loaded' => 'Δεν έχουν φορτωθεί εκκρεμή αιτήματα ακόμη',
+  'pending' => 'Εκκρεμεί',
+  'my_appointments_title' => 'Τα Ραντεβού Μου',
+  'my_appointments_subtitle' => 'Δείτε όλα τα εγκεκριμένα ραντεβού με τον σύμβουλό σας',
+  'no_approved_appointments' => 'Δεν έχουν φορτωθεί εγκεκριμένα ραντεβού ακόμη',
+  'scheduled' => 'Προγραμματισμένο',
+  'completed' => 'Ολοκληρώθηκε',
+  'cancelled' => 'Ακυρώθηκε',
+  'approved' => 'Εγκρίθηκε',
+  'history_title' => 'Ιστορικό Ραντεβού',
+  'history_subtitle' => 'Δείτε προηγούμενες ενέργειες και αποφάσεις ραντεβού',
+  'details' => 'Λεπτομέρειες',
+  'no_history_loaded' => 'Δεν έχει φορτωθεί ιστορικό ακόμη',
+  'declined' => 'Απορρίφθηκε',
+  'view_details' => 'Προβολή λεπτομερειών',
+  'calendar_title' => 'Ημερολόγιο Ραντεβού',
+  'calendar_subtitle' => 'Παρακολουθήστε όλα τα αιτήματα και τις αποφάσεις ραντεβού ανά ημερομηνία',
+  'communications_title' => 'Επικοινωνίες',
+  'communications_subtitle' => 'Στείλτε και λάβετε μηνύματα από τον ακαδημαϊκό σας σύμβουλο.',
+  'no_advisor_assigned' => 'Δεν σας έχει ανατεθεί ακόμη σύμβουλος.<br>Παρακαλώ επικοινωνήστε με τη διοίκηση.',
+  'loading_messages' => 'Φόρτωση μηνυμάτων...',
+  'send_message_to' => 'Στείλτε μήνυμα προς %s',
+  'words_max' => '(μέχρι 200 λέξεις)',
+  'message_placeholder' => 'Πληκτρολογήστε την ερώτηση ή το μήνυμά σας εδώ...',
+  'send_message' => 'Αποστολή Μηνύματος',
+  'book_modal_title' => 'Κράτηση Ραντεβού',
+  'available_slot' => 'Διαθέσιμη Ώρα',
+  'select_slot' => 'Επιλέξτε ώρα...',
+  'appointment_date' => 'Ημερομηνία Ραντεβού',
+  'reason_for_appointment' => 'Λόγος Ραντεβού',
+  'request_reason_placeholder' => 'Γράψτε τον λόγο για το αίτημα ραντεβού σας...',
+  'cancel' => 'Ακύρωση',
+  'send_request' => 'Αποστολή Αιτήματος',
+  'appointment_details' => 'Λεπτομέρειες Ραντεβού',
+  'time' => 'Ώρα',
+  'your_reason' => 'Ο Δικός Σας Λόγος',
+  'view_reason' => 'Προβολή Λόγου',
+  'advisor_reason' => 'Λόγος Συμβούλου'
+]);
+
+$translations['en'] = array_merge($translations['en'], [
+  'notifications_aria' => 'Notifications',
+  'could_not_load_notifications' => 'Could not load notifications.',
+  'could_not_load_available_slots' => 'Could not load available office hour slots.',
+  'could_not_load_requests' => 'Could not load appointment requests.',
+  'could_not_load_appointments' => 'Could not load student appointments.',
+  'could_not_load_history' => 'Could not load appointment history.',
+  'could_not_load_calendar' => 'Could not load calendar events.',
+  'words_suffix' => 'words',
+  'no_messages_yet' => 'No messages yet. Send your first message to your advisor!',
+  'failed_to_load_messages' => 'Failed to load messages. Please refresh the page.',
+  'you' => 'You'
+]);
+
+$translations['el'] = array_merge($translations['el'], [
+  'notifications_aria' => 'Ειδοποιήσεις',
+  'could_not_load_notifications' => 'Δεν ήταν δυνατή η φόρτωση ειδοποιήσεων.',
+  'could_not_load_available_slots' => 'Δεν ήταν δυνατή η φόρτωση διαθέσιμων ωρών γραφείου.',
+  'could_not_load_requests' => 'Δεν ήταν δυνατή η φόρτωση αιτημάτων ραντεβού.',
+  'could_not_load_appointments' => 'Δεν ήταν δυνατή η φόρτωση ραντεβού φοιτητή.',
+  'could_not_load_history' => 'Δεν ήταν δυνατή η φόρτωση ιστορικού ραντεβού.',
+  'could_not_load_calendar' => 'Δεν ήταν δυνατή η φόρτωση γεγονότων ημερολογίου.',
+  'words_suffix' => 'λέξεις',
+  'no_messages_yet' => 'Δεν υπάρχουν μηνύματα ακόμη. Στείλτε το πρώτο σας μήνυμα στον σύμβουλό σας!',
+  'failed_to_load_messages' => 'Η φόρτωση μηνυμάτων απέτυχε. Παρακαλώ ανανεώστε τη σελίδα.',
+  'sending' => 'Αποστολή...',
+  'failed_to_send_message' => 'Η αποστολή μηνύματος απέτυχε. Παρακαλώ δοκιμάστε ξανά.',
+  'network_error_sending' => 'Σφάλμα δικτύου. Παρακαλώ δοκιμάστε ξανά.',
+  'you' => 'Εσείς'
+]);
+
+$t = static function (string $key) use ($translations, $lang): string {
+  return $translations[$lang][$key] ?? $translations['en'][$key] ?? $key;
+};
+
+$buildCurrentUrl = static function (array $overrides = [], array $remove = []): string {
+  $params = $_GET;
+  foreach ($remove as $param) {
+    unset($params[$param]);
+  }
+  foreach ($overrides as $key => $value) {
+    if ($value === null) {
+      unset($params[$key]);
+    } else {
+      $params[$key] = $value;
+    }
+  }
+
+  $path = basename((string)($_SERVER['PHP_SELF'] ?? 'StudentAppointmentDashboard.php'));
+  return $path . ($params !== [] ? '?' . http_build_query($params) : '');
+};
+
+$toggleLang = $lang === 'en' ? 'el' : 'en';
+$toggleUrl = $buildCurrentUrl(['set_lang' => $toggleLang], ['notification_id']);
+$langButtonLabel = $lang === 'en' ? 'EN / EL' : 'EL / EN';
   
 
 $currentStudent = [];
 $myAdvisor = null;
 $studentExternalId = 0;
-$studentDisplayName = 'Student';
 
 if ($studentId > 0) {
   try {
     $studentModule = new StudentClass();
     $currentStudent = $studentModule->getStudentInfo($studentId);
     $myAdvisor = $studentModule->getStudentAdvisor($studentId);
-    $studentDisplayName = trim((string)($currentStudent['First_name'] ?? '') . ' ' . (string)($currentStudent['Last_Name'] ?? ''));
-    if ($studentDisplayName === '') {
-      $studentDisplayName = 'Student';
-    }
     $studentExternalId = isset($currentStudent['Student_ID']) && is_numeric($currentStudent['Student_ID'])
       ? (int)$currentStudent['Student_ID']
       : 0;
@@ -99,6 +400,10 @@ $studentHistoryError = '';
 $studentCalendarEvents = [];
 $studentCalendarError = '';
 
+$studentNotifications = [];
+$studentNotificationsError = '';
+$studentUnreadNotifications = 0;
+
 /*
 ------------------------------------------------------------
 FETCH STUDENT ADVISOR
@@ -137,7 +442,7 @@ if ($advisorId !== null) {
 
         $availableSlots = $stmt->fetchAll(PDO::FETCH_ASSOC);
     } catch (Throwable $e) {
-        $availableSlotsError = 'Could not load available office hour slots.';
+        $availableSlotsError = $t('could_not_load_available_slots');
     }
 } else {
     $availableSlotsError = 'No advisor is assigned to this student.';
@@ -167,7 +472,7 @@ try {
 
     $studentRequests = $stmt->fetchAll(PDO::FETCH_ASSOC);
 } catch (Throwable $e) {
-    $studentRequestsError = 'Could not load appointment requests.';
+    $studentRequestsError = $t('could_not_load_requests');
 }
 
 /*
@@ -218,7 +523,7 @@ try {
         $studentAppointments = $fallbackStmt->fetchAll(PDO::FETCH_ASSOC);
     }
 } catch (Throwable $e) {
-    $studentAppointmentsError = 'Could not load student appointments.';
+    $studentAppointmentsError = $t('could_not_load_appointments');
 }
 
 /*
@@ -242,7 +547,7 @@ try {
 
     $studentHistory = $stmt->fetchAll(PDO::FETCH_ASSOC);
 } catch (Throwable $e) {
-    $studentHistoryError = 'Could not load appointment history.';
+    $studentHistoryError = $t('could_not_load_history');
 }
 
 /*
@@ -306,15 +611,48 @@ try {
     ];
   }
 } catch (Throwable $e) {
-  $studentCalendarError = 'Could not load calendar events.';
+  $studentCalendarError = $t('could_not_load_calendar');
+}
+
+try {
+  $studentNotificationsSql = "SELECT Notification_ID, Type, Title, Message, Is_Read, Created_At
+                              FROM notifications
+                              WHERE Recipient_ID = :recipient_id
+                                AND Type IN ('appointment_approved', 'appointment_declined')
+                              ORDER BY Created_At DESC";
+
+  $studentNotificationsStmt = $pdo->prepare($studentNotificationsSql);
+  $studentNotificationsStmt->execute([
+    'recipient_id' => $studentId
+  ]);
+
+  $studentNotifications = $studentNotificationsStmt->fetchAll(PDO::FETCH_ASSOC);
+
+  foreach ($studentNotifications as &$notification) {
+    $notificationType = trim((string)($notification['Type'] ?? ''));
+    $notification['Redirect_URL'] = 'StudentAppointmentDashboard.php?section=calendar';
+
+    if ($notificationType === 'appointment_approved') {
+      $notification['Redirect_URL'] = 'StudentAppointmentDashboard.php?section=appointments';
+    } elseif ($notificationType === 'appointment_declined') {
+      $notification['Redirect_URL'] = 'StudentAppointmentDashboard.php?section=history';
+    }
+
+    if ((int)($notification['Is_Read'] ?? 0) === 0) {
+      $studentUnreadNotifications++;
+    }
+  }
+  unset($notification);
+} catch (Throwable $e) {
+  $studentNotificationsError = $t('could_not_load_notifications');
 }
 ?>
 <!DOCTYPE html>
-<html lang="en">
+<html lang="<?= htmlspecialchars($lang) ?>">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Student Appointment Portal</title>
+  <title><?= htmlspecialchars($t('page_title')) ?></title>
 
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
@@ -322,35 +660,88 @@ try {
   <link rel="stylesheet" href="css/student_appointment_dashboard.css">
 
 </head>
-<body data-student-calendar-events="<?= htmlspecialchars(json_encode($studentCalendarEvents, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), ENT_QUOTES, 'UTF-8') ?>"
-  data-comm-student-id="<?= (int)$studentMessageUserId ?>">
-<?php Notifications::createNotification(); ?>
+<body>
+<?php Notifications::createNotification(); 
+?>
 
 <header class="top-navbar">
   <img src="../documents/tepaklogo.png" alt="Logo" class="logo">
 
   <div class="navbar-center">
-    <span class="welcome-text">Welcome to AdviCut, <?= htmlspecialchars($studentDisplayName) ?>! 👋</span>
+    <span class="welcome-text"><?= htmlspecialchars($t('welcome')) ?></span>
   </div>
 
   <div class="d-flex align-items-center gap-3">
+    <div class="dropdown">
+      <button class="btn position-relative p-0 border-0 bg-transparent" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="<?= htmlspecialchars($t('notifications_aria')) ?>">
+        <i class="bi bi-bell fs-5 text-dark"></i>
+        <?php if ($studentUnreadNotifications > 0): ?>
+          <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+            <?= $studentUnreadNotifications > 99 ? '99+' : $studentUnreadNotifications ?>
+          </span>
+        <?php endif; ?>
+      </button>
+      <div class="dropdown-menu dropdown-menu-end p-0 shadow border-0" style="width: 360px; max-width: calc(100vw - 32px);">
+        <div class="px-3 py-2 border-bottom">
+          <div class="fw-semibold"><?= htmlspecialchars($t('notifications')) ?></div>
+          <div class="text-muted" style="font-size:.8rem;"><?= htmlspecialchars($t('notifications_subtitle')) ?></div>
+        </div>
+
+        <?php if ($studentNotificationsError !== ''): ?>
+          <div class="px-3 py-3 text-danger small"><?= htmlspecialchars($studentNotificationsError) ?></div>
+        <?php elseif (count($studentNotifications) === 0): ?>
+          <div class="px-3 py-3 text-muted small"><?= htmlspecialchars($t('no_notifications')) ?></div>
+        <?php else: ?>
+          <div style="max-height: 360px; overflow-y: auto;">
+            <?php foreach ($studentNotifications as $notification): ?>
+              <?php $isUnread = (int)($notification['Is_Read'] ?? 0) === 0; ?>
+              <?php
+              $redirectUrl = (string)($notification['Redirect_URL'] ?? 'StudentAppointmentDashboard.php?section=calendar');
+              $redirectSeparator = str_contains($redirectUrl, '?') ? '&' : '?';
+              $notificationUrl = $redirectUrl . $redirectSeparator . 'notification_id=' . (int)($notification['Notification_ID'] ?? 0);
+              ?>
+              <a href="<?= htmlspecialchars($notificationUrl) ?>"
+                 class="dropdown-item px-3 py-3 border-bottom text-wrap <?= $isUnread ? 'fw-semibold bg-light' : '' ?>">
+                <div class="d-flex align-items-start justify-content-between gap-2">
+                  <span><?= htmlspecialchars((string)($notification['Title'] ?? 'Notification')) ?></span>
+                  <?php if ($isUnread): ?>
+                    <span class="badge bg-primary"><?= htmlspecialchars($t('unread')) ?></span>
+                  <?php endif; ?>
+                </div>
+                <div class="text-muted mt-1" style="font-size:.9rem; white-space: normal;">
+                  <?= htmlspecialchars((string)($notification['Message'] ?? '')) ?>
+                </div>
+                <div class="text-muted mt-2" style="font-size:.78rem;">
+                  <?= htmlspecialchars((string)($notification['Created_At'] ?? '')) ?>
+                </div>
+              </a>
+            <?php endforeach; ?>
+          </div>
+        <?php endif; ?>
+      </div>
+    </div>
+
+    <a href="<?= htmlspecialchars($toggleUrl) ?>" class="btn btn-sm btn-outline-secondary rounded-pill px-2 py-1">
+      <i class="bi bi-globe2 me-1"></i><?= htmlspecialchars($langButtonLabel) ?>
+    </a>
+
     <div class="dropdown">
       <button class="btn p-0 border-0 bg-transparent dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
         <div class="user-avatar">S</div>
       </button>
       <div class="dropdown-menu dropdown-menu-end p-2" style="min-width: 220px;">
         <button class="dropdown-item" type="button" data-bs-toggle="modal" data-bs-target="#manualInstructionsModal">
-          <i class="bi bi-journal-text me-2"></i>Manual
+          <i class="bi bi-journal-text me-2"></i><?= htmlspecialchars($t('manual')) ?>
         </button>
         <div class="dropdown-divider"></div>
         <a class="dropdown-item" href="changepassword.php">
-          <i class="bi bi-shield-lock me-2"></i>Change Password
+          <i class="bi bi-shield-lock me-2"></i><?= htmlspecialchars($t('change_password')) ?>
         </a>
         <div class="dropdown-divider"></div>
         <form action="../backend/modules/dispatcher.php" method="POST" class="mb-0">
           <input type="hidden" name="action" value="/logout">
           <button type="submit" class="dropdown-item text-danger">
-            <i class="bi bi-box-arrow-right me-2"></i>Logout
+            <i class="bi bi-box-arrow-right me-2"></i><?= htmlspecialchars($t('logout')) ?>
           </button>
         </form>
       </div>
@@ -363,23 +754,23 @@ try {
     <div class="modal-content border-0 shadow">
       <div class="modal-header border-0 pb-0">
         <h5 class="modal-title fw-semibold" id="manualInstructionsModalLabel">
-          <i class="bi bi-info-circle me-2 text-primary"></i>Student Dashboard Manual
+          <i class="bi bi-info-circle me-2 text-primary"></i><?= htmlspecialchars($t('manual_title')) ?>
         </h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="<?= htmlspecialchars($t('close')) ?>"></button>
       </div>
       <div class="modal-body pt-2">
         <ol class="mb-0 ps-3">
-          <li>Use Book Appointment to schedule meetings with your advisor based on the available slots.</li>
-          <li>Use My Requests to view the status of your appointment requests.</li>
-          <li>Use My Appointments to see upcoming confirmed/denied appointments.</li>
-          <li>Use Appointment History to review past appointments and notes.</li>
-          <li>Use Communications to message your assigned advisor.</li>
-          <li>Use Change Password to update your login password.</li>
-          <li>If no advisor is assigned yet, contact the administration office.</li>
+          <li><?= htmlspecialchars($t('manual_item_1')) ?></li>
+          <li><?= htmlspecialchars($t('manual_item_2')) ?></li>
+          <li><?= htmlspecialchars($t('manual_item_3')) ?></li>
+          <li><?= htmlspecialchars($t('manual_item_4')) ?></li>
+          <li><?= htmlspecialchars($t('manual_item_5')) ?></li>
+          <li><?= htmlspecialchars($t('manual_item_6')) ?></li>
+          <li><?= htmlspecialchars($t('manual_item_7')) ?></li>
         </ol>
       </div>
       <div class="modal-footer border-0 pt-0">
-        <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Close</button>
+        <button type="button" class="btn btn-primary" data-bs-dismiss="modal"><?= htmlspecialchars($t('close')) ?></button>
       </div>
     </div>
   </div>
@@ -387,44 +778,43 @@ try {
 
 <div class="tab-bar">
   <button type="button" class="tab-btn <?= $activeSection === 'calendar' ? 'active' : '' ?>" data-section="calendar">
-    <i class="bi bi-calendar3"></i> Calendar
+    <i class="bi bi-calendar3"></i> <?= htmlspecialchars($t('tab_calendar')) ?>
   </button>
 
   <button type="button" class="tab-btn <?= $activeSection === 'book' ? 'active' : '' ?>" data-section="book">
-    <i class="bi bi-calendar-plus"></i> Book Appointment
+    <i class="bi bi-calendar-plus"></i> <?= htmlspecialchars($t('tab_book')) ?>
   </button>
 
   <button type="button" class="tab-btn <?= $activeSection === 'requests' ? 'active' : '' ?>" data-section="requests">
-    <i class="bi bi-hourglass-split"></i> My Requests
+    <i class="bi bi-hourglass-split"></i> <?= htmlspecialchars($t('tab_requests')) ?>
   </button>
 
   <button type="button" class="tab-btn <?= $activeSection === 'appointments' ? 'active' : '' ?>" data-section="appointments">
-    <i class="bi bi-calendar-check"></i> My Appointments
+    <i class="bi bi-calendar-check"></i> <?= htmlspecialchars($t('tab_appointments')) ?>
   </button>
 
   <button type="button" class="tab-btn <?= $activeSection === 'history' ? 'active' : '' ?>" data-section="history">
-    <i class="bi bi-clock-history"></i> History
+    <i class="bi bi-clock-history"></i> <?= htmlspecialchars($t('tab_history')) ?>
   </button>
 
   <button type="button" class="tab-btn <?= $activeSection === 'communications' ? 'active' : '' ?>" data-section="communications">
-    <i class="bi bi-chat-dots"></i> Communications
+    <i class="bi bi-chat-dots"></i> <?= htmlspecialchars($t('tab_communications')) ?>
   </button>
 </div>
 
 <main class="container-fluid py-4 px-4" style="max-width: 1100px;">
-
   <!-- Book Appointment tab -->
   <div class="section-panel <?= $activeSection === 'book' ? 'active' : '' ?>" id="section-book">
     <div class="section-card">
 
       <div class="d-flex align-items-center justify-content-between mb-4">
         <div>
-          <h5 class="mb-0 fw-semibold">Book Appointment</h5>
-          <p class="text-muted mb-0" style="font-size:.85rem;">Select an available advisor slot and request a meeting</p>
+          <h5 class="mb-0 fw-semibold"><?= htmlspecialchars($t('book_title')) ?></h5>
+          <p class="text-muted mb-0" style="font-size:.85rem;"><?= htmlspecialchars($t('book_subtitle')) ?></p>
         </div>
 
         <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#bookAppointmentModal">
-          <i class="bi bi-plus-circle me-1"></i> New Request
+          <i class="bi bi-plus-circle me-1"></i> <?= htmlspecialchars($t('new_request')) ?>
         </button>
       </div>
 
@@ -438,7 +828,7 @@ try {
         <i class="bi bi-person-badge"></i>
       </div>
       <div>
-        <div class="fw-semibold">Assigned Advisor</div>
+        <div class="fw-semibold"><?= htmlspecialchars($t('assigned_advisor')) ?></div>
         <div class="text-muted small"><?= htmlspecialchars($advisorName) ?></div>
       </div>
     </button>
@@ -452,8 +842,8 @@ try {
         <i class="bi bi-send-check"></i>
       </div>
       <div>
-        <div class="fw-semibold">Request Status</div>
-        <div class="text-muted small">Track pending and approved requests</div>
+        <div class="fw-semibold"><?= htmlspecialchars($t('request_status')) ?></div>
+        <div class="text-muted small"><?= htmlspecialchars($t('track_pending_requests')) ?></div>
       </div>
     </button>
   </div>
@@ -470,18 +860,18 @@ try {
         <table class="table table-sm table-hover align-middle mb-0">
           <thead class="table-light">
             <tr>
-              <th>Advisor</th>
-              <th>Day</th>
-              <th>Start Time</th>
-              <th>End Time</th>
-              <th>Status</th>
-              <th style="width:140px;">Action</th>
+              <th><?= htmlspecialchars($t('advisor')) ?></th>
+              <th><?= htmlspecialchars($t('day')) ?></th>
+              <th><?= htmlspecialchars($t('start_time')) ?></th>
+              <th><?= htmlspecialchars($t('end_time')) ?></th>
+              <th><?= htmlspecialchars($t('status')) ?></th>
+              <th style="width:140px;"><?= htmlspecialchars($t('action')) ?></th>
             </tr>
           </thead>
           <tbody>
             <?php if (count($availableSlots) === 0): ?>
               <tr class="book-row">
-                <td colspan="6" class="text-center text-muted">No office hour slots loaded yet</td>
+                <td colspan="6" class="text-center text-muted"><?= htmlspecialchars($t('no_office_hours_loaded')) ?></td>
               </tr>
             <?php else: ?>
               <?php foreach ($availableSlots as $slot): ?>
@@ -490,14 +880,14 @@ try {
                   <td><?= htmlspecialchars((string)$slot['Day_of_Week']) ?></td>
                   <td><?= htmlspecialchars(substr((string)$slot['Start_Time'], 0, 5)) ?></td>
                   <td><?= htmlspecialchars(substr((string)$slot['End_Time'], 0, 5)) ?></td>
-                  <td><span class="badge bg-success">Available</span></td>
+                  <td><span class="badge bg-success"><?= htmlspecialchars($t('available')) ?></span></td>
                   <td>
                     <button type="button"
                             class="btn btn-primary btn-sm open-book-modal-btn"
                             data-slot-id="<?= (int)$slot['OfficeHour_ID'] ?>"
                             data-bs-toggle="modal"
                             data-bs-target="#bookAppointmentModal">
-                      Book
+                      <?= htmlspecialchars($t('book')) ?>
                     </button>
                   </td>
                 </tr>
@@ -516,8 +906,8 @@ try {
 
       <div class="d-flex align-items-center justify-content-between mb-4">
         <div>
-          <h5 class="mb-0 fw-semibold">My Requests</h5>
-          <p class="text-muted mb-0" style="font-size:.85rem;">View all your pending appointment requests</p>
+          <h5 class="mb-0 fw-semibold"><?= htmlspecialchars($t('requests_title')) ?></h5>
+          <p class="text-muted mb-0" style="font-size:.85rem;"><?= htmlspecialchars($t('requests_subtitle')) ?></p>
         </div>
       </div>
 
@@ -527,23 +917,23 @@ try {
         </div>
       <?php endif; ?>
 
-      <input class="form-control mb-3" id="studentRequestSearch" placeholder="Search requests…">
+      <input class="form-control mb-3" id="studentRequestSearch" placeholder="<?= htmlspecialchars($t('search_requests')) ?>">
 
       <div class="table-responsive">
         <table class="table table-sm table-hover align-middle mb-0">
           <thead class="table-light">
             <tr>
-              <th>Advisor</th>
-              <th>Date</th>
-              <th>Reason</th>
-              <th>Status</th>
-              <th>Decline Reason</th>
+              <th><?= htmlspecialchars($t('advisor')) ?></th>
+              <th><?= htmlspecialchars($t('date')) ?></th>
+              <th><?= htmlspecialchars($t('reason')) ?></th>
+              <th><?= htmlspecialchars($t('status')) ?></th>
+              <th><?= htmlspecialchars($t('decline_reason')) ?></th>
             </tr>
           </thead>
           <tbody>
             <?php if (count($studentRequests) === 0): ?>
               <tr class="student-request-row">
-                <td colspan="5" class="text-center text-muted">No pending requests loaded yet</td>
+                <td colspan="5" class="text-center text-muted"><?= htmlspecialchars($t('no_pending_requests_loaded')) ?></td>
               </tr>
             <?php else: ?>
               <?php foreach ($studentRequests as $request): ?>
@@ -551,7 +941,7 @@ try {
                   <td><?= htmlspecialchars('Advisor ID: ' . (string)$request['Advisor_ID']) ?></td>
                   <td><?= htmlspecialchars((string)$request['Appointment_Date']) ?></td>
                   <td><?= htmlspecialchars((string)$request['Student_Reason']) ?></td>
-                  <td><span class="badge bg-secondary">Pending</span></td>
+                  <td><span class="badge bg-secondary"><?= htmlspecialchars($t('pending')) ?></span></td>
                   <td>-</td>
                 </tr>
               <?php endforeach; ?>
@@ -569,8 +959,8 @@ try {
 
       <div class="d-flex align-items-center justify-content-between mb-4">
         <div>
-          <h5 class="mb-0 fw-semibold">My Appointments</h5>
-          <p class="text-muted mb-0" style="font-size:.85rem;">View all approved appointments with your advisor</p>
+          <h5 class="mb-0 fw-semibold"><?= htmlspecialchars($t('my_appointments_title')) ?></h5>
+          <p class="text-muted mb-0" style="font-size:.85rem;"><?= htmlspecialchars($t('my_appointments_subtitle')) ?></p>
         </div>
       </div>
 
@@ -584,34 +974,34 @@ try {
         <table class="table table-sm table-hover align-middle mb-0">
           <thead class="table-light">
             <tr>
-              <th>Advisor</th>
-              <th>Date</th>
-              <th>Start Time</th>
-              <th>End Time</th>
-              <th>Status</th>
+              <th><?= htmlspecialchars($t('advisor')) ?></th>
+              <th><?= htmlspecialchars($t('date')) ?></th>
+              <th><?= htmlspecialchars($t('start_time')) ?></th>
+              <th><?= htmlspecialchars($t('end_time')) ?></th>
+              <th><?= htmlspecialchars($t('status')) ?></th>
             </tr>
           </thead>
           <tbody>
             <?php if (count($studentAppointments) === 0): ?>
               <tr>
-                <td colspan="5" class="text-center text-muted">No approved appointments loaded yet</td>
+                <td colspan="5" class="text-center text-muted"><?= htmlspecialchars($t('no_approved_appointments')) ?></td>
               </tr>
             <?php else: ?>
               <?php foreach ($studentAppointments as $appointment): ?>
                 <tr>
-                  <td><?= htmlspecialchars(trim((string)($appointment['Advisor_Last_Name'] ?? '')) !== '' ? (string)$appointment['Advisor_Last_Name'] : 'Advisor') ?></td>
+                  <td><?= htmlspecialchars(trim((string)($appointment['Advisor_Last_Name'] ?? '')) !== '' ? (string)$appointment['Advisor_Last_Name'] : $t('advisor')) ?></td>
                   <td><?= htmlspecialchars((string)$appointment['Appointment_Date']) ?></td>
                   <td><?= htmlspecialchars($appointment['Start_Time'] ? substr((string)$appointment['Start_Time'], 0, 5) : '-') ?></td>
                   <td><?= htmlspecialchars($appointment['End_Time'] ? substr((string)$appointment['End_Time'], 0, 5) : '-') ?></td>
                   <td>
                     <?php if (strtolower(trim((string)$appointment['Status'])) === 'scheduled'): ?>
-                      <span class="badge bg-primary">Scheduled</span>
+                      <span class="badge bg-primary"><?= htmlspecialchars($t('scheduled')) ?></span>
                     <?php elseif (strtolower(trim((string)$appointment['Status'])) === 'completed'): ?>
-                      <span class="badge bg-success">Completed</span>
+                      <span class="badge bg-success"><?= htmlspecialchars($t('completed')) ?></span>
                     <?php elseif (strtolower(trim((string)$appointment['Status'])) === 'cancelled'): ?>
-                      <span class="badge bg-danger">Cancelled</span>
+                      <span class="badge bg-danger"><?= htmlspecialchars($t('cancelled')) ?></span>
                     <?php elseif (strtolower(trim((string)$appointment['Status'])) === 'approved'): ?>
-                      <span class="badge bg-success">Approved</span>
+                      <span class="badge bg-success"><?= htmlspecialchars($t('approved')) ?></span>
                     <?php else: ?>
                       <span class="badge bg-dark"><?= htmlspecialchars((string)$appointment['Status']) ?></span>
                     <?php endif; ?>
@@ -632,8 +1022,8 @@ try {
 
       <div class="d-flex align-items-center justify-content-between mb-4">
         <div>
-          <h5 class="mb-0 fw-semibold">Appointment History</h5>
-          <p class="text-muted mb-0" style="font-size:.85rem;">View previous appointment actions and decisions</p>
+          <h5 class="mb-0 fw-semibold"><?= htmlspecialchars($t('history_title')) ?></h5>
+          <p class="text-muted mb-0" style="font-size:.85rem;"><?= htmlspecialchars($t('history_subtitle')) ?></p>
         </div>
       </div>
 
@@ -647,16 +1037,16 @@ try {
         <table class="table table-sm table-hover align-middle mb-0">
           <thead class="table-light">
             <tr>
-              <th>Advisor</th>
-              <th>Status</th>
-              <th>Date</th>
-              <th>Details</th>
+              <th><?= htmlspecialchars($t('advisor')) ?></th>
+              <th><?= htmlspecialchars($t('status')) ?></th>
+              <th><?= htmlspecialchars($t('date')) ?></th>
+              <th><?= htmlspecialchars($t('details')) ?></th>
             </tr>
           </thead>
           <tbody>
             <?php if (count($studentHistory) === 0): ?>
               <tr>
-                <td colspan="4" class="text-center text-muted">No history loaded yet</td>
+                <td colspan="4" class="text-center text-muted"><?= htmlspecialchars($t('no_history_loaded')) ?></td>
               </tr>
             <?php else: ?>
               <?php foreach ($studentHistory as $history): ?>
@@ -665,14 +1055,14 @@ try {
                   $historyAdvisorLastName = trim((string)($history['Advisor_Last_Name'] ?? ''));
                 ?>
                 <tr>
-                  <td><?= htmlspecialchars($historyAdvisorLastName !== '' ? $historyAdvisorLastName : 'Advisor') ?></td>
+                  <td><?= htmlspecialchars($historyAdvisorLastName !== '' ? $historyAdvisorLastName : $t('advisor')) ?></td>
                   <td>
                     <?php if ($history['Status'] === 'Approved'): ?>
-                      <span class="badge bg-success">Approved</span>
+                      <span class="badge bg-success"><?= htmlspecialchars($t('approved')) ?></span>
                     <?php elseif ($history['Status'] === 'Declined'): ?>
-                      <span class="badge bg-danger">Declined</span>
+                      <span class="badge bg-danger"><?= htmlspecialchars($t('declined')) ?></span>
                     <?php elseif ($history['Status'] === 'Cancelled'): ?>
-                      <span class="badge bg-dark">Cancelled</span>
+                      <span class="badge bg-dark"><?= htmlspecialchars($t('cancelled')) ?></span>
                     <?php else: ?>
                       <span class="badge bg-primary"><?= htmlspecialchars((string)$history['Status']) ?></span>
                     <?php endif; ?>
@@ -683,7 +1073,7 @@ try {
                       <button type="button"
                               class="btn btn-outline-primary btn-sm calendar-reason-btn history-details-btn"
                               data-history-reason="<?= htmlspecialchars($historyReason) ?>">
-                        View details
+                        <?= htmlspecialchars($t('view_details')) ?>
                       </button>
                     <?php else: ?>
                       <span class="text-muted">-</span>
@@ -705,8 +1095,8 @@ try {
 
       <div class="d-flex align-items-center justify-content-between mb-4">
         <div>
-          <h5 class="mb-0 fw-semibold">Appointment Calendar</h5>
-          <p class="text-muted mb-0" style="font-size:.85rem;">Track all your requests and appointment decisions by date</p>
+          <h5 class="mb-0 fw-semibold"><?= htmlspecialchars($t('calendar_title')) ?></h5>
+          <p class="text-muted mb-0" style="font-size:.85rem;"><?= htmlspecialchars($t('calendar_subtitle')) ?></p>
         </div>
       </div>
 
@@ -726,8 +1116,8 @@ try {
 
       <div class="d-flex align-items-center justify-content-between mb-4">
         <div>
-          <h5 class="mb-0 fw-semibold">Communications</h5>
-          <p class="text-muted mb-0" style="font-size:.85rem;">Send and receive messages from your academic advisor.</p>
+          <h5 class="mb-0 fw-semibold"><?= htmlspecialchars($t('communications_title')) ?></h5>
+          <p class="text-muted mb-0" style="font-size:.85rem;"><?= htmlspecialchars($t('communications_subtitle')) ?></p>
         </div>
       </div>
 
@@ -736,28 +1126,29 @@ try {
         <?php if ($advisorId === null): ?>
           <div class="comm-placeholder">
             <i class="bi bi-person-x"></i>
-            <p>You don't have an advisor assigned yet.<br>Please contact the administration.</p>
+            <p><?= $t('no_advisor_assigned') ?></p>
           </div>
         <?php else: ?>
 
           <div class="comm-messages" id="commMessages">
-            <div class="comm-loading">Loading messages...</div>
+            <div class="comm-loading"><?= htmlspecialchars($t('loading_messages')) ?></div>
           </div>
 
           <div class="comm-compose">
-            <label for="commTextarea">Send a message to <?= htmlspecialchars($communicationAdvisorLabel !== '' ? $communicationAdvisorLabel : 'Advisor') ?> <span class="text-muted">(200 words max)</span></label>
+            <label for="commTextarea"><?= htmlspecialchars(sprintf($t('send_message_to'), $communicationAdvisorLabel !== '' ? $communicationAdvisorLabel : $t('advisor'))) ?> <span class="text-muted"><?= htmlspecialchars($t('words_max')) ?></span></label>
             <textarea id="commTextarea"
-                      placeholder="Type your question or message here..."
+                      placeholder="<?= htmlspecialchars($t('message_placeholder')) ?>"
                       maxlength="2000"
                       oninput="commWordCount(this)"></textarea>
             <div class="comm-compose-footer">
-              <span class="comm-word-count" id="commWordCount">0 / 200 words</span>
+              <span class="comm-word-count" id="commWordCount">0 / 200 <?= htmlspecialchars($t('words_suffix')) ?></span>
               <button type="button" class="btn-send" id="commSendBtn" onclick="commSend()" disabled>
-                <i class="bi bi-send-fill"></i> Send Message
+                <i class="bi bi-send-fill"></i> <?= htmlspecialchars($t('send_message')) ?>
               </button>
             </div>
           </div>
 
+          <script>window.commStudentId = <?= json_encode($studentMessageUserId) ?>;</script>
         <?php endif; ?>
 
       </div>
@@ -774,26 +1165,25 @@ try {
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content border-0 shadow">
       <div class="modal-header border-0 pb-0">
-        <h5 class="modal-title fw-semibold">Book Appointment</h5>
+        <h5 class="modal-title fw-semibold"><?= htmlspecialchars($t('book_modal_title')) ?></h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
 
       <form action="../backend/controllers/StudentBookAppointment.php" method="POST">
         <div class="modal-body">
-          <input type="hidden" name="_csrf" value="<?= htmlspecialchars(Csrf::ensureToken(), ENT_QUOTES, 'UTF-8') ?>">
           <input type="hidden" name="student_id" value="<?= (int)$studentId ?>">
 
           <div class="row g-3">
 
             <div class="col-12">
-              <label class="form-label">Advisor <span class="text-danger">*</span></label>
+              <label class="form-label"><?= htmlspecialchars($t('advisor')) ?> <span class="text-danger">*</span></label>
               <input type="text" class="form-control" value="<?= htmlspecialchars($advisorName) ?>" readonly>
             </div>
 
             <div class="col-12">
-              <label class="form-label">Available Slot <span class="text-danger">*</span></label>
+              <label class="form-label"><?= htmlspecialchars($t('available_slot')) ?> <span class="text-danger">*</span></label>
               <select name="slot_id" id="bookSlotSelect" class="form-select" required>
-                <option value="" selected disabled>Select a slot...</option>
+                <option value="" selected disabled><?= htmlspecialchars($t('select_slot')) ?></option>
                 <?php foreach ($availableSlots as $slot): ?>
                   <option value="<?= (int)$slot['OfficeHour_ID'] ?>">
                     <?= htmlspecialchars((string)$slot['Day_of_Week'] . ' - ' . substr((string)$slot['Start_Time'], 0, 5) . ' to ' . substr((string)$slot['End_Time'], 0, 5)) ?>
@@ -803,22 +1193,22 @@ try {
             </div>
 
             <div class="col-12">
-              <label class="form-label">Appointment Date <span class="text-danger">*</span></label>
+              <label class="form-label"><?= htmlspecialchars($t('appointment_date')) ?> <span class="text-danger">*</span></label>
               <input type="date" name="appointment_date" class="form-control" required>
             </div>
 
             <div class="col-12">
-              <label class="form-label">Reason for Appointment <span class="text-danger">*</span></label>
-              <textarea name="reason" class="form-control" rows="4" placeholder="Write the reason for your appointment request..." required></textarea>
+              <label class="form-label"><?= htmlspecialchars($t('reason_for_appointment')) ?> <span class="text-danger">*</span></label>
+              <textarea name="reason" class="form-control" rows="4" placeholder="<?= htmlspecialchars($t('request_reason_placeholder')) ?>" required></textarea>
             </div>
 
           </div>
         </div>
 
         <div class="modal-footer border-0 pt-0">
-          <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-light" data-bs-dismiss="modal"><?= htmlspecialchars($t('cancel')) ?></button>
           <button type="submit" class="btn btn-primary">
-            <i class="bi bi-send me-1"></i> Send Request
+            <i class="bi bi-send me-1"></i> <?= htmlspecialchars($t('send_request')) ?>
           </button>
         </div>
       </form>
@@ -831,18 +1221,18 @@ try {
   <div class="modal-dialog">
     <div class="modal-content rounded-4">
       <div class="modal-header">
-        <h5 class="modal-title">Appointment Details</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        <h5 class="modal-title"><?= htmlspecialchars($t('appointment_details')) ?></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="<?= htmlspecialchars($t('close')) ?>"></button>
       </div>
       <div class="modal-body">
-        <p><strong>Advisor:</strong> <span id="calendarModalAdvisor"></span></p>
-        <p><strong>Date:</strong> <span id="calendarModalDate"></span></p>
-        <p><strong>Time:</strong> <span id="calendarModalTime"></span></p>
-        <p><strong>Status:</strong> <span id="calendarModalStatus"></span></p>
+        <p><strong><?= htmlspecialchars($t('advisor')) ?>:</strong> <span id="calendarModalAdvisor"></span></p>
+        <p><strong><?= htmlspecialchars($t('date')) ?>:</strong> <span id="calendarModalDate"></span></p>
+        <p><strong><?= htmlspecialchars($t('time')) ?>:</strong> <span id="calendarModalTime"></span></p>
+        <p><strong><?= htmlspecialchars($t('status')) ?>:</strong> <span id="calendarModalStatus"></span></p>
 
         <div class="calendar-reason-group">
           <div class="d-flex align-items-center justify-content-between gap-3">
-            <strong>Your Reason:</strong>
+            <strong><?= htmlspecialchars($t('your_reason')) ?>:</strong>
             <button type="button"
                     class="btn btn-outline-primary btn-sm calendar-reason-btn"
                     id="calendarModalStudentReasonBtn"
@@ -850,7 +1240,7 @@ try {
                     data-bs-target="#calendarModalStudentReasonWrap"
                     aria-expanded="false"
                     aria-controls="calendarModalStudentReasonWrap">
-              View Reason
+              <?= htmlspecialchars($t('view_reason')) ?>
             </button>
           </div>
           <div class="collapse mt-2" id="calendarModalStudentReasonWrap">
@@ -860,7 +1250,7 @@ try {
 
         <div class="calendar-reason-group mt-3">
           <div class="d-flex align-items-center justify-content-between gap-3">
-            <strong>Advisor Reason:</strong>
+            <strong><?= htmlspecialchars($t('advisor_reason')) ?>:</strong>
             <button type="button"
                     class="btn btn-outline-primary btn-sm calendar-reason-btn"
                     id="calendarModalAdvisorReasonBtn"
@@ -868,7 +1258,7 @@ try {
                     data-bs-target="#calendarModalAdvisorReasonWrap"
                     aria-expanded="false"
                     aria-controls="calendarModalAdvisorReasonWrap">
-              View Reason
+              <?= htmlspecialchars($t('view_reason')) ?>
             </button>
           </div>
           <div class="collapse mt-2" id="calendarModalAdvisorReasonWrap">
@@ -885,8 +1275,8 @@ try {
   <div class="modal-dialog modal-lg modal-dialog-centered">
     <div class="modal-content rounded-4">
       <div class="modal-header">
-        <h5 class="modal-title">Appointment Details</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        <h5 class="modal-title"><?= htmlspecialchars($t('appointment_details')) ?></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="<?= htmlspecialchars($t('close')) ?>"></button>
       </div>
       <div class="modal-body">
         <div class="calendar-reason-box" id="historyDetailsText"></div>
@@ -897,7 +1287,324 @@ try {
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
-<script src="js/student-appointment-dashboard.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/locales-all.global.min.js"></script>
+
+<script>
+const COMM_MAX_WORDS = 200;
+const currentLang = <?= json_encode($lang === 'el' ? 'el' : 'en') ?>;
+let commLoaded = false;
+let studentCalendarLoaded = false;
+let studentCalendarInstance = null;
+let historyDetailsModal = null;
+
+function openHistoryDetailsModal(reasonText) {
+  const content = document.getElementById('historyDetailsText');
+  if (!content || !historyDetailsModal) return;
+
+  const cleanReason = String(reasonText ?? '').trim();
+  content.textContent = cleanReason !== '' ? cleanReason : '-';
+  historyDetailsModal.show();
+}
+
+const studentCalendarEvents = <?= json_encode($studentCalendarEvents, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
+
+function setCalendarReason(buttonId, wrapId, contentId, value) {
+  const button = document.getElementById(buttonId);
+  const wrap = document.getElementById(wrapId);
+  const content = document.getElementById(contentId);
+
+  if (!button || !wrap || !content) return;
+
+  const text = String(value ?? '').trim();
+  const hasValue = text !== '' && text !== '-';
+
+  content.textContent = hasValue ? text : '';
+  button.style.display = hasValue ? 'inline-flex' : 'none';
+
+  if (!hasValue) {
+    const collapse = bootstrap.Collapse.getOrCreateInstance(wrap, { toggle: false });
+    collapse.hide();
+  }
+}
+function showPageMessage(message, type = 'success') {
+  const existing = document.getElementById('pageMessageToast');
+  if (existing) {
+    existing.remove();
+  }
+
+  const box = document.createElement('div');
+  box.id = 'pageMessageToast';
+  box.className = 'alert alert-' + type + ' position-fixed top-0 end-0 m-3 shadow';
+  box.style.zIndex = '9999';
+  box.style.minWidth = '260px';
+  box.textContent = message;
+
+  document.body.appendChild(box);
+
+  setTimeout(function () {
+    box.remove();
+  }, 3000);
+}
+
+function resetCalendarReasonState(wrapId) {
+  const wrap = document.getElementById(wrapId);
+  if (!wrap) return;
+
+  const collapse = bootstrap.Collapse.getOrCreateInstance(wrap, { toggle: false });
+  collapse.hide();
+}
+
+function renderStudentCalendar() {
+  if (studentCalendarLoaded) return;
+
+  const calendarEl = document.getElementById('studentCalendar');
+  const modalEl = document.getElementById('studentCalendarModal');
+  if (!calendarEl || !modalEl) return;
+
+  const detailsModal = new bootstrap.Modal(modalEl);
+
+  studentCalendarInstance = new FullCalendar.Calendar(calendarEl, {
+    initialView: 'dayGridMonth',
+    locale: currentLang,
+    buttonText: {
+      today: currentLang === 'el' ? 'Σήμερα' : 'today'
+    },
+    height: 'auto',
+    events: studentCalendarEvents,
+    eventClick: function (info) {
+      const props = info.event.extendedProps || {};
+      document.getElementById('calendarModalAdvisor').textContent = props.advisor || '-';
+      document.getElementById('calendarModalDate').textContent = props.date || '-';
+      document.getElementById('calendarModalTime').textContent = props.time || '-';
+      document.getElementById('calendarModalStatus').textContent = props.status || '-';
+      setCalendarReason('calendarModalStudentReasonBtn', 'calendarModalStudentReasonWrap', 'calendarModalStudentReason', props.student_reason);
+      setCalendarReason('calendarModalAdvisorReasonBtn', 'calendarModalAdvisorReasonWrap', 'calendarModalAdvisorReason', props.advisor_reason);
+      resetCalendarReasonState('calendarModalStudentReasonWrap');
+      resetCalendarReasonState('calendarModalAdvisorReasonWrap');
+      detailsModal.show();
+    }
+  });
+
+  studentCalendarInstance.render();
+  studentCalendarLoaded = true;
+}
+
+function commLoad() {
+  if (!window.commStudentId) return;
+  commLoaded = true;
+  commFetchThread();
+}
+
+function commFetchThread() {
+  const box = document.getElementById('commMessages');
+  if (!box) return;
+
+  box.innerHTML = '<div class="comm-loading"><?= htmlspecialchars($t('loading_messages')) ?></div>';
+
+  const fd = new FormData();
+  fd.append('action', '/student/message/thread');
+  fd.append('student_id', window.commStudentId);
+
+  fetch('../backend/modules/dispatcher.php', { method: 'POST', body: fd })
+    .then(r => r.json())
+    .then(messages => {
+      if (!messages.length) {
+        box.innerHTML = [
+          '<div class="comm-placeholder">',
+          '<i class="bi bi-chat"></i>',
+          '<p><?= htmlspecialchars($t('no_messages_yet')) ?></p>',
+          '</div>'
+        ].join('');
+        return;
+      }
+
+      box.innerHTML = messages.map(m => commBubble(m)).join('');
+      box.scrollTop = box.scrollHeight;
+
+      const markReadFd = new FormData();
+      markReadFd.append('action', '/student/message/read');
+      markReadFd.append('student_id', window.commStudentId);
+      fetch('../backend/modules/dispatcher.php', { method: 'POST', body: markReadFd }).catch(() => {});
+    })
+    .catch(() => {
+      box.innerHTML = [
+        '<div class="comm-placeholder" style="color:#ef4444">',
+        '<i class="bi bi-exclamation-circle"></i>',
+        '<p><?= htmlspecialchars($t('failed_to_load_messages')) ?></p>',
+        '</div>'
+      ].join('');
+    });
+}
+
+function commBubble(m) {
+  const isStudent = m.sender === 'student';
+  const side = isStudent ? 'from-student' : 'from-advisor';
+  const senderLabel = isStudent ? <?= json_encode($t('you')) ?> : (m.sender_name || <?= json_encode($t('advisor')) ?>);
+  const time = m.sent_at ? new Date(m.sent_at).toLocaleString() : '';
+
+  return [
+    '<div class="msg-bubble-wrap ' + side + '">',
+    '<div class="msg-meta">',
+    '<span class="msg-sender">' + commEsc(senderLabel) + '</span>',
+    '<span>' + commEsc(time) + '</span>',
+    '</div>',
+    '<div class="msg-bubble">' + commEsc(m.body) + '</div>',
+    '</div>'
+  ].join('');
+}
+
+function commWordCount(textarea) {
+  const words = textarea.value.trim() === '' ? 0 : textarea.value.trim().split(/\s+/).length;
+  const el = document.getElementById('commWordCount');
+  const btn = document.getElementById('commSendBtn');
+  if (!el || !btn) return;
+
+  el.textContent = words + ' / ' + COMM_MAX_WORDS + ' ' + <?= json_encode($t('words_suffix')) ?>;
+  el.classList.toggle('over', words > COMM_MAX_WORDS);
+  btn.disabled = (words === 0 || words > COMM_MAX_WORDS);
+}
+
+function commSend() {
+  const textarea = document.getElementById('commTextarea');
+  const btn = document.getElementById('commSendBtn');
+  if (!textarea || !btn) return;
+
+  const body = textarea.value.trim();
+  if (!body || !window.commStudentId) return;
+
+  btn.disabled = true;
+  btn.innerHTML = '<i class="bi bi-hourglass-split"></i> <?= htmlspecialchars($t('sending')) ?>';
+
+  const fd = new FormData();
+  fd.append('action', '/student/message/send');
+  fd.append('student_id', window.commStudentId);
+  fd.append('message_body', body);
+
+  fetch('../backend/modules/dispatcher.php', { method: 'POST', body: fd })
+    .then(r => r.json())
+    .then(data => {
+      if (data.success) {
+        textarea.value = '';
+        commWordCount(textarea);
+        commFetchThread();
+      } else {
+        showPageMessage(data.error || <?= json_encode($t('failed_to_send_message')) ?>, 'danger');
+        btn.disabled = false;
+      }
+    })
+    .catch(() => {
+      showPageMessage(<?= json_encode($t('network_error_sending')) ?>, 'danger');
+      btn.disabled = false;
+    })
+    .finally(() => {
+      btn.innerHTML = '<i class="bi bi-send-fill"></i> Send Message';
+    });
+}
+
+function commEsc(str) {
+  return String(str ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+document.addEventListener("DOMContentLoaded", function () {
+  const historyModalEl = document.getElementById('historyDetailsModal');
+  if (historyModalEl) {
+    historyDetailsModal = new bootstrap.Modal(historyModalEl);
+  }
+
+  document.querySelectorAll('.history-details-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      openHistoryDetailsModal(btn.getAttribute('data-history-reason'));
+    });
+  });
+
+  const params = new URLSearchParams(window.location.search);
+  const section = params.get("section");
+
+  if (section) {
+    const btn = document.querySelector('.tab-btn[data-section="' + section + '"]');
+    const panel = document.getElementById('section-' + section);
+
+    if (btn && panel) {
+      document.querySelectorAll('.tab-btn').forEach(function (b) {
+        b.classList.remove('active');
+      });
+
+      document.querySelectorAll('.section-panel').forEach(function (p) {
+        p.classList.remove('active');
+      });
+
+      btn.classList.add('active');
+      panel.classList.add('active');
+    }
+  }
+
+  document.querySelectorAll('.tab-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      const sectionName = btn.getAttribute('data-section');
+
+      document.querySelectorAll('.tab-btn').forEach(function (b) {
+        b.classList.remove('active');
+      });
+
+      document.querySelectorAll('.section-panel').forEach(function (p) {
+        p.classList.remove('active');
+      });
+
+      btn.classList.add('active');
+
+      const targetPanel = document.getElementById('section-' + sectionName);
+      if (targetPanel) {
+        targetPanel.classList.add('active');
+      }
+
+      const url = new URL(window.location);
+      url.searchParams.set('section', sectionName);
+      window.history.replaceState({}, '', url);
+
+      if (sectionName === 'communications' && !commLoaded) {
+        commLoad();
+      }
+
+      if (sectionName === 'calendar') {
+        renderStudentCalendar();
+      }
+    });
+  });
+
+  if (document.getElementById('section-communications')?.classList.contains('active')) {
+    commLoad();
+  }
+
+  if (document.getElementById('section-calendar')?.classList.contains('active')) {
+    renderStudentCalendar();
+  }
+
+  const studentRequestSearch = document.getElementById('studentRequestSearch');
+  if (studentRequestSearch) {
+    studentRequestSearch.addEventListener('input', function () {
+      const q = this.value.toLowerCase();
+      document.querySelectorAll('.student-request-row').forEach(function (row) {
+        row.style.display = row.textContent.toLowerCase().includes(q) ? '' : 'none';
+      });
+    });
+  }
+
+  document.querySelectorAll('.open-book-modal-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      const slotId = btn.getAttribute('data-slot-id');
+      const slotSelect = document.getElementById('bookSlotSelect');
+
+      if (slotSelect && slotId) {
+        slotSelect.value = slotId;
+      }
+    });
+  });
+});
+</script>
 
 </body>
 </html>
