@@ -45,7 +45,7 @@ CREATE TABLE `students` (
   `User_ID` int(11) NOT NULL,
   `year` int(11) DEFAULT NULL,
   PRIMARY KEY (`User_ID`),
-  CONSTRAINT `students_ibfk_1` FOREIGN KEY (`User_ID`) REFERENCES `users` (`User_ID`) ON DELETE CASCADE
+  CONSTRAINT `students_ibfk_1` FOREIGN KEY (`User_ID`) REFERENCES `users` (`User_ID`) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 CREATE TABLE `studentdegree` (
@@ -54,7 +54,7 @@ CREATE TABLE `studentdegree` (
   PRIMARY KEY (`User_ID`),
   KEY `DegreeID` (`DegreeID`),
   CONSTRAINT `studentdegree_ibfk_1` FOREIGN KEY (`User_ID`) REFERENCES `users` (`User_ID`) ON DELETE CASCADE ON UPDATE CASCADE,
-  CONSTRAINT `studentdegree_ibfk_2` FOREIGN KEY (`DegreeID`) REFERENCES `degree` (`DegreeID`) ON UPDATE CASCADE
+  CONSTRAINT `studentdegree_ibfk_2` FOREIGN KEY (`DegreeID`) REFERENCES `degree` (`DegreeID`) ON UPDATE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 CREATE TABLE `student_advisors` (
@@ -62,8 +62,8 @@ CREATE TABLE `student_advisors` (
   `Advisor_ID` int(11) NOT NULL,
   PRIMARY KEY (`Student_ID`),
   KEY `Advisor_ID` (`Advisor_ID`),
-  CONSTRAINT `student_advisors_ibfk_1` FOREIGN KEY (`Advisor_ID`) REFERENCES `users` (`External_ID`) ON DELETE CASCADE,
-  CONSTRAINT `student_advisors_ibfk_2` FOREIGN KEY (`Student_ID`) REFERENCES `users` (`External_ID`) ON DELETE CASCADE
+  CONSTRAINT `student_advisors_ibfk_1` FOREIGN KEY (`Advisor_ID`) REFERENCES `users` (`External_ID`) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `student_advisors_ibfk_2` FOREIGN KEY (`Student_ID`) REFERENCES `users` (`External_ID`) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 CREATE TABLE `conversations` (
@@ -75,8 +75,8 @@ CREATE TABLE `conversations` (
   PRIMARY KEY (`Conversation_ID`),
   KEY `Student_ID` (`Student_ID`),
   KEY `Advisor_ID` (`Advisor_ID`),
-  CONSTRAINT `conversations_ibfk_1` FOREIGN KEY (`Student_ID`) REFERENCES `users` (`User_ID`),
-  CONSTRAINT `conversations_ibfk_2` FOREIGN KEY (`Advisor_ID`) REFERENCES `users` (`User_ID`)
+  CONSTRAINT `conversations_ibfk_1` FOREIGN KEY (`Student_ID`) REFERENCES `users` (`User_ID`) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `conversations_ibfk_2` FOREIGN KEY (`Advisor_ID`) REFERENCES `users` (`User_ID`) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci AUTO_INCREMENT=3;
 
 CREATE TABLE `messages` (
@@ -90,7 +90,7 @@ CREATE TABLE `messages` (
   KEY `Conversation_ID` (`Conversation_ID`),
   KEY `Sender_ID` (`Sender_ID`),
   CONSTRAINT `messages_ibfk_1` FOREIGN KEY (`Conversation_ID`) REFERENCES `conversations` (`Conversation_ID`) ON DELETE CASCADE,
-  CONSTRAINT `messages_ibfk_2` FOREIGN KEY (`Sender_ID`) REFERENCES `users` (`User_ID`)
+  CONSTRAINT `messages_ibfk_2` FOREIGN KEY (`Sender_ID`) REFERENCES `users` (`User_ID`) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci AUTO_INCREMENT=2;
 
 CREATE TABLE `office_hours` (
@@ -101,7 +101,7 @@ CREATE TABLE `office_hours` (
   `End_Time` time NOT NULL,
   PRIMARY KEY (`OfficeHour_ID`),
   KEY `fk_officehours_advisor` (`Advisor_ID`),
-  CONSTRAINT `fk_officehours_advisor` FOREIGN KEY (`Advisor_ID`) REFERENCES `users` (`User_ID`) ON DELETE CASCADE
+  CONSTRAINT `fk_officehours_advisor` FOREIGN KEY (`Advisor_ID`) REFERENCES `users` (`User_ID`) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci AUTO_INCREMENT=18;
 
 CREATE TABLE `appointment_requests` (
@@ -179,8 +179,8 @@ CREATE TABLE `communication_history` (
   PRIMARY KEY (`Comm_ID`),
   KEY `fk_comm_student` (`Student_ID`),
   KEY `fk_comm_advisor` (`Advisor_ID`),
-  CONSTRAINT `fk_comm_advisor` FOREIGN KEY (`Advisor_ID`) REFERENCES `users` (`User_ID`) ON DELETE CASCADE,
-  CONSTRAINT `fk_comm_student` FOREIGN KEY (`Student_ID`) REFERENCES `users` (`User_ID`) ON DELETE CASCADE
+  CONSTRAINT `fk_comm_advisor` FOREIGN KEY (`Advisor_ID`) REFERENCES `users` (`User_ID`) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `fk_comm_student` FOREIGN KEY (`Student_ID`) REFERENCES `users` (`User_ID`) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 CREATE TABLE `password_resets` (
