@@ -1,6 +1,6 @@
-CREATE DATABASE IF NOT EXISTS 'advicut';
+CREATE DATABASE IF NOT EXISTS advicut;
 
-USE 'advicut';
+USE advicut;
 
 SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
 START TRANSACTION;
@@ -58,7 +58,7 @@ CREATE TABLE `studentdegree` (
   PRIMARY KEY (`User_ID`),
   KEY `DegreeID` (`DegreeID`),
   CONSTRAINT `studentdegree_ibfk_1` FOREIGN KEY (`User_ID`) REFERENCES `users` (`User_ID`) ON DELETE CASCADE ON UPDATE CASCADE,
-  CONSTRAINT `studentdegree_ibfk_2` FOREIGN KEY (`DegreeID`) REFERENCES `degree` (`DegreeID`) ON UPDATE CASCADE ON UPDATE CASCADE
+  CONSTRAINT `studentdegree_ibfk_2` FOREIGN KEY (`DegreeID`) REFERENCES `degree` (`DegreeID`) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 CREATE TABLE `student_advisors` (
