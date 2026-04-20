@@ -51,6 +51,22 @@ require_once '../backend/modules/NotificationsClass.php';
 require_once '../backend/modules/SelectionClass.php';
 require_once '../backend/modules/PromotionClass.php';
 
+if (session_status() === PHP_SESSION_NONE) {
+  session_start();
+}
+
+if (isset($_GET['set_lang']) && in_array((string)$_GET['set_lang'], ['en', 'el'], true)) {
+  $_SESSION['management_dashboard_lang'] = (string)$_GET['set_lang'];
+  $redirectParams = $_GET;
+  unset($redirectParams['set_lang']);
+  $redirectUrl = basename((string)($_SERVER['PHP_SELF'] ?? 'admin_dashboard.php'));
+  if ($redirectParams !== []) {
+    $redirectUrl .= '?' . http_build_query($redirectParams);
+  }
+  header('Location: ' . $redirectUrl);
+  exit();
+}
+
 function resultFetchAssoc($result): ?array
 {
   if ($result instanceof PDOStatement) {
@@ -74,6 +90,206 @@ $user = new Admin();
 $user->Check_Session('Admin');
 
 $activeTab = $_GET['tab'] ?? 'advisors';
+
+$adminDisplayName = 'Admin';
+if (!empty($_SESSION['UserID']) && is_numeric($_SESSION['UserID'])) {
+  try {
+    $adminPdo = ConnectToDatabase();
+    $adminStmt = $adminPdo->prepare('SELECT First_name FROM users WHERE User_ID = :user_id AND Role = "Admin" LIMIT 1');
+    $adminStmt->execute(['user_id' => (int)$_SESSION['UserID']]);
+    $adminRow = $adminStmt->fetch(PDO::FETCH_ASSOC);
+    if (is_array($adminRow)) {
+      $adminFirstName = trim((string)($adminRow['First_name'] ?? ''));
+      if ($adminFirstName !== '') {
+        $adminDisplayName = $adminFirstName;
+      }
+    }
+  } catch (Throwable $e) {
+    $adminDisplayName = 'Admin';
+  }
+}
+
+$lang = isset($_SESSION['management_dashboard_lang']) && in_array($_SESSION['management_dashboard_lang'], ['en', 'el'], true)
+  ? (string)$_SESSION['management_dashboard_lang']
+  : 'en';
+
+$buildCurrentUrl = static function (array $overrides = [], array $remove = []): string {
+  $params = $_GET;
+  foreach ($remove as $param) {
+    unset($params[$param]);
+  }
+  foreach ($overrides as $key => $value) {
+    if ($value === null) {
+      unset($params[$key]);
+    } else {
+      $params[$key] = $value;
+    }
+  }
+
+  $path = basename((string)($_SERVER['PHP_SELF'] ?? 'admin_dashboard.php'));
+  return $path . ($params !== [] ? '?' . http_build_query($params) : '');
+};
+
+$toggleLang = $lang === 'en' ? 'el' : 'en';
+$toggleUrl = $buildCurrentUrl(['set_lang' => $toggleLang]);
+$langButtonLabel = $lang === 'en' ? 'EN / EL' : 'EL / EN';
+
+$translations = [
+  'en' => [
+    'page_title' => 'Administrator Portal',
+    'welcome' => 'Welcome to AdviCut, %s! 👋',
+    'appointment_reports' => 'Appointment Reports',
+    'manual' => 'Manual',
+    'logout' => 'Logout',
+    'close' => 'Close',
+    'manual_title' => 'Admin Dashboard Manual',
+    'manual_intro' => 'Quick instructions:',
+    'manual_item_1' => 'Use the top tabs to navigate Advisors, Students, Assignments, Statistics, and Degrees.',
+    'manual_item_2' => 'Use Add buttons to create new students and advisors each time it creates an account automatically.',
+    'manual_item_3' => 'Use the delete buttons to remove students and advisors (be careful as this action is irreversible).',
+    'manual_item_4' => 'Use filter buttons in Students and Assignments to narrow results.',
+    'manual_item_5' => 'Use Random Assignment to auto-distribute students to advisors randomly (already assigned students do not get reassigned).',
+    'manual_item_6' => 'Use Appointment Reports to view additional statistics and export to CSV or PDF.',
+    'manual_item_7' => 'Create new departments and degrees using the Degrees tab (to delete one, you must have 0 associated records).',
+    'manual_item_8' => 'For any issues or questions, contact the system administrator.',
+    'tab_advisors' => 'Advisors',
+    'tab_students' => 'Students',
+    'tab_admins' => 'Admins',
+    'tab_assignments' => 'Assignments',
+    'tab_statistics' => 'Statistics',
+    'tab_degrees' => 'Degrees',
+    'academic_advisors' => 'Academic Advisors',
+    'manage_advisor_accounts' => 'Manage advisor accounts',
+    'add_advisor' => 'Add Advisor',
+    'search_advisors' => 'Search advisors...',
+    'first_name' => 'First Name',
+    'last_name' => 'Last Name',
+    'id' => 'ID',
+    'email' => 'Email',
+    'department' => 'Department',
+    'phone_number' => 'Phone Number',
+    'delete_selected' => 'Delete Selected',
+    'edit_selected' => 'Edit Selected',
+    'students' => 'Students',
+    'manage_enrolled_students' => 'Manage enrolled students',
+    'import_csv' => 'Import CSV',
+    'add_student' => 'Add Student',
+    'year_filter' => 'Year Filter',
+    'department_filter' => 'Department Filter',
+    'degree_filter' => 'Degree Filter',
+    'apply_filters' => 'Apply Filters',
+    'reset' => 'Reset',
+    'filter_by_year' => 'Filter By Year',
+    'all_years' => 'All Years',
+    'filter_by_department' => 'Filter By Department',
+    'all_departments' => 'All Departments',
+    'filter_by_degree' => 'Filter By Degree',
+    'all_degrees' => 'All Degrees',
+    'search_students' => 'Search students...',
+    'degree' => 'Degree',
+    'year' => 'Year',
+    'advisor_id' => 'Advisor ID',
+    'unassigned' => 'Unassigned',
+    'admin_control' => 'Admin Control',
+    'manage_elevated_access_accounts' => 'Manage elevated access accounts',
+    'add_admin' => 'Add Admin',
+    'search_admins' => 'Search admins...',
+    'assign_students_to_advisors' => 'Assign Students to Advisors',
+    'assign_subtitle' => 'Expand an advisor to select which students to assign',
+    'run_random_assignment_confirm' => 'Run random assignment for all students?',
+    'run_assignment' => 'Run Assignment',
+    'random_assignment' => 'Random Assignment',
+    'filter_students' => 'Filter students...',
+    'save_assignment' => 'Save Assignment',
+    'assigned_suffix' => 'assigned',
+    'confirm_action' => 'Confirm Action',
+    'confirm_continue' => 'Are you sure you want to continue?',
+    'cancel' => 'Cancel',
+    'confirm' => 'Confirm',
+    'year_n' => 'Year %d'
+  ],
+  'el' => [
+    'page_title' => 'Πύλη Διαχειριστή',
+    'welcome' => 'Καλώς ήρθες στο AdviCut, %s! 👋',
+    'appointment_reports' => 'Αναφορές Ραντεβού',
+    'manual' => 'Οδηγός',
+    'logout' => 'Αποσύνδεση',
+    'close' => 'Κλείσιμο',
+    'manual_title' => 'Οδηγός Πίνακα Διαχειριστή',
+    'manual_intro' => 'Σύντομες οδηγίες:',
+    'manual_item_1' => 'Χρησιμοποιήστε τις επάνω καρτέλες για πλοήγηση σε Συμβούλους, Φοιτητές, Αναθέσεις, Στατιστικά και Πτυχία.',
+    'manual_item_2' => 'Χρησιμοποιήστε τα κουμπιά Προσθήκης για δημιουργία νέων φοιτητών και συμβούλων με αυτόματη δημιουργία λογαριασμού.',
+    'manual_item_3' => 'Χρησιμοποιήστε τα κουμπιά διαγραφής για αφαίρεση φοιτητών και συμβούλων (η ενέργεια δεν αναιρείται).',
+    'manual_item_4' => 'Χρησιμοποιήστε φίλτρα στις ενότητες Φοιτητές και Αναθέσεις για περιορισμό αποτελεσμάτων.',
+    'manual_item_5' => 'Χρησιμοποιήστε την Τυχαία Ανάθεση για αυτόματη κατανομή φοιτητών στους συμβούλους (οι ήδη ανατεθειμένοι δεν ανατίθενται ξανά).',
+    'manual_item_6' => 'Χρησιμοποιήστε τις Αναφορές Ραντεβού για επιπλέον στατιστικά και εξαγωγή σε CSV ή PDF.',
+    'manual_item_7' => 'Δημιουργήστε νέα τμήματα και πτυχία από την καρτέλα Πτυχία (για διαγραφή απαιτούνται 0 συσχετισμένες εγγραφές).',
+    'manual_item_8' => 'Για οποιοδήποτε πρόβλημα ή απορία, επικοινωνήστε με τον διαχειριστή συστήματος.',
+    'tab_advisors' => 'Σύμβουλοι',
+    'tab_students' => 'Φοιτητές',
+    'tab_admins' => 'Διαχειριστές',
+    'tab_assignments' => 'Αναθέσεις',
+    'tab_statistics' => 'Στατιστικά',
+    'tab_degrees' => 'Πτυχία',
+    'academic_advisors' => 'Ακαδημαϊκοί Σύμβουλοι',
+    'manage_advisor_accounts' => 'Διαχείριση λογαριασμών συμβούλων',
+    'add_advisor' => 'Προσθήκη Συμβούλου',
+    'search_advisors' => 'Αναζήτηση συμβούλων...',
+    'first_name' => 'Όνομα',
+    'last_name' => 'Επώνυμο',
+    'id' => 'Κωδικός',
+    'email' => 'Email',
+    'department' => 'Τμήμα',
+    'phone_number' => 'Τηλέφωνο',
+    'delete_selected' => 'Διαγραφή Επιλεγμένων',
+    'edit_selected' => 'Επεξεργασία Επιλεγμένου',
+    'students' => 'Φοιτητές',
+    'manage_enrolled_students' => 'Διαχείριση εγγεγραμμένων φοιτητών',
+    'import_csv' => 'Εισαγωγή CSV',
+    'add_student' => 'Προσθήκη Φοιτητή',
+    'year_filter' => 'Φίλτρο Έτους',
+    'department_filter' => 'Φίλτρο Τμήματος',
+    'degree_filter' => 'Φίλτρο Πτυχίου',
+    'apply_filters' => 'Εφαρμογή Φίλτρων',
+    'reset' => 'Επαναφορά',
+    'filter_by_year' => 'Φιλτράρισμα Ανά Έτος',
+    'all_years' => 'Όλα τα Έτη',
+    'filter_by_department' => 'Φιλτράρισμα Ανά Τμήμα',
+    'all_departments' => 'Όλα τα Τμήματα',
+    'filter_by_degree' => 'Φιλτράρισμα Ανά Πτυχίο',
+    'all_degrees' => 'Όλα τα Πτυχία',
+    'search_students' => 'Αναζήτηση φοιτητών...',
+    'degree' => 'Πτυχίο',
+    'year' => 'Έτος',
+    'advisor_id' => 'Κωδικός Συμβούλου',
+    'unassigned' => 'Μη ανατεθειμένος',
+    'admin_control' => 'Έλεγχος Διαχειριστών',
+    'manage_elevated_access_accounts' => 'Διαχείριση λογαριασμών αυξημένης πρόσβασης',
+    'add_admin' => 'Προσθήκη Διαχειριστή',
+    'search_admins' => 'Αναζήτηση διαχειριστών...',
+    'assign_students_to_advisors' => 'Ανάθεση Φοιτητών σε Συμβούλους',
+    'assign_subtitle' => 'Ανοίξτε έναν σύμβουλο για να επιλέξετε φοιτητές προς ανάθεση',
+    'run_random_assignment_confirm' => 'Να εκτελεστεί τυχαία ανάθεση για όλους τους φοιτητές;',
+    'run_assignment' => 'Εκτέλεση Ανάθεσης',
+    'random_assignment' => 'Τυχαία Ανάθεση',
+    'filter_students' => 'Φιλτράρισμα φοιτητών...',
+    'save_assignment' => 'Αποθήκευση Ανάθεσης',
+    'assigned_suffix' => 'ανατεθειμένοι',
+    'confirm_action' => 'Επιβεβαίωση Ενέργειας',
+    'confirm_continue' => 'Είστε σίγουροι ότι θέλετε να συνεχίσετε;',
+    'cancel' => 'Ακύρωση',
+    'confirm' => 'Επιβεβαίωση',
+    'year_n' => 'Έτος %d'
+  ]
+];
+
+$t = static function (string $key) use ($translations, $lang): string {
+  return $translations[$lang][$key] ?? $translations['en'][$key] ?? $key;
+};
+
+$yearLabel = static function (int $year) use ($t): string {
+  return sprintf($t('year_n'), $year);
+};
 
 //promote students automaticly
 $promotion = new PromotionClass();
@@ -218,25 +434,25 @@ $flashType    = $_SESSION['flash_type']   ?? 'success';
 unset($_SESSION['flash'], $_SESSION['flash_type']);
 
 // Active section (default: advisors)
-$activeSection = $_GET['section'] ?? 'advisors';
+$activeSection = $_GET['tab'] ?? ($_GET['section'] ?? 'advisors');
 Notifications::createNotification();
 
 $YearOptions = [
-  '1' => 'Year 1',
-  '2' => 'Year 2',
-  '3' => 'Year 3',
-  '4' => 'Year 4',
-  '5' => 'Year 5',
-  '6' => 'Year 6',
+  '1' => $yearLabel(1),
+  '2' => $yearLabel(2),
+  '3' => $yearLabel(3),
+  '4' => $yearLabel(4),
+  '5' => $yearLabel(5),
+  '6' => $yearLabel(6),
 ];
 
 ?>
 <!DOCTYPE html>
-<html lang="en">
+<html lang="<?= htmlspecialchars($lang) ?>">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Administrator Portal</title>
+  <title><?= htmlspecialchars($t('page_title')) ?></title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
   <link rel="stylesheet" href="../css/degreebuttons.css">
@@ -263,12 +479,12 @@ $YearOptions = [
   <img src="../documents/tepaklogo.png" alt="Logo" class="logo">
 
   <div class="navbar-center">
-    <span class="welcome-text">Welcome To Advicut!👋</span>
+    <span class="welcome-text"><?= htmlspecialchars(sprintf($t('welcome'), $adminDisplayName)) ?></span>
   </div>
 
   <div class="d-flex align-items-center gap-3">
-    <a href="admin_appointment_reports.php" class="btn btn-outline-primary btn-sm">
-      <i class="bi bi-clipboard-data me-1"></i>Appointment Reports
+    <a href="<?= htmlspecialchars($toggleUrl) ?>" class="btn btn-sm btn-outline-secondary rounded-pill px-2 py-1">
+      <i class="bi bi-globe2 me-1"></i><?= htmlspecialchars($langButtonLabel) ?>
     </a>
 
   <div class="dropdown">
@@ -277,13 +493,16 @@ $YearOptions = [
       </button>
       <div class="dropdown-menu dropdown-menu-end p-2" style="min-width: 190px;">
         <button class="dropdown-item" type="button" data-bs-toggle="modal" data-bs-target="#manualInstructionsModal">
-          <i class="bi bi-journal-text me-2"></i>Manual
+          <i class="bi bi-journal-text me-2"></i><?= htmlspecialchars($t('manual')) ?>
         </button>
+        <a class="dropdown-item" href="admin_appointment_reports.php">
+          <i class="bi bi-clipboard-data me-2"></i><?= htmlspecialchars($t('appointment_reports')) ?>
+        </a>
         <hr class="dropdown-divider my-2">
         <form action="../backend/modules/dispatcher.php" method="POST" class="mb-0">
           <input type="hidden" name="action" value="/logout">
           <button class="dropdown-item text-danger" type="submit">
-            <i class="bi bi-box-arrow-right me-2"></i>Logout
+            <i class="bi bi-box-arrow-right me-2"></i><?= htmlspecialchars($t('logout')) ?>
           </button>
         </form>
       </div>
@@ -298,25 +517,25 @@ $YearOptions = [
     <div class="modal-content border-0 shadow">
       <div class="modal-header border-0 pb-0">
         <h5 class="modal-title fw-semibold" id="manualInstructionsModalLabel">
-          <i class="bi bi-info-circle me-2 text-primary"></i>Admin Dashboard Manual
+          <i class="bi bi-info-circle me-2 text-primary"></i><?= htmlspecialchars($t('manual_title')) ?>
         </h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="<?= htmlspecialchars($t('close')) ?>"></button>
       </div>
       <div class="modal-body pt-2">
-        <p class="mb-2">Quick instructions:</p>
+        <p class="mb-2"><?= htmlspecialchars($t('manual_intro')) ?></p>
         <ol class="mb-0 ps-3">
-          <li>Use the top tabs to navigate Advisors, Students, Assignments, Statistics, and Degrees.</li>
-          <li>Use Add buttons to create new students and advisors each time it creates an account automatically.</li>
-          <li>Use the delete buttons to remove students and advisors (be careful as this action is irreversible).</li>
-          <li>Use filter buttons in Students and Assignments to narrow results.</li>
-          <li>Use Random Assignment to auto-distribute students to advisors Randomly(Those that are already assigned do not get reassigned).</li>
-          <li>Tab the Appointment Results to view more statistic analyses and export to CSV , PDF </li>
-          <li>Create new departments and degree using the Degress tab(To delete a degree/department you must have 0 associated records)</li>
-          <li>For any issues or questions, contact the system administrator.</li>
+          <li><?= htmlspecialchars($t('manual_item_1')) ?></li>
+          <li><?= htmlspecialchars($t('manual_item_2')) ?></li>
+          <li><?= htmlspecialchars($t('manual_item_3')) ?></li>
+          <li><?= htmlspecialchars($t('manual_item_4')) ?></li>
+          <li><?= htmlspecialchars($t('manual_item_5')) ?></li>
+          <li><?= htmlspecialchars($t('manual_item_6')) ?></li>
+          <li><?= htmlspecialchars($t('manual_item_7')) ?></li>
+          <li><?= htmlspecialchars($t('manual_item_8')) ?></li>
         </ol>
       </div>
       <div class="modal-footer border-0 pt-0">
-        <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Close</button>
+        <button type="button" class="btn btn-primary" data-bs-dismiss="modal"><?= htmlspecialchars($t('close')) ?></button>
       </div>
     </div>
   </div>
@@ -326,22 +545,22 @@ $YearOptions = [
 <!-- tab bar -->
 <div class="tab-bar">
   <button class="tab-btn <?= $activeSection === 'advisors'      ? 'active' : '' ?>" data-section="advisors">
-    <i class="bi bi-person-badge"></i> Advisors
+    <i class="bi bi-person-badge"></i> <?= htmlspecialchars($t('tab_advisors')) ?>
   </button>
   <button class="tab-btn <?= $activeSection === 'students'      ? 'active' : '' ?>" data-section="students">
-    <i class="bi bi-people"></i> Students
+    <i class="bi bi-people"></i> <?= htmlspecialchars($t('tab_students')) ?>
   </button>
   <button class="tab-btn <?= $activeSection === 'superusers'    ? 'active' : '' ?>" data-section="superusers">
-    <i class="bi bi-shield-lock"></i> Admins
+    <i class="bi bi-shield-lock"></i> <?= htmlspecialchars($t('tab_admins')) ?>
   </button>
   <button class="tab-btn <?= $activeSection === 'assignstudents'? 'active' : '' ?>" data-section="assignstudents">
-    <i class="bi bi-diagram-3"></i> Assignments
+    <i class="bi bi-diagram-3"></i> <?= htmlspecialchars($t('tab_assignments')) ?>
   </button>
   <button class="tab-btn <?= $activeSection === 'statistics'    ? 'active' : '' ?>" data-section="statistics">
-    <i class="bi bi-bar-chart-line"></i> Statistics
+    <i class="bi bi-bar-chart-line"></i> <?= htmlspecialchars($t('tab_statistics')) ?>
   </button>
   <button class="tab-btn <?= $activeSection === 'degrees'    ? 'active' : '' ?>" data-section="degrees">
-    <i class="bi bi-graduation-cap"></i> Degrees
+    <i class="bi bi-graduation-cap"></i> <?= htmlspecialchars($t('tab_degrees')) ?>
   </button>
 </div>
 
@@ -357,15 +576,15 @@ $YearOptions = [
 
       <div class="d-flex align-items-center justify-content-between mb-4">
         <div>
-          <h5 class="mb-0 fw-semibold">Academic Advisors</h5>
-          <p class="text-muted mb-0" style="font-size:.85rem;">Manage advisor accounts</p>
+          <h5 class="mb-0 fw-semibold"><?= htmlspecialchars($t('academic_advisors')) ?></h5>
+          <p class="text-muted mb-0" style="font-size:.85rem;"><?= htmlspecialchars($t('manage_advisor_accounts')) ?></p>
         </div>
         <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addAdvisorModal">
-          <i class="bi bi-person-plus me-1"></i> Add Advisor
+          <i class="bi bi-person-plus me-1"></i> <?= htmlspecialchars($t('add_advisor')) ?>
         </button>
       </div>
 
-      <input class="form-control mb-3" id="advisorSearch" placeholder="Search advisors…">
+      <input class="form-control mb-3" id="advisorSearch" placeholder="<?= htmlspecialchars($t('search_advisors')) ?>">
 
       <form action="../backend/modules/dispatcher.php" method="POST" id="advisorForm">
         <input type="hidden" name="action" value="/advisor/delete">
@@ -375,12 +594,12 @@ $YearOptions = [
             <thead class="table-light">
               <tr>
                 <th style="width:36px;"></th>
-                <th>First Name</th>
-                <th>Last Name</th>
-                <th>ID</th>
-                <th>Email</th>
-                <th>Department</th>
-                <th>Phone Number</th>
+                <th><?= htmlspecialchars($t('first_name')) ?></th>
+                <th><?= htmlspecialchars($t('last_name')) ?></th>
+                <th><?= htmlspecialchars($t('id')) ?></th>
+                <th><?= htmlspecialchars($t('email')) ?></th>
+                <th><?= htmlspecialchars($t('department')) ?></th>
+                <th><?= htmlspecialchars($t('phone_number')) ?></th>
               </tr>
             </thead>
             <tbody>
@@ -411,11 +630,11 @@ $YearOptions = [
 
         <div class="d-flex gap-2 mt-3 pt-3 border-top">
           <button type="submit" class="btn btn-danger btn-sm">
-            <i class="bi bi-trash me-1"></i> Delete Selected
+            <i class="bi bi-trash me-1"></i> <?= htmlspecialchars($t('delete_selected')) ?>
           </button>
 
           <button type="button" class="btn btn-primary btn-sm" id="editAdvisorBtn">
-            <i class="bi bi-pencil-square me-1"></i> Edit Selected
+            <i class="bi bi-pencil-square me-1"></i> <?= htmlspecialchars($t('edit_selected')) ?>
           </button>
         </div>
 
@@ -431,15 +650,15 @@ $YearOptions = [
 
       <div class="d-flex align-items-center justify-content-between mb-4">
         <div>
-          <h5 class="mb-0 fw-semibold">Students</h5>
-          <p class="text-muted mb-0" style="font-size:.85rem;">Manage enrolled students</p>
+          <h5 class="mb-0 fw-semibold"><?= htmlspecialchars($t('students')) ?></h5>
+          <p class="text-muted mb-0" style="font-size:.85rem;"><?= htmlspecialchars($t('manage_enrolled_students')) ?></p>
         </div>
         <div class="d-flex gap-2">
           <button class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#importStudentsCsvModal">
-            <i class="bi bi-file-earmark-arrow-up me-1"></i> Import CSV
+            <i class="bi bi-file-earmark-arrow-up me-1"></i> <?= htmlspecialchars($t('import_csv')) ?>
           </button>
           <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addStudentModal">
-            <i class="bi bi-person-plus me-1"></i> Add Student
+            <i class="bi bi-person-plus me-1"></i> <?= htmlspecialchars($t('add_student')) ?>
           </button>
         </div>
       </div>
@@ -450,27 +669,27 @@ $YearOptions = [
 
         <div class="d-flex flex-wrap gap-2 mb-3">
           <button class="btn btn-outline-primary btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#studentYearFilterWrap" aria-expanded="false" aria-controls="studentYearFilterWrap">
-            <i class="bi bi-calendar3 me-1"></i> Year Filter
+            <i class="bi bi-calendar3 me-1"></i> <?= htmlspecialchars($t('year_filter')) ?>
           </button>
           <button class="btn btn-outline-primary btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#studentDepartmentFilterWrap" aria-expanded="false" aria-controls="studentDepartmentFilterWrap">
-            <i class="bi bi-building me-1"></i> Department Filter
+            <i class="bi bi-building me-1"></i> <?= htmlspecialchars($t('department_filter')) ?>
           </button>
           <button class="btn btn-outline-primary btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#studentDegreeFilterWrap" aria-expanded="false" aria-controls="studentDegreeFilterWrap">
-            <i class="bi bi-mortarboard me-1"></i> Degree Filter
+            <i class="bi bi-mortarboard me-1"></i> <?= htmlspecialchars($t('degree_filter')) ?>
           </button>
           <button class="btn btn-primary btn-sm" type="submit">
-            <i class="bi bi-funnel-fill me-1"></i> Apply Filters
+            <i class="bi bi-funnel-fill me-1"></i> <?= htmlspecialchars($t('apply_filters')) ?>
           </button>
           <a href="admin_dashboard.php?section=students" class="btn btn-outline-secondary btn-sm">
-            <i class="bi bi-arrow-counterclockwise me-1"></i> Reset
+            <i class="bi bi-arrow-counterclockwise me-1"></i> <?= htmlspecialchars($t('reset')) ?>
           </a>
         </div>
 
         <div class="row g-2 align-items-end">
           <div class="col-sm-4 col-md-3 collapse <?= $selectedStudentsYear !== '' ? 'show' : '' ?>" id="studentYearFilterWrap">
-            <label for="studentYearFilter" class="form-label mb-1">Filter By Year</label>
+            <label for="studentYearFilter" class="form-label mb-1"><?= htmlspecialchars($t('filter_by_year')) ?></label>
             <select class="form-select" id="studentYearFilter" name="student_year">
-              <option value="" <?= $selectedStudentsYear === '' ? 'selected' : '' ?>>All Years</option>
+              <option value="" <?= $selectedStudentsYear === '' ? 'selected' : '' ?>><?= htmlspecialchars($t('all_years')) ?></option>
               <?php foreach ($YearOptions as $yearValue => $yearLabel): ?>
               <option value="<?= htmlspecialchars($yearValue) ?>" <?= (string)$selectedStudentsYear === (string)$yearValue ? 'selected' : '' ?>>
                 <?= htmlspecialchars($yearLabel) ?>
@@ -480,9 +699,9 @@ $YearOptions = [
           </div>
 
           <div class="col-sm-4 col-md-3 collapse <?= $selectedStudentsDepartment > 0 ? 'show' : '' ?>" id="studentDepartmentFilterWrap">
-            <label for="studentDepartmentFilter" class="form-label mb-1">Filter By Department</label>
+            <label for="studentDepartmentFilter" class="form-label mb-1"><?= htmlspecialchars($t('filter_by_department')) ?></label>
             <select class="form-select" id="studentDepartmentFilter" name="Student_Department">
-              <option value="" <?= $selectedStudentsDepartment === 0 ? 'selected' : '' ?>>All Departments</option>
+              <option value="" <?= $selectedStudentsDepartment === 0 ? 'selected' : '' ?>><?= htmlspecialchars($t('all_departments')) ?></option>
               <?php foreach ($DepartmentOptions as $departmentValue => $departmentLabel): ?>
               <option value="<?= htmlspecialchars($departmentValue) ?>" <?= (string)$selectedStudentsDepartment === (string)$departmentValue ? 'selected' : '' ?>>
                 <?= htmlspecialchars($departmentLabel) ?>
@@ -492,9 +711,9 @@ $YearOptions = [
           </div>
 
           <div class="col-sm-4 col-md-3 collapse <?= $selectedStudentsDegree > 0 ? 'show' : '' ?>" id="studentDegreeFilterWrap">
-            <label for="studentDegreeFilter" class="form-label mb-1">Filter By Degree</label>
+            <label for="studentDegreeFilter" class="form-label mb-1"><?= htmlspecialchars($t('filter_by_degree')) ?></label>
             <select class="form-select" id="studentDegreeFilter" name="Student_Degree" autocomplete="off">
-              <option value="0" <?= $selectedStudentsDegree === 0 ? 'selected' : '' ?>>All Degrees</option>
+              <option value="0" <?= $selectedStudentsDegree === 0 ? 'selected' : '' ?>><?= htmlspecialchars($t('all_degrees')) ?></option>
               <?php foreach ($DegreeOptions as $degreeValue => $degreeLabel): ?>
               <option value="<?= htmlspecialchars($degreeValue) ?>" <?= (string)$selectedStudentsDegree === (string)$degreeValue ? 'selected' : '' ?>>
                 <?= htmlspecialchars($degreeLabel) ?>
@@ -507,7 +726,7 @@ $YearOptions = [
   
 
       <!-- Student tab -->
-      <input class="form-control mb-3" id="studentSearch" placeholder="Search students…">
+      <input class="form-control mb-3" id="studentSearch" placeholder="<?= htmlspecialchars($t('search_students')) ?>">
 
       <form action="../backend/modules/dispatcher.php" method="POST" id="studentForm">
         <input type="hidden" name="action" value="/student/delete">
@@ -517,14 +736,14 @@ $YearOptions = [
             <thead class="table-light">
               <tr>
                 <th style="width:36px;"></th>
-                <th>First Name</th>
-                <th>Last Name</th>
-                <th>ID</th>
-                <th>Email</th>
-                <th>Department</th>
-                <th>Degree</th>
-                <th>Year</th>
-                <th>Advisor ID</th>
+                <th><?= htmlspecialchars($t('first_name')) ?></th>
+                <th><?= htmlspecialchars($t('last_name')) ?></th>
+                <th><?= htmlspecialchars($t('id')) ?></th>
+                <th><?= htmlspecialchars($t('email')) ?></th>
+                <th><?= htmlspecialchars($t('department')) ?></th>
+                <th><?= htmlspecialchars($t('degree')) ?></th>
+                <th><?= htmlspecialchars($t('year')) ?></th>
+                <th><?= htmlspecialchars($t('advisor_id')) ?></th>
               </tr>
             </thead>
             <tbody>
@@ -551,7 +770,7 @@ $YearOptions = [
                 <td><?= htmlspecialchars($student['Department'] ?? '') ?></td>
                 <td><?= htmlspecialchars($student['Degree']) ?></td>
                 <td><?= 'Year ' . htmlspecialchars($student['Year'] ?? '') ?></td>
-                <td><?= htmlspecialchars($student['Advisor_ID'] ?? 'Unassigned') ?></td>
+                <td><?= htmlspecialchars($student['Advisor_ID'] ?? $t('unassigned')) ?></td>
               </tr>
               <?php endwhile; ?>
             </tbody>
@@ -560,11 +779,11 @@ $YearOptions = [
 
         <div class="d-flex gap-2 mt-3 pt-3 border-top">
           <button type="submit" class="btn btn-danger btn-sm">
-            <i class="bi bi-trash me-1"></i> Delete Selected
+            <i class="bi bi-trash me-1"></i> <?= htmlspecialchars($t('delete_selected')) ?>
           </button>
           
           <button type="button" class="btn btn-primary btn-sm" id="editStudentBtn">
-            <i class="bi bi-pencil-square me-1"></i> Edit Selected
+            <i class="bi bi-pencil-square me-1"></i> <?= htmlspecialchars($t('edit_selected')) ?>
           </button>
         </div>
 
@@ -580,15 +799,15 @@ $YearOptions = [
 
       <div class="d-flex align-items-center justify-content-between mb-4">
         <div>
-          <h5 class="mb-0 fw-semibold">Admin Control</h5>
-          <p class="text-muted mb-0" style="font-size:.85rem;">Manage elevated access accounts</p>
+          <h5 class="mb-0 fw-semibold"><?= htmlspecialchars($t('admin_control')) ?></h5>
+          <p class="text-muted mb-0" style="font-size:.85rem;"><?= htmlspecialchars($t('manage_elevated_access_accounts')) ?></p>
         </div>
         <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addSuperUserModal">
-          <i class="bi bi-shield-plus me-1"></i> Add Admin
+          <i class="bi bi-shield-plus me-1"></i> <?= htmlspecialchars($t('add_admin')) ?>
         </button>
       </div>
 
-      <input class="form-control mb-3" id="superuserSearch" placeholder="Search admins…">
+      <input class="form-control mb-3" id="superuserSearch" placeholder="<?= htmlspecialchars($t('search_admins')) ?>">
 
       <form action="../backend/modules/dispatcher.php" method="POST" id="superuserForm">
         <input type="hidden" name="action" value="/superuser/delete">
@@ -612,7 +831,7 @@ $YearOptions = [
 
         <div class="d-flex gap-2 mt-3 pt-3 border-top">
           <button type="submit" class="btn btn-danger btn-sm">
-            <i class="bi bi-trash me-1"></i> Delete Selected
+            <i class="bi bi-trash me-1"></i> <?= htmlspecialchars($t('delete_selected')) ?>
           </button>
         </div>
 
@@ -626,16 +845,16 @@ $YearOptions = [
     <div class="section-card">
       <div class="d-flex align-items-center justify-content-between mb-4">
         <div>
-          <h5 class="mb-0 fw-semibold">Assign Students to Advisors</h5>
-          <p class="text-muted mb-0" style="font-size:.85rem;">Expand an advisor to select which students to assign</p>
+          <h5 class="mb-0 fw-semibold"><?= htmlspecialchars($t('assign_students_to_advisors')) ?></h5>
+          <p class="text-muted mb-0" style="font-size:.85rem;"><?= htmlspecialchars($t('assign_subtitle')) ?></p>
         </div>
         <form action="../backend/modules/dispatcher.php" method="POST" class="mb-0 js-confirm-form"
-              data-confirm-message="Run random assignment for all students?"
-              data-confirm-label="Run Assignment"
+              data-confirm-message="<?= htmlspecialchars($t('run_random_assignment_confirm')) ?>"
+              data-confirm-label="<?= htmlspecialchars($t('run_assignment')) ?>"
               data-confirm-type="primary">
           <input type="hidden" name="action" value="/advisor/students/random">
           <button type="submit" class="btn btn-primary btn-sm">
-            <i class="bi bi-person-plus me-1"></i> Random Assignment
+            <i class="bi bi-person-plus me-1"></i> <?= htmlspecialchars($t('random_assignment')) ?>
           </button>
         </form>
       </div>
@@ -646,27 +865,27 @@ $YearOptions = [
 
         <div class="d-flex flex-wrap gap-2 mb-3">
           <button class="btn btn-outline-primary btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#assignYearFilterWrap" aria-expanded="false" aria-controls="assignYearFilterWrap">
-            <i class="bi bi-calendar3 me-1"></i> Year Filter
+            <i class="bi bi-calendar3 me-1"></i> <?= htmlspecialchars($t('year_filter')) ?>
           </button>
           <button class="btn btn-outline-primary btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#assignDepartmentFilterWrap" aria-expanded="false" aria-controls="assignDepartmentFilterWrap">
-            <i class="bi bi-building me-1"></i> Department Filter
+            <i class="bi bi-building me-1"></i> <?= htmlspecialchars($t('department_filter')) ?>
           </button>
           <button class="btn btn-outline-primary btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#assignDegreeFilterWrap" aria-expanded="false" aria-controls="assignDegreeFilterWrap">
-            <i class="bi bi-mortarboard me-1"></i> Degree Filter
+            <i class="bi bi-mortarboard me-1"></i> <?= htmlspecialchars($t('degree_filter')) ?>
           </button>
           <button class="btn btn-primary btn-sm" type="submit">
-            <i class="bi bi-funnel-fill me-1"></i> Apply Filters
+            <i class="bi bi-funnel-fill me-1"></i> <?= htmlspecialchars($t('apply_filters')) ?>
           </button>
           <a href="admin_dashboard.php?section=assignstudents" class="btn btn-outline-secondary btn-sm">
-            <i class="bi bi-arrow-counterclockwise me-1"></i> Reset
+            <i class="bi bi-arrow-counterclockwise me-1"></i> <?= htmlspecialchars($t('reset')) ?>
           </a>
         </div>
 
         <div class="row g-2 align-items-end">
           <div class="col-sm-4 col-md-3 collapse <?= $selectedAssignYear !== '' ? 'show' : '' ?>" id="assignYearFilterWrap">
-            <label for="assignYearFilter" class="form-label mb-1">Filter By Year</label>
+            <label for="assignYearFilter" class="form-label mb-1"><?= htmlspecialchars($t('filter_by_year')) ?></label>
             <select class="form-select" id="assignYearFilter" name="assign_student_year">
-              <option value="" <?= $selectedAssignYear === '' ? 'selected' : '' ?>>All Years</option>
+              <option value="" <?= $selectedAssignYear === '' ? 'selected' : '' ?>><?= htmlspecialchars($t('all_years')) ?></option>
               <?php foreach ($YearOptions as $yearValue => $yearLabel): ?>
               <option value="<?= htmlspecialchars($yearValue) ?>" <?= (string)$selectedAssignYear === (string)$yearValue ? 'selected' : '' ?>>
                 <?= htmlspecialchars($yearLabel) ?>
@@ -676,9 +895,9 @@ $YearOptions = [
           </div>
 
           <div class="col-sm-4 col-md-3 collapse <?= $selectedAssignDepartment > 0 ? 'show' : '' ?>" id="assignDepartmentFilterWrap">
-            <label for="assignDepartmentFilter" class="form-label mb-1">Filter By Department</label>
+            <label for="assignDepartmentFilter" class="form-label mb-1"><?= htmlspecialchars($t('filter_by_department')) ?></label>
             <select class="form-select" id="assignDepartmentFilter" name="assign_student_department">
-              <option value="" <?= $selectedAssignDepartment === 0 ? 'selected' : '' ?>>All Departments</option>
+              <option value="" <?= $selectedAssignDepartment === 0 ? 'selected' : '' ?>><?= htmlspecialchars($t('all_departments')) ?></option>
               <?php foreach ($DepartmentOptions as $departmentValue => $departmentLabel): ?>
               <option value="<?= htmlspecialchars($departmentValue) ?>" <?= (string)$selectedAssignDepartment === (string)$departmentValue ? 'selected' : '' ?>>
                 <?= htmlspecialchars($departmentLabel) ?>
@@ -688,9 +907,9 @@ $YearOptions = [
           </div>
 
           <div class="col-sm-4 col-md-3 collapse <?= $selectedAssignDegree > 0 ? 'show' : '' ?>" id="assignDegreeFilterWrap">
-            <label for="assignDegreeFilter" class="form-label mb-1">Filter By Degree</label>
+            <label for="assignDegreeFilter" class="form-label mb-1"><?= htmlspecialchars($t('filter_by_degree')) ?></label>
             <select class="form-select" id="assignDegreeFilter" name="assign_student_degree" autocomplete="off">
-              <option value="0" <?= $selectedAssignDegree === 0 ? 'selected' : '' ?>>All Degrees</option>
+              <option value="0" <?= $selectedAssignDegree === 0 ? 'selected' : '' ?>><?= htmlspecialchars($t('all_degrees')) ?></option>
               <?php foreach ($AssignDegreeOptions as $degreeValue => $degreeLabel): ?>
               <option value="<?= htmlspecialchars($degreeValue) ?>" <?= (string)$selectedAssignDegree === (string)$degreeValue ? 'selected' : '' ?>>
                 <?= htmlspecialchars($degreeLabel) ?>
@@ -722,7 +941,7 @@ $YearOptions = [
           <div class="d-flex align-items-center gap-2 w-100 me-3">
             <div class="item-avatar avatar-indigo" style="width:32px;height:32px;font-size:.8rem;"><?= $initials ?></div>
             <span class="fw-medium"><?= $advisorName ?></span>
-            <span class="badge bg-secondary ms-auto" style="font-size:.72rem;"><?= $assignedToThisAdvisor ?> assigned</span>
+            <span class="badge bg-secondary ms-auto" style="font-size:.72rem;"><?= $assignedToThisAdvisor ?> <?= htmlspecialchars($t('assigned_suffix')) ?></span>
           </div>
               </button>
           </h2>
@@ -734,7 +953,7 @@ $YearOptions = [
                 <input type="hidden" name="advisor_external_id" value="<?= $advisorExternalId ?>">
 
                 <input class="form-control form-control-sm mb-3 assign-search"
-                       placeholder="Filter students…">
+                    placeholder="<?= htmlspecialchars($t('filter_students')) ?>">
 
                 <div class="assign-student-list" style="max-height:280px;overflow-y:auto;">
 
@@ -776,7 +995,7 @@ $YearOptions = [
               </div>
 
                 <button class="btn btn-primary btn-sm mt-3">
-                  <i class="bi bi-check2-circle me-1"></i> Save Assignment
+                  <i class="bi bi-check2-circle me-1"></i> <?= htmlspecialchars($t('save_assignment')) ?>
                 </button>
               </form>
             </div>
@@ -1515,15 +1734,15 @@ $YearOptions = [
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content border-0 shadow">
       <div class="modal-header border-0 pb-0">
-        <h5 class="modal-title fw-semibold" id="adminConfirmModalLabel">Confirm Action</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        <h5 class="modal-title fw-semibold" id="adminConfirmModalLabel"><?= htmlspecialchars($t('confirm_action')) ?></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="<?= htmlspecialchars($t('close')) ?>"></button>
       </div>
       <div class="modal-body pt-2">
-        <p class="mb-0" id="adminConfirmMessage">Are you sure you want to continue?</p>
+        <p class="mb-0" id="adminConfirmMessage"><?= htmlspecialchars($t('confirm_continue')) ?></p>
       </div>
       <div class="modal-footer border-0 pt-0">
-        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
-        <button type="button" class="btn btn-danger" id="adminConfirmButton">Confirm</button>
+        <button type="button" class="btn btn-light" data-bs-dismiss="modal"><?= htmlspecialchars($t('cancel')) ?></button>
+        <button type="button" class="btn btn-danger" id="adminConfirmButton"><?= htmlspecialchars($t('confirm')) ?></button>
       </div>
     </div>
   </div>

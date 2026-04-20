@@ -37,11 +37,13 @@
     const bodyEl = document.body;
     const assignedStudents = Number(bodyEl.getAttribute('data-assigned-students') || 0);
     const unassignedStudents = Number(bodyEl.getAttribute('data-unassigned-students') || 0);
+    const assignedLabel = bodyEl.getAttribute('data-label-assigned') || 'Assigned Students';
+    const unassignedLabel = bodyEl.getAttribute('data-label-unassigned') || 'Unassigned Students';
 
     new Chart(assignmentChart, {
       type: 'pie',
       data: {
-        labels: ['Assigned Students', 'Unassigned Students'],
+        labels: [assignedLabel, unassignedLabel],
         datasets: [{
           data: [assignedStudents, unassignedStudents]
         }]
