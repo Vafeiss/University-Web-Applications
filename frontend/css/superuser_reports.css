@@ -1,6 +1,64 @@
+/* 20-Apr-2026 v0.1
+   Adjusted superuser welcome header sizing and wrapping to prevent oversized text from breaking the navbar layout
+   Panteleimoni Alexandrou
+
+   20-Apr-2026 v0.2
+   Refined superuser welcome text containment and responsive sizing to avoid heavy multi-line header rendering
+   Panteleimoni Alexandrou
+*/
+
 body {
     background: #f8f9fa;
     font-family: system-ui, -apple-system, sans-serif;
+}
+
+.top-navbar .navbar-center {
+    flex: 1 1 auto;
+    min-width: 0;
+    max-width: 420px;
+    padding: 0 .75rem;
+    display: flex;
+    justify-content: center;
+}
+
+.top-navbar .welcome-text {
+    display: block;
+    max-width: 100%;
+    font-size: clamp(.92rem, 1vw, 1.05rem);
+    font-weight: 600;
+    line-height: 1.15;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+@media (max-width: 992px) {
+    .top-navbar .navbar-center {
+        max-width: 300px;
+    }
+
+    .top-navbar .welcome-text {
+        font-size: 0.9rem;
+        white-space: normal;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        text-overflow: initial;
+    }
+}
+
+@media (max-width: 768px) {
+    .top-navbar .navbar-center {
+        max-width: 220px;
+        padding: 0 .5rem;
+    }
+
+    .top-navbar .welcome-text {
+        font-size: 0.82rem;
+        line-height: 1.1;
+    }
 }
 
 .page-card {

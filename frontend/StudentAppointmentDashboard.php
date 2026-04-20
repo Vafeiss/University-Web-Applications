@@ -40,6 +40,26 @@
    19-Apr-2026 v2.5
    Added FullCalendar localization (EN/EL) based on dashboard session language
    Panteleimoni Alexandrou
+
+   20-Apr-2026 v2.6
+   Fixed logout form CSRF submission so logout redirects correctly without dispatcher validation errors
+   Panteleimoni Alexandrou
+
+   20-Apr-2026 v2.7
+   Changed student availability rendering to unified concrete recurring/additional slot list
+   Panteleimoni Alexandrou
+
+   20-Apr-2026 v2.8
+   Changed student booking flow to submit concrete recurring/additional slot selections without free date input
+   Panteleimoni Alexandrou
+
+   20-Apr-2026 v2.9
+   Removed obsolete New Request button from student booking section after concrete slot booking flow update
+   Panteleimoni Alexandrou
+
+   20-Apr-2026 v3.0
+   Updated student booking flow so recurring slots keep advisor-defined times and only require date selection, while additional slots remain fully fixed
+   Panteleimoni Alexandrou
 */
 
 declare(strict_types=1);
@@ -64,6 +84,7 @@ require_once __DIR__ . '/init.php';
 require_once __DIR__ . '/../backend/modules/UsersClass.php';
 require_once __DIR__ . '/../backend/modules/StudentClass.php';
 require_once __DIR__ . '/../backend/modules/NotificationsClass.php';
+require_once __DIR__ . '/../backend/modules/Csrf.php';
 
 $user = new Users();
 $user->Check_Session('Student');
@@ -71,6 +92,7 @@ $user->Check_Session('Student');
 require_once __DIR__ . '/../backend/modules/databaseconnect.php';
 
 $pdo = ConnectToDatabase();
+$csrfToken = Csrf::ensureToken();
 
 /*
 login/session of student user
@@ -321,6 +343,60 @@ $translations['el'] = array_merge($translations['el'], [
   'you' => 'Εσείς'
 ]);
 
+$translations['en'] = array_merge($translations['en'], [
+  'book_subtitle' => 'Choose from your advisor\'s upcoming concrete availability slots',
+  'type' => 'Type',
+  'recurring' => 'Recurring',
+  'additional' => 'Additional',
+  'no_available_slots_loaded' => 'No available slots loaded yet',
+  'additional_booking_next_phase' => 'Additional slot booking will be enabled in the next phase.'
+]);
+
+$translations['el'] = array_merge($translations['el'], [
+  'book_subtitle' => 'Επιλέξτε από τα επερχόμενα συγκεκριμένα διαθέσιμα slots του συμβούλου σας',
+  'type' => 'Τύπος',
+  'recurring' => 'Επαναλαμβανόμενο',
+  'additional' => 'Επιπλέον',
+  'no_available_slots_loaded' => 'Δεν έχουν φορτωθεί διαθέσιμα slots ακόμη',
+  'additional_booking_next_phase' => 'Η κράτηση επιπλέον slot θα ενεργοποιηθεί στο επόμενο phase.'
+]);
+
+$translations['en'] = array_merge($translations['en'], [
+  'selected_slot' => 'Selected Slot',
+  'selected_time' => 'Selected Time',
+  'selected_type' => 'Type',
+  'no_slot_selected' => 'No slot selected yet.'
+]);
+
+$translations['el'] = array_merge($translations['el'], [
+  'selected_slot' => 'Επιλεγμένο Slot',
+  'selected_time' => 'Επιλεγμένη Ώρα',
+  'selected_type' => 'Τύπος',
+  'no_slot_selected' => 'Δεν έχει επιλεγεί slot ακόμη.'
+]);
+
+$translations['en'] = array_merge($translations['en'], [
+  'book_subtitle' => 'Choose from your advisor\'s recurring weekly hours or fixed additional slots',
+  'recurring_slots' => 'Recurring Slots',
+  'additional_slots' => 'Additional Slots',
+  'selected_day' => 'Selected Day',
+  'selected_date' => 'Selected Date',
+  'choose_date' => 'Choose Date',
+  'no_recurring_slots_loaded' => 'No recurring slots loaded yet',
+  'no_additional_slots_loaded' => 'No additional slots found'
+]);
+
+$translations['el'] = array_merge($translations['el'], [
+  'book_subtitle' => 'Επιλέξτε από τις επαναλαμβανόμενες ώρες ή τα σταθερά επιπλέον slots του συμβούλου σας',
+  'recurring_slots' => 'Επαναλαμβανόμενα Slots',
+  'additional_slots' => 'Επιπλέον Slots',
+  'selected_day' => 'Επιλεγμένη Ημέρα',
+  'selected_date' => 'Επιλεγμένη Ημερομηνία',
+  'choose_date' => 'Επιλογή Ημερομηνίας',
+  'no_recurring_slots_loaded' => 'Δεν έχουν φορτωθεί επαναλαμβανόμενα slots ακόμη',
+  'no_additional_slots_loaded' => 'Δεν βρέθηκαν επιπλέον slots'
+]);
+
 $t = static function (string $key) use ($translations, $lang): string {
   return $translations[$lang][$key] ?? $translations['en'][$key] ?? $key;
 };
@@ -381,7 +457,8 @@ $advisorId = null;
 $advisorName = 'Assigned Advisor';
 
 // Available office hours for booking
-$availableSlots = [];
+$recurringSlots = [];
+$additionalSlots = [];
 $availableSlotsError = '';
 
 // Student pending requests
@@ -427,23 +504,108 @@ FETCH AVAILABLE OFFICE HOUR SLOTS
 ------------------------------------------------------------
 */
 if ($advisorId !== null) {
-    try {
-        $sql = "SELECT OfficeHour_ID, Advisor_ID, Day_of_Week, Start_Time, End_Time
-                FROM office_hours
-                WHERE Advisor_ID = :advisor_id
-                ORDER BY
-                    FIELD(Day_of_Week, 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'),
-                    Start_Time ASC";
+  try {
+    $todayDate = date('Y-m-d');
+    $currentTime = date('H:i:s');
 
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute([
-            'advisor_id' => $advisorId
-        ]);
+    $globalAdditionalBlockSql = "SELECT AdditionalSlot_ID
+                                 FROM appointment_requests
+                                 WHERE AdditionalSlot_ID IS NOT NULL
+                                   AND LOWER(TRIM(Status)) IN ('pending', 'approved')";
 
-        $availableSlots = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    } catch (Throwable $e) {
-        $availableSlotsError = $t('could_not_load_available_slots');
+    $globalAdditionalBlockStmt = $pdo->query($globalAdditionalBlockSql);
+    $blockedAdditionalSlots = [];
+    if ($globalAdditionalBlockStmt instanceof PDOStatement) {
+      foreach ($globalAdditionalBlockStmt->fetchAll(PDO::FETCH_ASSOC) as $blockedRow) {
+        $blockedAdditionalSlots[(int)$blockedRow['AdditionalSlot_ID']] = true;
+      }
     }
+
+    $recurringSql = "SELECT OfficeHour_ID, Advisor_ID, Day_of_Week, Start_Time, End_Time
+                     FROM office_hours
+                     WHERE Advisor_ID = :advisor_id
+                     ORDER BY
+                         FIELD(Day_of_Week, 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'),
+                         Start_Time ASC";
+
+    $recurringStmt = $pdo->prepare($recurringSql);
+    $recurringStmt->execute([
+      'advisor_id' => $advisorId
+    ]);
+
+    $recurringRows = $recurringStmt->fetchAll(PDO::FETCH_ASSOC);
+
+    foreach ($recurringRows as $row) {
+      $recurringSlots[] = [
+        'slot_source' => 'recurring',
+        'slot_id' => (int)$row['OfficeHour_ID'],
+        'day_of_week' => (string)$row['Day_of_Week'],
+        'start_time' => (string)$row['Start_Time'],
+        'end_time' => (string)$row['End_Time'],
+        'type_label' => $t('recurring')
+      ];
+    }
+
+    $additionalSql = "SELECT AdditionalSlot_ID, Slot_Date, Start_Time, End_Time
+                      FROM advisor_additional_slots
+                      WHERE Advisor_ID = :advisor_id
+                        AND Is_Active = 1
+                        AND Slot_Date >= :today_date
+                      ORDER BY Slot_Date ASC, Start_Time ASC";
+
+    $additionalStmt = $pdo->prepare($additionalSql);
+    $additionalStmt->execute([
+      'advisor_id' => $advisorId,
+      'today_date' => $todayDate
+    ]);
+
+    $additionalRows = $additionalStmt->fetchAll(PDO::FETCH_ASSOC);
+
+    foreach ($additionalRows as $row) {
+      $slotDate = (string)$row['Slot_Date'];
+      $endTime = (string)$row['End_Time'];
+      $slotId = (int)$row['AdditionalSlot_ID'];
+
+      if ($slotDate === $todayDate && $endTime <= $currentTime) {
+        continue;
+      }
+
+      if (isset($blockedAdditionalSlots[$slotId])) {
+        continue;
+      }
+
+      $additionalSlots[] = [
+        'slot_source' => 'additional',
+        'slot_id' => $slotId,
+        'slot_date' => $slotDate,
+        'start_time' => (string)$row['Start_Time'],
+        'end_time' => (string)$row['End_Time'],
+        'type_label' => $t('additional')
+      ];
+    }
+
+    usort($recurringSlots, static function (array $a, array $b): int {
+      $timeCompare = strcmp((string)$a['start_time'], (string)$b['start_time']);
+      if ($timeCompare !== 0) {
+        return $timeCompare;
+      }
+
+      return strcmp((string)$a['day_of_week'], (string)$b['day_of_week']);
+    });
+
+    usort($additionalSlots, static function (array $a, array $b): int {
+      $dateCompare = strcmp((string)$a['slot_date'], (string)$b['slot_date']);
+      if ($dateCompare !== 0) {
+        return $dateCompare;
+      }
+
+      return strcmp((string)$a['start_time'], (string)$b['start_time']);
+    });
+  } catch (Throwable $e) {
+    $recurringSlots = [];
+    $additionalSlots = [];
+    $availableSlotsError = $t('could_not_load_available_slots');
+  }
 } else {
     $availableSlotsError = 'No advisor is assigned to this student.';
 }
@@ -740,6 +902,7 @@ try {
         <div class="dropdown-divider"></div>
         <form action="../backend/modules/dispatcher.php" method="POST" class="mb-0">
           <input type="hidden" name="action" value="/logout">
+          <input type="hidden" name="_csrf" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
           <button type="submit" class="dropdown-item text-danger">
             <i class="bi bi-box-arrow-right me-2"></i><?= htmlspecialchars($t('logout')) ?>
           </button>
@@ -812,10 +975,6 @@ try {
           <h5 class="mb-0 fw-semibold"><?= htmlspecialchars($t('book_title')) ?></h5>
           <p class="text-muted mb-0" style="font-size:.85rem;"><?= htmlspecialchars($t('book_subtitle')) ?></p>
         </div>
-
-        <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#bookAppointmentModal">
-          <i class="bi bi-plus-circle me-1"></i> <?= htmlspecialchars($t('new_request')) ?>
-        </button>
       </div>
 
 <div class="row g-3 mb-4">
@@ -856,45 +1015,102 @@ try {
         </div>
       <?php endif; ?>
 
-      <div class="table-responsive">
-        <table class="table table-sm table-hover align-middle mb-0">
-          <thead class="table-light">
-            <tr>
-              <th><?= htmlspecialchars($t('advisor')) ?></th>
-              <th><?= htmlspecialchars($t('day')) ?></th>
-              <th><?= htmlspecialchars($t('start_time')) ?></th>
-              <th><?= htmlspecialchars($t('end_time')) ?></th>
-              <th><?= htmlspecialchars($t('status')) ?></th>
-              <th style="width:140px;"><?= htmlspecialchars($t('action')) ?></th>
-            </tr>
-          </thead>
-          <tbody>
-            <?php if (count($availableSlots) === 0): ?>
-              <tr class="book-row">
-                <td colspan="6" class="text-center text-muted"><?= htmlspecialchars($t('no_office_hours_loaded')) ?></td>
-              </tr>
-            <?php else: ?>
-              <?php foreach ($availableSlots as $slot): ?>
-                <tr class="book-row">
-                  <td><?= htmlspecialchars($advisorName) ?></td>
-                  <td><?= htmlspecialchars((string)$slot['Day_of_Week']) ?></td>
-                  <td><?= htmlspecialchars(substr((string)$slot['Start_Time'], 0, 5)) ?></td>
-                  <td><?= htmlspecialchars(substr((string)$slot['End_Time'], 0, 5)) ?></td>
-                  <td><span class="badge bg-success"><?= htmlspecialchars($t('available')) ?></span></td>
-                  <td>
-                    <button type="button"
-                            class="btn btn-primary btn-sm open-book-modal-btn"
-                            data-slot-id="<?= (int)$slot['OfficeHour_ID'] ?>"
-                            data-bs-toggle="modal"
-                            data-bs-target="#bookAppointmentModal">
-                      <?= htmlspecialchars($t('book')) ?>
-                    </button>
-                  </td>
+      <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body">
+          <h6 class="fw-semibold mb-3"><?= htmlspecialchars($t('recurring_slots')) ?></h6>
+          <div class="table-responsive">
+            <table class="table table-sm table-hover align-middle mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th><?= htmlspecialchars($t('day')) ?></th>
+                  <th><?= htmlspecialchars($t('start_time')) ?></th>
+                  <th><?= htmlspecialchars($t('end_time')) ?></th>
+                  <th><?= htmlspecialchars($t('type')) ?></th>
+                  <th style="width:140px;"><?= htmlspecialchars($t('action')) ?></th>
                 </tr>
-              <?php endforeach; ?>
-            <?php endif; ?>
-          </tbody>
-        </table>
+              </thead>
+              <tbody>
+                <?php if (count($recurringSlots) === 0): ?>
+                  <tr class="book-row">
+                    <td colspan="5" class="text-center text-muted"><?= htmlspecialchars($t('no_recurring_slots_loaded')) ?></td>
+                  </tr>
+                <?php else: ?>
+                  <?php foreach ($recurringSlots as $slot): ?>
+                    <tr class="book-row">
+                      <td><?= htmlspecialchars((string)$slot['day_of_week']) ?></td>
+                      <td><?= htmlspecialchars(substr((string)$slot['start_time'], 0, 5)) ?></td>
+                      <td><?= htmlspecialchars(substr((string)$slot['end_time'], 0, 5)) ?></td>
+                      <td><span class="badge bg-secondary"><?= htmlspecialchars($t('recurring')) ?></span></td>
+                      <td>
+                        <button type="button"
+                                class="btn btn-primary btn-sm open-book-modal-btn"
+                                data-slot-source="recurring"
+                                data-slot-id="<?= (int)$slot['slot_id'] ?>"
+                                data-slot-day="<?= htmlspecialchars((string)$slot['day_of_week']) ?>"
+                                data-slot-start-time="<?= htmlspecialchars(substr((string)$slot['start_time'], 0, 5)) ?>"
+                                data-slot-end-time="<?= htmlspecialchars(substr((string)$slot['end_time'], 0, 5)) ?>"
+                                data-slot-type="<?= htmlspecialchars((string)$slot['type_label']) ?>"
+                                data-bs-toggle="modal"
+                                data-bs-target="#bookAppointmentModal">
+                          <?= htmlspecialchars($t('book')) ?>
+                        </button>
+                      </td>
+                    </tr>
+                  <?php endforeach; ?>
+                <?php endif; ?>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="card border-0 shadow-sm">
+        <div class="card-body">
+          <h6 class="fw-semibold mb-3"><?= htmlspecialchars($t('additional_slots')) ?></h6>
+          <div class="table-responsive">
+            <table class="table table-sm table-hover align-middle mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th><?= htmlspecialchars($t('date')) ?></th>
+                  <th><?= htmlspecialchars($t('start_time')) ?></th>
+                  <th><?= htmlspecialchars($t('end_time')) ?></th>
+                  <th><?= htmlspecialchars($t('type')) ?></th>
+                  <th style="width:140px;"><?= htmlspecialchars($t('action')) ?></th>
+                </tr>
+              </thead>
+              <tbody>
+                <?php if (count($additionalSlots) === 0): ?>
+                  <tr class="book-row">
+                    <td colspan="5" class="text-center text-muted"><?= htmlspecialchars($t('no_additional_slots_loaded')) ?></td>
+                  </tr>
+                <?php else: ?>
+                  <?php foreach ($additionalSlots as $slot): ?>
+                    <tr class="book-row">
+                      <td><?= htmlspecialchars((string)$slot['slot_date']) ?></td>
+                      <td><?= htmlspecialchars(substr((string)$slot['start_time'], 0, 5)) ?></td>
+                      <td><?= htmlspecialchars(substr((string)$slot['end_time'], 0, 5)) ?></td>
+                      <td><span class="badge bg-info text-dark"><?= htmlspecialchars($t('additional')) ?></span></td>
+                      <td>
+                        <button type="button"
+                                class="btn btn-primary btn-sm open-book-modal-btn"
+                                data-slot-source="additional"
+                                data-slot-id="<?= (int)$slot['slot_id'] ?>"
+                                data-slot-date="<?= htmlspecialchars((string)$slot['slot_date']) ?>"
+                                data-slot-start-time="<?= htmlspecialchars(substr((string)$slot['start_time'], 0, 5)) ?>"
+                                data-slot-end-time="<?= htmlspecialchars(substr((string)$slot['end_time'], 0, 5)) ?>"
+                                data-slot-type="<?= htmlspecialchars((string)$slot['type_label']) ?>"
+                                data-bs-toggle="modal"
+                                data-bs-target="#bookAppointmentModal">
+                          <?= htmlspecialchars($t('book')) ?>
+                        </button>
+                      </td>
+                    </tr>
+                  <?php endforeach; ?>
+                <?php endif; ?>
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
 
     </div>
@@ -1172,6 +1388,11 @@ try {
       <form action="../backend/controllers/StudentBookAppointment.php" method="POST">
         <div class="modal-body">
           <input type="hidden" name="student_id" value="<?= (int)$studentId ?>">
+          <input type="hidden" name="_csrf" value="<?= htmlspecialchars($csrfToken) ?>">
+          <input type="hidden" name="slot_source" id="bookSlotSource" value="">
+          <input type="hidden" name="slot_id" id="bookSlotId" value="">
+          <input type="hidden" name="slot_date" id="bookSlotDate" value="">
+          <input type="hidden" name="slot_day" id="bookSlotDay" value="">
 
           <div class="row g-3">
 
@@ -1181,20 +1402,33 @@ try {
             </div>
 
             <div class="col-12">
-              <label class="form-label"><?= htmlspecialchars($t('available_slot')) ?> <span class="text-danger">*</span></label>
-              <select name="slot_id" id="bookSlotSelect" class="form-select" required>
-                <option value="" selected disabled><?= htmlspecialchars($t('select_slot')) ?></option>
-                <?php foreach ($availableSlots as $slot): ?>
-                  <option value="<?= (int)$slot['OfficeHour_ID'] ?>">
-                    <?= htmlspecialchars((string)$slot['Day_of_Week'] . ' - ' . substr((string)$slot['Start_Time'], 0, 5) . ' to ' . substr((string)$slot['End_Time'], 0, 5)) ?>
-                  </option>
-                <?php endforeach; ?>
-              </select>
+              <label class="form-label"><?= htmlspecialchars($t('selected_slot')) ?> <span class="text-danger">*</span></label>
+              <div class="form-control bg-light" id="bookSelectedSlotSummary" style="min-height:44px;"><?= htmlspecialchars($t('no_slot_selected')) ?></div>
+            </div>
+
+            <div class="col-6" id="bookSelectedDayWrap">
+              <label class="form-label"><?= htmlspecialchars($t('selected_day')) ?> <span class="text-danger">*</span></label>
+              <input type="text" id="bookSelectedSlotDayDisplay" class="form-control" readonly>
+            </div>
+
+            <div class="col-6">
+              <label class="form-label"><?= htmlspecialchars($t('selected_time')) ?> <span class="text-danger">*</span></label>
+              <input type="text" id="bookSelectedSlotTimeDisplay" class="form-control" readonly>
+            </div>
+
+            <div class="col-12" id="bookSelectedDateWrap">
+              <label class="form-label"><?= htmlspecialchars($t('selected_date')) ?> <span class="text-danger">*</span></label>
+              <input type="text" id="bookSelectedSlotDateDisplay" class="form-control" readonly>
+            </div>
+
+            <div class="col-12 d-none" id="bookRecurringDateWrap">
+              <label class="form-label"><?= htmlspecialchars($t('choose_date')) ?> <span class="text-danger">*</span></label>
+              <input type="date" name="appointment_date" id="bookRecurringDateInput" class="form-control">
             </div>
 
             <div class="col-12">
-              <label class="form-label"><?= htmlspecialchars($t('appointment_date')) ?> <span class="text-danger">*</span></label>
-              <input type="date" name="appointment_date" class="form-control" required>
+              <label class="form-label"><?= htmlspecialchars($t('selected_type')) ?> <span class="text-danger">*</span></label>
+              <input type="text" id="bookSelectedSlotTypeDisplay" class="form-control" readonly>
             </div>
 
             <div class="col-12">
@@ -1596,10 +1830,91 @@ document.addEventListener("DOMContentLoaded", function () {
   document.querySelectorAll('.open-book-modal-btn').forEach(function (btn) {
     btn.addEventListener('click', function () {
       const slotId = btn.getAttribute('data-slot-id');
-      const slotSelect = document.getElementById('bookSlotSelect');
+      const slotSource = btn.getAttribute('data-slot-source') || '';
+      const slotDate = btn.getAttribute('data-slot-date');
+      const slotDay = btn.getAttribute('data-slot-day') || '';
+      const slotStartTime = btn.getAttribute('data-slot-start-time') || '';
+      const slotEndTime = btn.getAttribute('data-slot-end-time') || '';
+      const slotType = btn.getAttribute('data-slot-type') || '';
+      const slotIdInput = document.getElementById('bookSlotId');
+      const slotSourceInput = document.getElementById('bookSlotSource');
+      const slotDateInput = document.getElementById('bookSlotDate');
+      const slotDayInput = document.getElementById('bookSlotDay');
+      const slotSummary = document.getElementById('bookSelectedSlotSummary');
+      const selectedDayWrap = document.getElementById('bookSelectedDayWrap');
+      const slotDayDisplay = document.getElementById('bookSelectedSlotDayDisplay');
+      const slotDateDisplay = document.getElementById('bookSelectedSlotDateDisplay');
+      const slotTimeDisplay = document.getElementById('bookSelectedSlotTimeDisplay');
+      const slotTypeDisplay = document.getElementById('bookSelectedSlotTypeDisplay');
+      const recurringDateWrap = document.getElementById('bookRecurringDateWrap');
+      const recurringDateInput = document.getElementById('bookRecurringDateInput');
+      const selectedDateWrap = document.getElementById('bookSelectedDateWrap');
 
-      if (slotSelect && slotId) {
-        slotSelect.value = slotId;
+      if (slotIdInput && slotId) {
+        slotIdInput.value = slotId;
+      }
+
+      if (slotSourceInput) {
+        slotSourceInput.value = slotSource;
+      }
+
+      if (slotDateInput) {
+        slotDateInput.value = slotSource === 'additional' ? (slotDate || '') : '';
+      }
+
+      if (slotDayInput) {
+        slotDayInput.value = slotDay;
+      }
+
+      if (slotSummary) {
+        slotSummary.textContent = [slotDay || slotDate || '', slotStartTime && slotEndTime ? (slotStartTime + ' - ' + slotEndTime) : '', slotType || '']
+          .filter(Boolean)
+          .join(' | ');
+      }
+
+      if (slotDayDisplay) {
+        slotDayDisplay.value = slotDay || '';
+      }
+
+      if (slotDateDisplay) {
+        slotDateDisplay.value = slotSource === 'additional' ? (slotDate || '') : '';
+      }
+
+      if (slotTimeDisplay) {
+        slotTimeDisplay.value = slotStartTime && slotEndTime ? (slotStartTime + ' - ' + slotEndTime) : '';
+      }
+
+      if (slotTypeDisplay) {
+        slotTypeDisplay.value = slotType || '';
+      }
+
+      if (recurringDateWrap && recurringDateInput) {
+        if (slotSource === 'recurring') {
+          recurringDateWrap.classList.remove('d-none');
+          recurringDateInput.required = true;
+          recurringDateInput.value = '';
+          recurringDateInput.min = new Date().toISOString().split('T')[0];
+        } else {
+          recurringDateWrap.classList.add('d-none');
+          recurringDateInput.required = false;
+          recurringDateInput.value = '';
+        }
+      }
+
+      if (selectedDateWrap) {
+        if (slotSource === 'additional') {
+          selectedDateWrap.classList.remove('d-none');
+        } else {
+          selectedDateWrap.classList.add('d-none');
+        }
+      }
+
+      if (selectedDayWrap) {
+        if (slotSource === 'recurring') {
+          selectedDayWrap.classList.remove('d-none');
+        } else {
+          selectedDayWrap.classList.add('d-none');
+        }
       }
     });
   });

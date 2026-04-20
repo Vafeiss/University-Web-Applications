@@ -13,6 +13,10 @@ Panteleimoni Alexandrou
 Added database notification inserts for appointment request, approve and decline actions
 Panteleimoni Alexandrou
 
+20-Apr-2026 v2.4
+Added support for approving additional appointment slots alongside recurring office hours
+Panteleimoni Alexandrou
+
 Inputs:
 - POST: appointment_action (approve/decline), request_id, decline_reason (optional)
 - GET: action, id (for testing)
@@ -72,33 +76,73 @@ class AppointmentControllerAction
             $pdo = ConnectToDatabase();
 
            if ($appointmentAction === 'approve') {
-            $conflictSql = "SELECT Appointment_ID
-                FROM appointments
-                WHERE Advisor_ID = :advisor_id
-                  AND OfficeHour_ID = (
-                      SELECT OfficeHour_ID
-                      FROM appointment_requests
-                      WHERE Request_ID = :request_id
-                      LIMIT 1
-                  )
-                  AND Appointment_Date = (
-                      SELECT Appointment_Date
-                      FROM appointment_requests
-                      WHERE Request_ID = :request_id
-                      LIMIT 1
-                  )
-                LIMIT 1";
+            $requestContextSql = "SELECT ar.OfficeHour_ID,
+                                         ar.AdditionalSlot_ID,
+                                         ar.Appointment_Date,
+                                         oh.Start_Time AS OfficeHour_Start_Time,
+                                         oh.End_Time AS OfficeHour_End_Time,
+                                         ads.Start_Time AS Additional_Start_Time,
+                                         ads.End_Time AS Additional_End_Time
+                                  FROM appointment_requests ar
+                                  LEFT JOIN office_hours oh ON oh.OfficeHour_ID = ar.OfficeHour_ID
+                                  LEFT JOIN advisor_additional_slots ads ON ads.AdditionalSlot_ID = ar.AdditionalSlot_ID
+                                  WHERE ar.Request_ID = :request_id
+                                    AND ar.Advisor_ID = :advisor_id
+                                  LIMIT 1";
 
-            $conflictStmt = $pdo->prepare($conflictSql);
-            $conflictStmt->execute([
-                'advisor_id' => $advisorId,
-                'request_id' => $requestId
+            $requestContextStmt = $pdo->prepare($requestContextSql);
+            $requestContextStmt->execute([
+                'request_id' => $requestId,
+                'advisor_id' => $advisorId
             ]);
+            $requestContext = $requestContextStmt->fetch(PDO::FETCH_ASSOC);
 
-        if ($conflictStmt->fetch(PDO::FETCH_ASSOC)) {
-             Notifications::error("An appointment already exists for this slot and date.");
-            $this->redirectToAdvisorRequests();
-        }
+            if ($requestContext === false) {
+                Notifications::error("Invalid request ID.");
+                $this->redirectToAdvisorRequests();
+            }
+
+            $officeHourId = isset($requestContext['OfficeHour_ID']) ? (int)$requestContext['OfficeHour_ID'] : 0;
+            $additionalSlotId = isset($requestContext['AdditionalSlot_ID']) ? (int)$requestContext['AdditionalSlot_ID'] : 0;
+
+            if ($officeHourId > 0) {
+                $conflictSql = "SELECT Appointment_ID
+                    FROM appointments
+                    WHERE Advisor_ID = :advisor_id
+                      AND OfficeHour_ID = :office_hour_id
+                      AND Appointment_Date = :appointment_date
+                    LIMIT 1";
+
+                $conflictStmt = $pdo->prepare($conflictSql);
+                $conflictStmt->execute([
+                    'advisor_id' => $advisorId,
+                    'office_hour_id' => $officeHourId,
+                    'appointment_date' => (string)$requestContext['Appointment_Date']
+                ]);
+            } elseif ($additionalSlotId > 0) {
+                $conflictSql = "SELECT Appointment_ID
+                    FROM appointments
+                    WHERE Advisor_ID = :advisor_id
+                      AND Appointment_Date = :appointment_date
+                      AND ((Start_Time < :end_time AND End_Time > :start_time))
+                    LIMIT 1";
+
+                $conflictStmt = $pdo->prepare($conflictSql);
+                $conflictStmt->execute([
+                    'advisor_id' => $advisorId,
+                    'appointment_date' => (string)$requestContext['Appointment_Date'],
+                    'start_time' => (string)$requestContext['Additional_Start_Time'],
+                    'end_time' => (string)$requestContext['Additional_End_Time']
+                ]);
+            } else {
+                Notifications::error("Invalid request slot source.");
+                $this->redirectToAdvisorRequests();
+            }
+
+            if ($conflictStmt->fetch(PDO::FETCH_ASSOC)) {
+                Notifications::error("An appointment already exists for this slot and date.");
+                $this->redirectToAdvisorRequests();
+            }
             $ok = $this->appointmentApproval->approveAppointment($requestId, $advisorId);
 
             if (!$ok) {

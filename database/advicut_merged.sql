@@ -6,6 +6,12 @@ SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
 START TRANSACTION;
 SET time_zone = "+00:00";
 
+--
+-- 19-Apr-2026 v2.2
+-- Added schema support for advisor additional one-off appointment slots
+-- Panteleimoni Alexandrou
+--
+
 CREATE TABLE `departments` (
   `DepartmentID` int(11) NOT NULL AUTO_INCREMENT,
   `DepartmentName` varchar(100) NOT NULL,
@@ -108,11 +114,26 @@ CREATE TABLE `office_hours` (
   CONSTRAINT `fk_officehours_advisor` FOREIGN KEY (`Advisor_ID`) REFERENCES `users` (`User_ID`) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci AUTO_INCREMENT=18;
 
+CREATE TABLE `advisor_additional_slots` (
+  `AdditionalSlot_ID` int(11) NOT NULL AUTO_INCREMENT,
+  `Advisor_ID` int(11) NOT NULL,
+  `Slot_Date` date NOT NULL,
+  `Start_Time` time NOT NULL,
+  `End_Time` time NOT NULL,
+  `Is_Active` tinyint(1) NOT NULL DEFAULT 1,
+  `Created_At` timestamp NOT NULL DEFAULT current_timestamp(),
+  `Updated_At` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`AdditionalSlot_ID`),
+  KEY `fk_additional_slots_advisor` (`Advisor_ID`),
+  CONSTRAINT `fk_additional_slots_advisor` FOREIGN KEY (`Advisor_ID`) REFERENCES `users` (`User_ID`) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci AUTO_INCREMENT=1;
+
 CREATE TABLE `appointment_requests` (
   `Request_ID` int(11) NOT NULL AUTO_INCREMENT,
   `Student_ID` int(11) NOT NULL,
   `Advisor_ID` int(11) NOT NULL,
-  `OfficeHour_ID` int(11) NOT NULL,
+  `OfficeHour_ID` int(11) DEFAULT NULL,
+  `AdditionalSlot_ID` int(11) DEFAULT NULL,
   `Appointment_Date` date NOT NULL,
   `Student_Reason` text NOT NULL,
   `Advisor_Reason` text DEFAULT NULL,
@@ -123,7 +144,9 @@ CREATE TABLE `appointment_requests` (
   KEY `fk_appointment_requests_student` (`Student_ID`),
   KEY `fk_appointment_requests_advisor` (`Advisor_ID`),
   KEY `fk_appointment_requests_officehour` (`OfficeHour_ID`),
+  KEY `fk_appointment_requests_additional_slot` (`AdditionalSlot_ID`),
   CONSTRAINT `fk_appointment_requests_advisor` FOREIGN KEY (`Advisor_ID`) REFERENCES `users` (`User_ID`) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `fk_appointment_requests_additional_slot` FOREIGN KEY (`AdditionalSlot_ID`) REFERENCES `advisor_additional_slots` (`AdditionalSlot_ID`) ON DELETE CASCADE ON UPDATE CASCADE,
   CONSTRAINT `fk_appointment_requests_officehour` FOREIGN KEY (`OfficeHour_ID`) REFERENCES `office_hours` (`OfficeHour_ID`) ON DELETE CASCADE ON UPDATE CASCADE,
   CONSTRAINT `fk_appointment_requests_student` FOREIGN KEY (`Student_ID`) REFERENCES `users` (`User_ID`) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci AUTO_INCREMENT=7;
@@ -133,7 +156,8 @@ CREATE TABLE `appointments` (
   `Request_ID` int(11) NOT NULL,
   `Student_ID` int(11) NOT NULL,
   `Advisor_ID` int(11) NOT NULL,
-  `OfficeHour_ID` int(11) NOT NULL,
+  `OfficeHour_ID` int(11) DEFAULT NULL,
+  `AdditionalSlot_ID` int(11) DEFAULT NULL,
   `Appointment_Date` date NOT NULL,
   `Start_Time` time NOT NULL,
   `End_Time` time NOT NULL,
@@ -145,7 +169,9 @@ CREATE TABLE `appointments` (
   KEY `fk_appointments_student` (`Student_ID`),
   KEY `fk_appointments_advisor` (`Advisor_ID`),
   KEY `fk_appointments_officehour` (`OfficeHour_ID`),
+  KEY `fk_appointments_additional_slot` (`AdditionalSlot_ID`),
   CONSTRAINT `fk_appointments_advisor` FOREIGN KEY (`Advisor_ID`) REFERENCES `users` (`User_ID`) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `fk_appointments_additional_slot` FOREIGN KEY (`AdditionalSlot_ID`) REFERENCES `advisor_additional_slots` (`AdditionalSlot_ID`) ON DELETE CASCADE ON UPDATE CASCADE,
   CONSTRAINT `fk_appointments_officehour` FOREIGN KEY (`OfficeHour_ID`) REFERENCES `office_hours` (`OfficeHour_ID`) ON DELETE CASCADE ON UPDATE CASCADE,
   CONSTRAINT `fk_appointments_request` FOREIGN KEY (`Request_ID`) REFERENCES `appointment_requests` (`Request_ID`) ON DELETE CASCADE ON UPDATE CASCADE,
   CONSTRAINT `fk_appointments_student` FOREIGN KEY (`Student_ID`) REFERENCES `users` (`User_ID`) ON DELETE CASCADE ON UPDATE CASCADE

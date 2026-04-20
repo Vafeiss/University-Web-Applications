@@ -20,6 +20,14 @@
    19-Apr-2026 v1.4
    Added database notification inserts for appointment request, approve and decline actions
    Panteleimoni Alexandrou
+
+   20-Apr-2026 v1.5
+   Changed student booking flow to submit concrete recurring and additional slot selections without free date input
+   Panteleimoni Alexandrou
+
+   20-Apr-2026 v1.6
+   Updated recurring booking to keep advisor-defined times fixed while requiring only date selection, and kept additional slots fully fixed
+   Panteleimoni Alexandrou
 */
 
 declare(strict_types=1);
@@ -44,36 +52,6 @@ function redirectToStudentDashboard(string $section = 'book'): void
     exit;
 }
 
-function getNextBookingDate(string $dayOfWeek): string
-{
-    $dayLookup = [
-        'monday' => 1,
-        'tuesday' => 2,
-        'wednesday' => 3,
-        'thursday' => 4,
-        'friday' => 5,
-        'saturday' => 6,
-        'sunday' => 7,
-    ];
-
-    $targetDay = $dayLookup[strtolower(trim($dayOfWeek))] ?? 0;
-    $today = new DateTimeImmutable('today');
-
-    if ($targetDay <= 0) {
-        return $today->format('Y-m-d');
-    }
-
-    $currentDay = (int)$today->format('N');
-    $difference = $targetDay - $currentDay;
-    if ($difference < 0) {
-        $difference += 7;
-    }
-
-    return $difference === 0
-        ? $today->format('Y-m-d')
-        : $today->modify('+' . $difference . ' days')->format('Y-m-d');
-}
-
 // Only allow POST
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     Notifications::error("Invalid request method.");
@@ -94,23 +72,20 @@ $sessionStudentId = (int)$_SESSION['UserID'];
 
 // Read form inputs
 $studentId = isset($_POST['student_id']) ? (int)$_POST['student_id'] : 0;
+$slotSource = trim((string)($_POST['slot_source'] ?? ''));
 $slotId = isset($_POST['slot_id']) ? (int)$_POST['slot_id'] : 0;
-$appointmentDate = isset($_POST['appointment_date']) ? trim((string)$_POST['appointment_date']) : '';
+$slotDate = trim((string)($_POST['slot_date'] ?? ''));
+$appointmentDate = trim((string)($_POST['appointment_date'] ?? ''));
 $reason = isset($_POST['reason']) ? trim((string)$_POST['reason']) : '';
 
 // Validate basic input
-if ($studentId <= 0 || $slotId <= 0 || $appointmentDate === '' || $reason === '') {
+if ($studentId <= 0 || $slotId <= 0 || $reason === '' || !in_array($slotSource, ['recurring', 'additional'], true)) {
     Notifications::error("All booking fields are required.");
     redirectToStudentDashboard('book');
 }
 
 if ($studentId !== $sessionStudentId) {
     Notifications::error("Forbidden.");
-    redirectToStudentDashboard('book');
-}
-
-if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $appointmentDate)) {
-    Notifications::error("Invalid appointment date.");
     redirectToStudentDashboard('book');
 }
 
@@ -147,117 +122,191 @@ try {
 
     $advisorId = (int)$advisorRow['Advisor_User_ID'];
 
-    /*
-    ------------------------------------------------------------
-    VALIDATE SLOT BELONGS TO STUDENT'S ADVISOR
-    ------------------------------------------------------------
-    */
-    $slotSql = "SELECT OfficeHour_ID, Advisor_ID
-                                        , Day_of_Week
-                FROM office_hours
-                WHERE OfficeHour_ID = :slot_id
-                  AND Advisor_ID = :advisor_id
-                LIMIT 1";
-
-    $slotStmt = $pdo->prepare($slotSql);
-    $slotStmt->execute([
-        'slot_id' => $slotId,
-        'advisor_id' => $advisorId
-    ]);
-
-    $slotRow = $slotStmt->fetch(PDO::FETCH_ASSOC);
-
-    if (!$slotRow) {
-        Notifications::error("Selected slot is invalid.");
-        redirectToStudentDashboard('book');
-    }
-
-    $expectedDate = getNextBookingDate((string)($slotRow['Day_of_Week'] ?? ''));
-    if ($appointmentDate !== $expectedDate) {
-        Notifications::error("Selected appointment date does not match the chosen slot.");
-        redirectToStudentDashboard('book');
-    }
-
-    /*
-    ------------------------------------------------------------
-    VALIDATE APPOINTMENT DATE IS NOT IN THE PAST
-    ------------------------------------------------------------
-    */
     $today = date('Y-m-d');
-    if ($appointmentDate < $today) {
-        Notifications::error("Appointment date cannot be in the past.");
-        redirectToStudentDashboard('book');
+
+    $inserted = false;
+
+    if ($slotSource === 'recurring') {
+        if ($appointmentDate === '') {
+            Notifications::error("Appointment date is required for recurring slots.");
+            redirectToStudentDashboard('book');
+        }
+
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $appointmentDate)) {
+            Notifications::error("Invalid appointment date.");
+            redirectToStudentDashboard('book');
+        }
+
+        if ($appointmentDate < $today) {
+            Notifications::error("Appointment date cannot be in the past.");
+            redirectToStudentDashboard('book');
+        }
+
+        $slotSql = "SELECT OfficeHour_ID, Advisor_ID, Day_of_Week, Start_Time, End_Time
+                    FROM office_hours
+                    WHERE OfficeHour_ID = :slot_id
+                      AND Advisor_ID = :advisor_id
+                    LIMIT 1";
+
+        $slotStmt = $pdo->prepare($slotSql);
+        $slotStmt->execute([
+            'slot_id' => $slotId,
+            'advisor_id' => $advisorId
+        ]);
+
+        $slotRow = $slotStmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$slotRow) {
+            Notifications::error("Selected recurring slot is invalid.");
+            redirectToStudentDashboard('book');
+        }
+
+        $slotDayOfWeek = trim((string)($slotRow['Day_of_Week'] ?? ''));
+        $submittedDayOfWeek = date('l', strtotime($appointmentDate));
+
+        if ($slotDayOfWeek === '' || strcasecmp($slotDayOfWeek, $submittedDayOfWeek) !== 0) {
+            Notifications::error("Selected recurring slot date does not match the office hour weekday.");
+            redirectToStudentDashboard('book');
+        }
+
+        if ($appointmentDate === $today && (string)($slotRow['End_Time'] ?? '') <= date('H:i:s')) {
+            Notifications::error("Selected recurring slot is already in the past.");
+            redirectToStudentDashboard('book');
+        }
+
+        $duplicateSql = "SELECT Request_ID
+                         FROM appointment_requests
+                         WHERE Student_ID = :student_id
+                           AND OfficeHour_ID = :slot_id
+                           AND Appointment_Date = :appointment_date
+                           AND LOWER(TRIM(Status)) IN ('pending', 'approved')
+                         LIMIT 1";
+
+        $duplicateStmt = $pdo->prepare($duplicateSql);
+        $duplicateStmt->execute([
+            'student_id' => $studentId,
+            'slot_id' => $slotId,
+            'appointment_date' => $appointmentDate
+        ]);
+
+        if ($duplicateStmt->fetch(PDO::FETCH_ASSOC)) {
+            Notifications::error("You already have a request or approved appointment for this recurring slot and date.");
+            redirectToStudentDashboard('book');
+        }
+
+        $insertSql = "INSERT INTO appointment_requests
+                      (Student_ID, Advisor_ID, OfficeHour_ID, AdditionalSlot_ID, Appointment_Date, Student_Reason, Advisor_Reason, Status)
+                      VALUES
+                      (:student_id, :advisor_id, :office_hour_id, NULL, :appointment_date, :student_reason, NULL, 'Pending')";
+
+        $insertStmt = $pdo->prepare($insertSql);
+        $inserted = $insertStmt->execute([
+            'student_id' => $studentId,
+            'advisor_id' => $advisorId,
+            'office_hour_id' => $slotId,
+            'appointment_date' => $appointmentDate,
+            'student_reason' => $reason
+        ]);
     }
 
-    /*
-    ------------------------------------------------------------
-    VALIDATE APPOINTMENT DATE MATCHES SLOT WEEKDAY
-    ------------------------------------------------------------
-    */
-    $slotDaySql = "SELECT Day_of_Week
-                   FROM office_hours
-                   WHERE OfficeHour_ID = :slot_id
-                     AND Advisor_ID = :advisor_id
-                   LIMIT 1";
+    if ($slotSource === 'additional') {
+        if ($slotDate === '') {
+            Notifications::error("Fixed slot date is required for additional slots.");
+            redirectToStudentDashboard('book');
+        }
 
-    $slotDayStmt = $pdo->prepare($slotDaySql);
-    $slotDayStmt->execute([
-        'slot_id' => $slotId,
-        'advisor_id' => $advisorId
-    ]);
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $slotDate)) {
+            Notifications::error("Invalid appointment date.");
+            redirectToStudentDashboard('book');
+        }
 
-    $slotDayRow = $slotDayStmt->fetch(PDO::FETCH_ASSOC);
-    $slotDayOfWeek = trim((string)($slotDayRow['Day_of_Week'] ?? ''));
-    $appointmentDayOfWeek = date('l', strtotime($appointmentDate));
+        if ($slotDate < $today) {
+            Notifications::error("Appointment date cannot be in the past.");
+            redirectToStudentDashboard('book');
+        }
 
-    if ($slotDayOfWeek === '' || strcasecmp($slotDayOfWeek, $appointmentDayOfWeek) !== 0) {
-        Notifications::error("Selected appointment date does not match the day of the chosen office hour slot.");
-        redirectToStudentDashboard('book');
+        $slotSql = "SELECT AdditionalSlot_ID, Advisor_ID, Slot_Date, Start_Time, End_Time, Is_Active
+                    FROM advisor_additional_slots
+                    WHERE AdditionalSlot_ID = :slot_id
+                      AND Advisor_ID = :advisor_id
+                    LIMIT 1";
+
+        $slotStmt = $pdo->prepare($slotSql);
+        $slotStmt->execute([
+            'slot_id' => $slotId,
+            'advisor_id' => $advisorId
+        ]);
+
+        $slotRow = $slotStmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$slotRow) {
+            Notifications::error("Selected additional slot is invalid.");
+            redirectToStudentDashboard('book');
+        }
+
+        if ((int)($slotRow['Is_Active'] ?? 0) !== 1) {
+            Notifications::error("Selected additional slot is no longer active.");
+            redirectToStudentDashboard('book');
+        }
+
+        if ((string)($slotRow['Slot_Date'] ?? '') !== $slotDate) {
+            Notifications::error("Selected additional slot date does not match the stored slot date.");
+            redirectToStudentDashboard('book');
+        }
+
+        if ($slotDate === $today && (string)($slotRow['End_Time'] ?? '') <= date('H:i:s')) {
+            Notifications::error("Selected additional slot is already in the past.");
+            redirectToStudentDashboard('book');
+        }
+
+        $duplicateSql = "SELECT Request_ID
+                         FROM appointment_requests
+                         WHERE AdditionalSlot_ID = :slot_id
+                           AND LOWER(TRIM(Status)) IN ('pending', 'approved')
+                         LIMIT 1";
+
+        $duplicateStmt = $pdo->prepare($duplicateSql);
+        $duplicateStmt->execute([
+            'slot_id' => $slotId
+        ]);
+
+        if ($duplicateStmt->fetch(PDO::FETCH_ASSOC)) {
+            Notifications::error("This additional slot has already been requested or approved.");
+            redirectToStudentDashboard('book');
+        }
+
+        $studentDuplicateSql = "SELECT Request_ID
+                                FROM appointment_requests
+                                WHERE Student_ID = :student_id
+                                  AND AdditionalSlot_ID = :slot_id
+                                  AND LOWER(TRIM(Status)) IN ('pending', 'approved')
+                                LIMIT 1";
+
+        $studentDuplicateStmt = $pdo->prepare($studentDuplicateSql);
+        $studentDuplicateStmt->execute([
+            'student_id' => $studentId,
+            'slot_id' => $slotId
+        ]);
+
+        if ($studentDuplicateStmt->fetch(PDO::FETCH_ASSOC)) {
+            Notifications::error("You already have a request or approved appointment for this additional slot.");
+            redirectToStudentDashboard('book');
+        }
+
+        $insertSql = "INSERT INTO appointment_requests
+                      (Student_ID, Advisor_ID, OfficeHour_ID, AdditionalSlot_ID, Appointment_Date, Student_Reason, Advisor_Reason, Status)
+                      VALUES
+                      (:student_id, :advisor_id, NULL, :additional_slot_id, :appointment_date, :student_reason, NULL, 'Pending')";
+
+        $insertStmt = $pdo->prepare($insertSql);
+        $inserted = $insertStmt->execute([
+            'student_id' => $studentId,
+            'advisor_id' => $advisorId,
+            'additional_slot_id' => $slotId,
+            'appointment_date' => $slotDate,
+            'student_reason' => $reason
+        ]);
     }
-
-    /*
-    ------------------------------------------------------------
-    CHECK IF SAME STUDENT ALREADY REQUESTED SAME SLOT / DATE PENDING
-    ------------------------------------------------------------
-    */
-    $duplicateSql = "SELECT Request_ID
-                 FROM appointment_requests
-                 WHERE Student_ID = :student_id
-                   AND OfficeHour_ID = :slot_id
-                   AND Appointment_Date = :appointment_date
-                   AND LOWER(TRIM(Status)) IN ('pending', 'approved')
-                 LIMIT 1";
-
-    $duplicateStmt = $pdo->prepare($duplicateSql);
-    $duplicateStmt->execute([
-        'student_id' => $studentId,
-        'slot_id' => $slotId,
-        'appointment_date' => $appointmentDate
-    ]);
-
-    if ($duplicateStmt->fetch(PDO::FETCH_ASSOC)) {
-        Notifications::error("You already have a request or approved appointment for this slot and date.");
-        redirectToStudentDashboard('book');
-    }
-
-    /*
-    ------------------------------------------------------------
-    INSERT APPOINTMENT REQUEST
-    ------------------------------------------------------------
-    */
-    $insertSql = "INSERT INTO appointment_requests
-                  (Student_ID, Advisor_ID, OfficeHour_ID, Appointment_Date, Student_Reason, Advisor_Reason, Status)
-                  VALUES
-                  (:student_id, :advisor_id, :office_hour_id, :appointment_date, :student_reason, NULL, 'Pending')";
-
-    $insertStmt = $pdo->prepare($insertSql);
-    $inserted = $insertStmt->execute([
-        'student_id' => $studentId,
-        'advisor_id' => $advisorId,
-        'office_hour_id' => $slotId,
-        'appointment_date' => $appointmentDate,
-        'student_reason' => $reason
-    ]);
 
     if (!$inserted) {
         Notifications::error("Failed to submit appointment request.");

@@ -20,6 +20,10 @@
    19-Apr-2026 v2.5
    Removed duplicate redirectToOfficeHoursDashboard() declaration to resolve fatal error
    Panteleimoni Alexandrou
+
+   20-Apr-2026 v2.6
+   Added advisor-side additional one-off slot creation flow with validations and dashboard redirect support
+   Panteleimoni Alexandrou
 */
 
 session_start();
@@ -95,6 +99,128 @@ ADD SLOT
 */
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = trim((string)($_POST['action'] ?? ''));
+
+    if ($action === 'add_additional') {
+        $slotDate = trim((string)($_POST['slot_date'] ?? ''));
+        $start = trim((string)($_POST['start_time'] ?? ''));
+        $end = trim((string)($_POST['end_time'] ?? ''));
+
+        if ($slotDate === '' || $start === '' || $end === '') {
+            Notifications::error("All additional slot fields are required.");
+            redirectToOfficeHoursDashboard();
+        }
+
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $slotDate)) {
+            Notifications::error("Invalid slot date.");
+            redirectToOfficeHoursDashboard();
+        }
+
+        if ($start >= $end) {
+            Notifications::error("End time must be later than start time.");
+            redirectToOfficeHoursDashboard();
+        }
+
+        $today = date('Y-m-d');
+        if ($slotDate < $today) {
+            Notifications::error("Additional slot date cannot be in the past.");
+            redirectToOfficeHoursDashboard();
+        }
+
+        if ($slotDate === $today && $end <= date('H:i')) {
+            Notifications::error("Additional slot end time cannot already be in the past.");
+            redirectToOfficeHoursDashboard();
+        }
+
+        try {
+            $additionalOverlapSql = "SELECT AdditionalSlot_ID
+                                     FROM advisor_additional_slots
+                                     WHERE Advisor_ID = :advisor_id
+                                       AND Slot_Date = :slot_date
+                                       AND Is_Active = 1
+                                       AND (:start_time < End_Time AND :end_time > Start_Time)
+                                     LIMIT 1";
+
+            $additionalOverlapStmt = $pdo->prepare($additionalOverlapSql);
+            $additionalOverlapStmt->execute([
+                'advisor_id' => $advisorId,
+                'slot_date' => $slotDate,
+                'start_time' => $start,
+                'end_time' => $end
+            ]);
+
+            if ($additionalOverlapStmt->fetch(PDO::FETCH_ASSOC)) {
+                Notifications::error("This additional slot overlaps with another additional slot.");
+                redirectToOfficeHoursDashboard();
+            }
+
+            $appointmentOverlapSql = "SELECT Appointment_ID
+                                      FROM appointments
+                                      WHERE Advisor_ID = :advisor_id
+                                        AND Appointment_Date = :slot_date
+                                        AND LOWER(TRIM(Status)) IN ('scheduled', 'approved', 'completed')
+                                        AND (:start_time < End_Time AND :end_time > Start_Time)
+                                      LIMIT 1";
+
+            $appointmentOverlapStmt = $pdo->prepare($appointmentOverlapSql);
+            $appointmentOverlapStmt->execute([
+                'advisor_id' => $advisorId,
+                'slot_date' => $slotDate,
+                'start_time' => $start,
+                'end_time' => $end
+            ]);
+
+            if ($appointmentOverlapStmt->fetch(PDO::FETCH_ASSOC)) {
+                Notifications::error("This additional slot overlaps with an existing appointment.");
+                redirectToOfficeHoursDashboard();
+            }
+
+            $slotDayOfWeek = date('l', strtotime($slotDate));
+
+            $recurringOverlapSql = "SELECT OfficeHour_ID
+                                    FROM office_hours
+                                    WHERE Advisor_ID = :advisor_id
+                                      AND Day_of_Week = :day_of_week
+                                      AND (:start_time < End_Time AND :end_time > Start_Time)
+                                    LIMIT 1";
+
+            $recurringOverlapStmt = $pdo->prepare($recurringOverlapSql);
+            $recurringOverlapStmt->execute([
+                'advisor_id' => $advisorId,
+                'day_of_week' => $slotDayOfWeek,
+                'start_time' => $start,
+                'end_time' => $end
+            ]);
+
+            if ($recurringOverlapStmt->fetch(PDO::FETCH_ASSOC)) {
+                Notifications::error("This additional slot overlaps with an existing recurring office hour.");
+                redirectToOfficeHoursDashboard();
+            }
+
+            $insertSql = "INSERT INTO advisor_additional_slots
+                          (Advisor_ID, Slot_Date, Start_Time, End_Time, Is_Active)
+                          VALUES
+                          (:advisor_id, :slot_date, :start_time, :end_time, 1)";
+
+            $insertStmt = $pdo->prepare($insertSql);
+            $inserted = $insertStmt->execute([
+                'advisor_id' => $advisorId,
+                'slot_date' => $slotDate,
+                'start_time' => $start,
+                'end_time' => $end
+            ]);
+
+            if (!$inserted) {
+                Notifications::error("Failed to add additional slot.");
+                redirectToOfficeHoursDashboard();
+            }
+
+            Notifications::success("Additional slot added successfully.");
+            redirectToOfficeHoursDashboard();
+        } catch (Throwable $e) {
+            Notifications::error("Database error while adding additional slot.");
+            redirectToOfficeHoursDashboard();
+        }
+    }
 
     if ($action !== 'add') {
         Notifications::error("Invalid action.");

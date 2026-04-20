@@ -4,6 +4,18 @@
   Description: Super user dashboard with statistics and students tabs
   Panteleimoni Alexandrou
   09-Apr-2026 v0.3
+
+  20-Apr-2026 v0.4
+  Fixed logout form CSRF submission so logout redirects correctly without dispatcher validation errors
+  Panteleimoni Alexandrou
+
+  20-Apr-2026 v0.5
+  Adjusted oversized dashboard welcome header styling for improved layout and responsiveness
+  Panteleimoni Alexandrou
+
+  20-Apr-2026 v0.6
+  Refined superuser dashboard header text and layout to prevent oversized multi-line welcome rendering
+  Panteleimoni Alexandrou
 */
 
 declare(strict_types=1);
@@ -28,9 +40,11 @@ require_once 'init.php';
 require_once '../backend/modules/UsersClass.php';
 require_once '../backend/modules/SuperUserReportsClass.php';
 require_once '../backend/modules/NotificationsClass.php';
+require_once '../backend/modules/Csrf.php';
 
 $user = new Users();
 $user->Check_Session('SuperUser');
+$csrfToken = Csrf::ensureToken();
 
 $superUserDisplayName = 'Super User';
 if (!empty($_SESSION['UserID']) && is_numeric($_SESSION['UserID'])) {
@@ -48,6 +62,15 @@ if (!empty($_SESSION['UserID']) && is_numeric($_SESSION['UserID'])) {
   } catch (Throwable $e) {
     $superUserDisplayName = (string)($_SESSION['email'] ?? 'Super User');
   }
+}
+
+$superUserDisplayName = trim(preg_replace('/\s+/', ' ', (string)$superUserDisplayName));
+if (preg_match('/^(.+?)\s+\1$/iu', $superUserDisplayName, $matches)) {
+  $superUserDisplayName = trim((string)$matches[1]);
+}
+
+if ($superUserDisplayName === '') {
+  $superUserDisplayName = 'Super User';
 }
 
 $reports = new SuperUserReportsClass();
@@ -280,6 +303,7 @@ $advisorCounts = $reports->getAdvisorStudentCounts(
         <div class="dropdown-divider"></div>
         <form action="../backend/modules/dispatcher.php" method="POST" class="mb-0">
           <input type="hidden" name="action" value="/logout">
+          <input type="hidden" name="_csrf" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
           <button class="dropdown-item text-danger" type="submit">
             <i class="bi bi-box-arrow-right me-2"></i><?= htmlspecialchars($t('logout')) ?>
           </button>

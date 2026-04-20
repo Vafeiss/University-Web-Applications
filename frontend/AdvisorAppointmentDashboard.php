@@ -25,6 +25,10 @@
    Moved database notifications into top-navbar bell dropdown and added notification item redirects
    Panteleimoni Alexandrou
 
+   20-Apr-2026 v2.9
+   Fixed advisor approve and decline form validation flow by restoring CSRF token submission through dispatcher
+   Panteleimoni Alexandrou
+
    19-Apr-2026 v2.9
    Added mark-as-read functionality for notifications on click
    Panteleimoni Alexandrou
@@ -43,6 +47,18 @@
 
    19-Apr-2026 v3.3
    Added FullCalendar localization (EN/EL) based on dashboard session language
+   Panteleimoni Alexandrou
+
+   20-Apr-2026 v3.4
+   Fixed logout form CSRF submission so logout redirects correctly without dispatcher validation errors
+   Panteleimoni Alexandrou
+
+   20-Apr-2026 v3.5
+   Added advisor-side additional slot creation modal and EN/EL labels for one-off slot creation
+   Panteleimoni Alexandrou
+
+   20-Apr-2026 v3.6
+   Added advisor dashboard display for additional one-off appointment slots
    Panteleimoni Alexandrou
 */
 
@@ -68,11 +84,13 @@ require_once __DIR__ . '/../backend/modules/databaseconnect.php';
 require_once __DIR__ . '/../backend/modules/AdvisorClass.php';
 require_once __DIR__ . '/../backend/modules/UsersClass.php';
 require_once __DIR__ . '/../backend/modules/NotificationsClass.php';
+require_once __DIR__ . '/../backend/modules/Csrf.php';
 
 $user = new Users();
 $user->Check_Session('Advisor');
 
 $pdo = ConnectToDatabase();
+$csrfToken = Csrf::ensureToken();
 
 if (isset($_SESSION['UserID']) && is_numeric($_SESSION['UserID'])) {
     $advisorId = (int) $_SESSION['UserID'];
@@ -174,6 +192,7 @@ $translations['en'] = array_merge($translations['en'], [
     'office_hours_title' => 'Office Hours',
     'office_hours_subtitle' => 'Manage your fixed weekly appointment hours',
     'add_slot' => 'Add Slot',
+    'add_additional_slot' => 'Add Additional Slot',
     'day' => 'Day',
     'start_time' => 'Start Time',
     'end_time' => 'End Time',
@@ -212,6 +231,8 @@ $translations['en'] = array_merge($translations['en'], [
     'calendar_title' => 'Appointment Calendar',
     'calendar_subtitle' => 'See student appointments and request statuses by date',
     'add_office_hour_slot' => 'Add Office Hour Slot',
+    'add_additional_slot_title' => 'Add Additional Slot',
+    'additional_slot_date' => 'Date',
     'day_of_week' => 'Day of Week',
     'select_day' => 'Select day...',
     'monday' => 'Monday',
@@ -220,6 +241,7 @@ $translations['en'] = array_merge($translations['en'], [
     'thursday' => 'Thursday',
     'friday' => 'Friday',
     'cancel' => 'Cancel',
+    'save_additional_slot' => 'Save Additional Slot',
     'appointment_details' => 'Appointment Details',
     'student' => 'Student',
     'time' => 'Time',
@@ -362,6 +384,38 @@ $translations['el'] = array_merge($translations['el'], [
     'ok' => 'OK'
 ]);
 
+$translations['en'] = array_merge($translations['en'], [
+    'add_additional_slot' => 'Add Additional Slot',
+    'add_additional_slot_title' => 'Add Additional Slot',
+    'additional_slot_date' => 'Date',
+    'save_additional_slot' => 'Save Additional Slot'
+]);
+
+$translations['el'] = array_merge($translations['el'], [
+    'add_additional_slot' => 'Προσθήκη Επιπλέον Slot',
+    'add_additional_slot_title' => 'Προσθήκη Επιπλέον Slot',
+    'additional_slot_date' => 'Ημερομηνία',
+    'save_additional_slot' => 'Αποθήκευση Επιπλέον Slot'
+]);
+
+$translations['en'] = array_merge($translations['en'], [
+    'could_not_load_additional_slots' => 'Could not load additional slots.',
+    'additional_slots_title' => 'Additional Slots',
+    'additional_slots_subtitle' => 'View your one-off custom appointment availability',
+    'type' => 'Type',
+    'additional' => 'Additional',
+    'no_additional_slots_found' => 'No additional slots found.'
+]);
+
+$translations['el'] = array_merge($translations['el'], [
+    'could_not_load_additional_slots' => 'Î”ÎµÎ½ Î®Ï„Î±Î½ Î´Ï…Î½Î±Ï„Î® Î· Ï†ÏŒÏÏ„Ï‰ÏƒÎ· ÎµÏ€Î¹Ï€Î»Î­Î¿Î½ slot.',
+    'additional_slots_title' => 'Î•Ï€Î¹Ï€Î»Î­Î¿Î½ Slots',
+    'additional_slots_subtitle' => 'Î”ÎµÎ¯Ï„Îµ Ï„Î· one-off custom Î´Î¹Î±Î¸ÎµÏƒÎ¹Î¼ÏŒÏ„Î·Ï„Î± ÏÎ±Î½Ï„ÎµÎ²Î¿Ï ÏƒÎ±Ï‚',
+    'type' => 'Î¤ÏÏ€Î¿Ï‚',
+    'additional' => 'Î•Ï€Î¹Ï€Î»Î­Î¿Î½',
+    'no_additional_slots_found' => 'Î”ÎµÎ½ Î²ÏÎ­Î¸Î·ÎºÎ±Î½ ÎµÏ€Î¹Ï€Î»Î­Î¿Î½ slots.'
+]);
+
 $t = static function (string $key) use ($translations, $lang): string {
     return $translations[$lang][$key] ?? $translations['en'][$key] ?? $key;
 };
@@ -414,6 +468,9 @@ $activeSection = isset($_GET['section']) ? (string) $_GET['section'] : 'calendar
 $officeHours = [];
 $officeHoursError = '';
 
+$additionalSlots = [];
+$additionalSlotsError = '';
+
 $requests = [];
 $requestsError = '';
 
@@ -453,6 +510,23 @@ try {
     $officeHours = $stmt->fetchAll(PDO::FETCH_ASSOC);
 } catch (Throwable $e) {
     $officeHoursError = $t('could_not_load_office_hours');
+}
+
+try {
+    $sql = "SELECT AdditionalSlot_ID, Slot_Date, Start_Time, End_Time, Is_Active
+            FROM advisor_additional_slots
+            WHERE Advisor_ID = :advisor_id
+              AND Is_Active = 1
+            ORDER BY Slot_Date ASC, Start_Time ASC";
+
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute([
+        'advisor_id' => $advisorId
+    ]);
+
+    $additionalSlots = $stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (Throwable $e) {
+    $additionalSlotsError = $t('could_not_load_additional_slots');
 }
 
 try {
@@ -721,6 +795,7 @@ try {
                 <div class="dropdown-divider"></div>
                 <form action="../backend/modules/dispatcher.php" method="POST" class="mb-0">
                     <input type="hidden" name="action" value="/logout">
+                    <input type="hidden" name="_csrf" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
                     <button type="submit" class="dropdown-item text-danger">
                         <i class="bi bi-box-arrow-right me-2"></i><?= htmlspecialchars($t('logout')) ?>
                     </button>
@@ -831,6 +906,7 @@ try {
                                         <div class="d-flex gap-2">
                                             <form action="../backend/modules/dispatcher.php" method="POST" class="mb-0">
                                                 <input type="hidden" name="action" value="/appointment/action">
+                                                <input type="hidden" name="_csrf" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
                                                 <input type="hidden" name="appointment_action" value="approve">
                                                 <input type="hidden" name="request_id" value="<?= (int)$request['Request_ID'] ?>">
                                                 <input type="hidden" name="redirect_target" value="advisor_dashboard_requests">
@@ -854,6 +930,52 @@ try {
                     </tbody>
                 </table>
             </div>
+
+            <div class="section-card mt-4">
+                <div class="d-flex align-items-center justify-content-between mb-4">
+                    <div>
+                        <h5 class="mb-0 fw-semibold"><?= htmlspecialchars($t('additional_slots_title')) ?></h5>
+                        <p class="text-muted mb-0" style="font-size:.85rem;"><?= htmlspecialchars($t('additional_slots_subtitle')) ?></p>
+                    </div>
+                </div>
+
+                <?php if ($additionalSlotsError !== ''): ?>
+                    <div class="alert alert-danger">
+                        <?= htmlspecialchars($additionalSlotsError) ?>
+                    </div>
+                <?php endif; ?>
+
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th><?= htmlspecialchars($t('date')) ?></th>
+                                <th><?= htmlspecialchars($t('start_time')) ?></th>
+                                <th><?= htmlspecialchars($t('end_time')) ?></th>
+                                <th><?= htmlspecialchars($t('type')) ?></th>
+                                <th><?= htmlspecialchars($t('status')) ?></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php if (count($additionalSlots) === 0): ?>
+                                <tr>
+                                    <td colspan="5" class="text-center text-muted"><?= htmlspecialchars($t('no_additional_slots_found')) ?></td>
+                                </tr>
+                            <?php else: ?>
+                                <?php foreach ($additionalSlots as $additionalSlot): ?>
+                                    <tr>
+                                        <td><?= htmlspecialchars((string)$additionalSlot['Slot_Date']) ?></td>
+                                        <td><?= htmlspecialchars(substr((string)$additionalSlot['Start_Time'], 0, 5)) ?></td>
+                                        <td><?= htmlspecialchars(substr((string)$additionalSlot['End_Time'], 0, 5)) ?></td>
+                                        <td><span class="badge bg-info text-dark"><?= htmlspecialchars($t('additional')) ?></span></td>
+                                        <td><span class="badge bg-success"><?= htmlspecialchars($t('active')) ?></span></td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            <?php endif; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -865,9 +987,14 @@ try {
                     <p class="text-muted mb-0" style="font-size:.85rem;"><?= htmlspecialchars($t('office_hours_subtitle')) ?></p>
                 </div>
 
-                <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addOfficeHourModal">
-                    <i class="bi bi-plus-circle me-1"></i> <?= htmlspecialchars($t('add_slot')) ?>
-                </button>
+                <div class="d-flex align-items-center gap-2 flex-wrap">
+                    <button type="button" class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addAdditionalSlotModal">
+                        <i class="bi bi-calendar-plus me-1"></i> <?= htmlspecialchars($t('add_additional_slot')) ?>
+                    </button>
+                    <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addOfficeHourModal">
+                        <i class="bi bi-plus-circle me-1"></i> <?= htmlspecialchars($t('add_slot')) ?>
+                    </button>
+                </div>
             </div>
 
             <?php if ($officeHoursError !== ''): ?>
@@ -1233,6 +1360,47 @@ try {
     </div>
 </div>
 
+<div class="modal fade" id="addAdditionalSlotModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-semibold"><?= htmlspecialchars($t('add_additional_slot_title')) ?></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+
+            <form action="../backend/controllers/AdvisorOfficeHours.php" method="POST">
+                <div class="modal-body">
+                    <input type="hidden" name="action" value="add_additional">
+
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label class="form-label"><?= htmlspecialchars($t('additional_slot_date')) ?> <span class="text-danger">*</span></label>
+                            <input type="date" name="slot_date" class="form-control" required>
+                        </div>
+
+                        <div class="col-6">
+                            <label class="form-label"><?= htmlspecialchars($t('start_time')) ?> <span class="text-danger">*</span></label>
+                            <input type="time" name="start_time" class="form-control" required>
+                        </div>
+
+                        <div class="col-6">
+                            <label class="form-label"><?= htmlspecialchars($t('end_time')) ?> <span class="text-danger">*</span></label>
+                            <input type="time" name="end_time" class="form-control" required>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-footer border-0 pt-0">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal"><?= htmlspecialchars($t('cancel')) ?></button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-calendar-plus me-1"></i> <?= htmlspecialchars($t('save_additional_slot')) ?>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <div class="modal fade" id="advisorCalendarModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content rounded-4">
@@ -1297,6 +1465,7 @@ try {
             <form action="../backend/modules/dispatcher.php" method="POST">
                 <div class="modal-body">
                     <input type="hidden" name="action" value="/appointment/action">
+                    <input type="hidden" name="_csrf" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
                     <input type="hidden" name="appointment_action" value="decline">
                     <input type="hidden" name="request_id" id="declineRequestId" value="">
                     <input type="hidden" name="redirect_target" value="advisor_dashboard_requests">

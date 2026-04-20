@@ -41,6 +41,10 @@ Paraskevas Vafeiadis
 Replaced browser confirm popups with custom Bootstrap confirmation modal and preserved existing admin actions and submit logic
 Panteleimoni Alexandrou
 
+20-Apr-2026 v1.0
+Fixed logout form CSRF submission so logout redirects correctly without dispatcher validation errors
+Panteleimoni Alexandrou
+
 
 */
 
@@ -50,10 +54,13 @@ require_once '../backend/modules/ParticipantsClass.php';
 require_once '../backend/modules/NotificationsClass.php';
 require_once '../backend/modules/SelectionClass.php';
 require_once '../backend/modules/PromotionClass.php';
+require_once '../backend/modules/Csrf.php';
 
 if (session_status() === PHP_SESSION_NONE) {
   session_start();
 }
+
+$csrfToken = Csrf::ensureToken();
 
 if (isset($_GET['set_lang']) && in_array((string)$_GET['set_lang'], ['en', 'el'], true)) {
   $_SESSION['management_dashboard_lang'] = (string)$_GET['set_lang'];
@@ -501,6 +508,7 @@ $YearOptions = [
         <hr class="dropdown-divider my-2">
         <form action="../backend/modules/dispatcher.php" method="POST" class="mb-0">
           <input type="hidden" name="action" value="/logout">
+          <input type="hidden" name="_csrf" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
           <button class="dropdown-item text-danger" type="submit">
             <i class="bi bi-box-arrow-right me-2"></i><?= htmlspecialchars($t('logout')) ?>
           </button>

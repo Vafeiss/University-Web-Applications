@@ -11,6 +11,12 @@ SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
 START TRANSACTION;
 SET time_zone = "+00:00";
 
+--
+-- 19-Apr-2026 v2.2
+-- Added schema support for advisor additional one-off appointment slots
+-- Panteleimoni Alexandrou
+--
+
 
 /*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
 /*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
@@ -32,7 +38,8 @@ CREATE TABLE `appointments` (
   `Request_ID` int(11) NOT NULL,
   `Student_ID` int(11) NOT NULL,
   `Advisor_ID` int(11) NOT NULL,
-  `OfficeHour_ID` int(11) NOT NULL,
+  `OfficeHour_ID` int(11) DEFAULT NULL,
+  `AdditionalSlot_ID` int(11) DEFAULT NULL,
   `Appointment_Date` date NOT NULL,
   `Start_Time` time NOT NULL,
   `End_Time` time NOT NULL,
@@ -83,7 +90,8 @@ CREATE TABLE `appointment_requests` (
   `Request_ID` int(11) NOT NULL,
   `Student_ID` int(11) NOT NULL,
   `Advisor_ID` int(11) NOT NULL,
-  `OfficeHour_ID` int(11) NOT NULL,
+  `OfficeHour_ID` int(11) DEFAULT NULL,
+  `AdditionalSlot_ID` int(11) DEFAULT NULL,
   `Appointment_Date` date NOT NULL,
   `Student_Reason` text NOT NULL,
   `Advisor_Reason` text DEFAULT NULL,
@@ -148,6 +156,27 @@ INSERT INTO `office_hours` (`OfficeHour_ID`, `Advisor_ID`, `Day_of_Week`, `Start
 -- Δομή πίνακα για τον πίνακα `student_advisors`
 --
 
+--
+-- Î”Î¿Î¼Î® Ï€Î¯Î½Î±ÎºÎ± Î³Î¹Î± Ï„Î¿Î½ Ï€Î¯Î½Î±ÎºÎ± `advisor_additional_slots`
+--
+
+CREATE TABLE `advisor_additional_slots` (
+  `AdditionalSlot_ID` int(11) NOT NULL,
+  `Advisor_ID` int(11) NOT NULL,
+  `Slot_Date` date NOT NULL,
+  `Start_Time` time NOT NULL,
+  `End_Time` time NOT NULL,
+  `Is_Active` tinyint(1) NOT NULL DEFAULT 1,
+  `Created_At` timestamp NOT NULL DEFAULT current_timestamp(),
+  `Updated_At` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Î”Î¿Î¼Î® Ï€Î¯Î½Î±ÎºÎ± Î³Î¹Î± Ï„Î¿Î½ Ï€Î¯Î½Î±ÎºÎ± `student_advisors`
+--
+
 CREATE TABLE `student_advisors` (
   `Student_ID` int(11) NOT NULL,
   `Advisor_ID` int(11) NOT NULL
@@ -202,7 +231,8 @@ ALTER TABLE `appointments`
   ADD KEY `fk_appointments_request` (`Request_ID`),
   ADD KEY `fk_appointments_student` (`Student_ID`),
   ADD KEY `fk_appointments_advisor` (`Advisor_ID`),
-  ADD KEY `fk_appointments_officehour` (`OfficeHour_ID`);
+  ADD KEY `fk_appointments_officehour` (`OfficeHour_ID`),
+  ADD KEY `fk_appointments_additional_slot` (`AdditionalSlot_ID`);
 
 --
 -- Ευρετήρια για πίνακα `appointment_history`
@@ -222,7 +252,15 @@ ALTER TABLE `appointment_requests`
   ADD PRIMARY KEY (`Request_ID`),
   ADD KEY `fk_appointment_requests_student` (`Student_ID`),
   ADD KEY `fk_appointment_requests_advisor` (`Advisor_ID`),
-  ADD KEY `fk_appointment_requests_officehour` (`OfficeHour_ID`);
+  ADD KEY `fk_appointment_requests_officehour` (`OfficeHour_ID`),
+  ADD KEY `fk_appointment_requests_additional_slot` (`AdditionalSlot_ID`);
+
+--
+-- Î•Ï…ÏÎµÏ„Î®ÏÎ¹Î± Î³Î¹Î± Ï€Î¯Î½Î±ÎºÎ± `advisor_additional_slots`
+--
+ALTER TABLE `advisor_additional_slots`
+  ADD PRIMARY KEY (`AdditionalSlot_ID`),
+  ADD KEY `fk_additional_slots_advisor` (`Advisor_ID`);
 
 --
 -- Ευρετήρια για πίνακα `communication_history`
@@ -321,6 +359,7 @@ ALTER TABLE `appointment_history`
 --
 ALTER TABLE `appointment_requests`
   ADD CONSTRAINT `fk_appointment_requests_advisor` FOREIGN KEY (`Advisor_ID`) REFERENCES `users` (`User_ID`) ON DELETE CASCADE ON UPDATE CASCADE,
+  ADD CONSTRAINT `fk_appointment_requests_additional_slot` FOREIGN KEY (`AdditionalSlot_ID`) REFERENCES `advisor_additional_slots` (`AdditionalSlot_ID`) ON DELETE CASCADE ON UPDATE CASCADE,
   ADD CONSTRAINT `fk_appointment_requests_officehour` FOREIGN KEY (`OfficeHour_ID`) REFERENCES `office_hours` (`OfficeHour_ID`) ON DELETE CASCADE ON UPDATE CASCADE,
   ADD CONSTRAINT `fk_appointment_requests_student` FOREIGN KEY (`Student_ID`) REFERENCES `users` (`User_ID`) ON DELETE CASCADE ON UPDATE CASCADE;
 
@@ -336,6 +375,24 @@ ALTER TABLE `communication_history`
 --
 ALTER TABLE `office_hours`
   ADD CONSTRAINT `fk_officehours_advisor` FOREIGN KEY (`Advisor_ID`) REFERENCES `users` (`User_ID`) ON DELETE CASCADE;
+
+--
+-- Î ÎµÏÎ¹Î¿ÏÎ¹ÏƒÎ¼Î¿Î¯ Î³Î¹Î± Ï€Î¯Î½Î±ÎºÎ± `advisor_additional_slots`
+--
+ALTER TABLE `advisor_additional_slots`
+  ADD CONSTRAINT `fk_additional_slots_advisor` FOREIGN KEY (`Advisor_ID`) REFERENCES `users` (`User_ID`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+--
+-- Î ÎµÏÎ¹Î¿ÏÎ¹ÏƒÎ¼Î¿Î¯ Î³Î¹Î± Ï€Î¯Î½Î±ÎºÎ± `appointments`
+--
+ALTER TABLE `appointments`
+  ADD CONSTRAINT `fk_appointments_additional_slot` FOREIGN KEY (`AdditionalSlot_ID`) REFERENCES `advisor_additional_slots` (`AdditionalSlot_ID`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+--
+-- AUTO_INCREMENT Î³Î¹Î± Ï€Î¯Î½Î±ÎºÎ± `advisor_additional_slots`
+--
+ALTER TABLE `advisor_additional_slots`
+  MODIFY `AdditionalSlot_ID` int(11) NOT NULL AUTO_INCREMENT;
 COMMIT;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
