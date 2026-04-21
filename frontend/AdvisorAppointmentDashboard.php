@@ -202,6 +202,12 @@ $translations['en'] = array_merge($translations['en'], [
     'approved_appointments_title' => 'Approved Appointments',
     'approved_appointments_subtitle' => 'View approved and scheduled appointments',
     'appointment_id' => 'Appointment ID',
+    'attendance' => 'Attendance',
+    'mark_attendance' => 'Mark Attendance',
+    'attended' => 'Attended',
+    'no_show' => 'No Show',
+    'mark_attendance_confirm' => 'Confirm student attendance for this appointment?',
+    'attendance_available_on_day' => 'Available on appointment day',
     'no_appointments_found' => 'No appointments found',
     'scheduled' => 'Scheduled',
     'completed' => 'Completed',
@@ -250,6 +256,7 @@ $translations['en'] = array_merge($translations['en'], [
     'appointment_details' => 'Appointment Details',
     'student' => 'Student',
     'time' => 'Time',
+    'view_details' => 'View details',
     'view_reason' => 'View Reason',
     'advisor_note' => 'Advisor Note',
     'decline_request_title' => 'Decline Appointment Request',
@@ -298,6 +305,12 @@ $translations['el'] = array_merge($translations['el'], [
     'approved_appointments_title' => 'Εγκεκριμένα Ραντεβού',
     'approved_appointments_subtitle' => 'Δείτε εγκεκριμένα και προγραμματισμένα ραντεβού',
     'appointment_id' => 'Κωδικός Ραντεβού',
+    'attendance' => 'Παρουσία',
+    'mark_attendance' => 'Καταχώρηση Παρουσίας',
+    'attended' => 'Παρευρέθηκε',
+    'no_show' => 'Απουσία',
+    'mark_attendance_confirm' => 'Επιβεβαίωση παρουσίας φοιτητή για αυτό το ραντεβού;',
+    'attendance_available_on_day' => 'Διαθέσιμο την ημέρα του ραντεβού',
     'no_appointments_found' => 'Δεν βρέθηκαν ραντεβού',
     'scheduled' => 'Προγραμματισμένο',
     'completed' => 'Ολοκληρώθηκε',
@@ -343,6 +356,7 @@ $translations['el'] = array_merge($translations['el'], [
     'appointment_details' => 'Λεπτομέρειες Ραντεβού',
     'student' => 'Φοιτητής',
     'time' => 'Ώρα',
+    'view_details' => 'Προβολή λεπτομερειών',
     'view_reason' => 'Προβολή Λόγου',
     'advisor_note' => 'Σημείωση Συμβούλου',
     'decline_request_title' => 'Απόρριψη Αιτήματος Ραντεβού',
@@ -457,6 +471,7 @@ $buildCurrentUrl = static function (array $overrides = [], array $remove = []): 
 
 $toggleLang = $lang === 'en' ? 'el' : 'en';
 $toggleUrl = $buildCurrentUrl(['set_lang' => $toggleLang], ['notification_id']);
+$notificationReturnUrl = $buildCurrentUrl([], ['notification_id']);
 $langButtonLabel = $lang === 'en' ? 'EN / EL' : 'EL / EN';
 
 $advisorName = 'Advisor';
@@ -585,11 +600,14 @@ try {
                    a.Appointment_Date,
                    a.Start_Time,
                    a.End_Time,
+                    a.Student_Attendance,
                    a.Status,
                    a.Created_At
             FROM appointments a
             INNER JOIN users s ON s.User_ID = a.Student_ID
             WHERE a.Advisor_ID = :advisor_id
+                AND a.Status = 'Scheduled'
+                AND COALESCE(a.Student_Attendance, 'Pending') = 'Pending'
             ORDER BY a.Appointment_Date DESC, a.Start_Time DESC";
 
     $stmt = $pdo->prepare($sql);
@@ -607,12 +625,14 @@ try {
                       ar.Request_ID,
                       COALESCE(s.External_ID, ar.Student_ID) AS Student_External_ID,
                       ar.Status,
+                                            ap.Student_Attendance,
                       ar.Student_Reason,
                       ar.Advisor_Reason,
                       ar.Appointment_Date,
                       ar.Created_At
                    FROM appointment_requests ar
                    LEFT JOIN users s ON s.User_ID = ar.Student_ID
+                                     LEFT JOIN appointments ap ON ap.Request_ID = ar.Request_ID
                    WHERE ar.Advisor_ID = :advisor_id
                      AND LOWER(TRIM(ar.Status)) IN ('approved', 'declined', 'cancelled')
                    ORDER BY ar.Created_At DESC";
@@ -781,21 +801,37 @@ try {
                             $redirectSeparator = str_contains($redirectUrl, '?') ? '&' : '?';
                             $notificationUrl = $redirectUrl . $redirectSeparator . 'notification_id=' . (int)($notification['Notification_ID'] ?? 0);
                             ?>
-                            <a href="<?= htmlspecialchars($notificationUrl) ?>"
-                               class="dropdown-item px-3 py-3 border-bottom text-wrap <?= $isUnread ? 'fw-semibold bg-light' : '' ?>">
+                            <div class="dropdown-item px-3 py-3 border-bottom text-wrap <?= $isUnread ? 'fw-semibold bg-light' : '' ?>">
                                 <div class="d-flex align-items-start justify-content-between gap-2">
-                                    <span><?= htmlspecialchars((string)($notification['Title'] ?? 'Notification')) ?></span>
-                                    <?php if ($isUnread): ?>
-                                        <span class="badge bg-primary"><?= htmlspecialchars($t('unread')) ?></span>
-                                    <?php endif; ?>
+                                    <a href="<?= htmlspecialchars($notificationUrl) ?>" class="text-decoration-none text-reset flex-grow-1">
+                                        <div class="d-flex align-items-start justify-content-between gap-2">
+                                            <span><?= htmlspecialchars((string)($notification['Title'] ?? 'Notification')) ?></span>
+                                            <?php if ($isUnread): ?>
+                                                <span class="badge bg-primary"><?= htmlspecialchars($t('unread')) ?></span>
+                                            <?php endif; ?>
+                                        </div>
+                                        <div class="text-muted mt-1" style="font-size:.9rem; white-space: normal;">
+                                            <?= htmlspecialchars((string)($notification['Message'] ?? '')) ?>
+                                        </div>
+                                        <div class="text-muted mt-2" style="font-size:.78rem;">
+                                            <?= htmlspecialchars((string)($notification['Created_At'] ?? '')) ?>
+                                        </div>
+                                    </a>
+
+                                    <form action="../backend/modules/dispatcher.php" method="POST" class="ms-2">
+                                        <input type="hidden" name="action" value="/notification/delete">
+                                        <input type="hidden" name="_csrf" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
+                                        <input type="hidden" name="notification_id" value="<?= (int)($notification['Notification_ID'] ?? 0) ?>">
+                                        <input type="hidden" name="redirect_to" value="<?= htmlspecialchars($notificationReturnUrl, ENT_QUOTES, 'UTF-8') ?>">
+                                        <button type="submit"
+                                                class="btn btn-sm btn-outline-danger"
+                                                title="Delete notification"
+                                                aria-label="Delete notification">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </form>
                                 </div>
-                                <div class="text-muted mt-1" style="font-size:.9rem; white-space: normal;">
-                                    <?= htmlspecialchars((string)($notification['Message'] ?? '')) ?>
-                                </div>
-                                <div class="text-muted mt-2" style="font-size:.78rem;">
-                                    <?= htmlspecialchars((string)($notification['Created_At'] ?? '')) ?>
-                                </div>
-                            </a>
+                            </div>
                         <?php endforeach; ?>
                     </div>
                 <?php endif; ?>
@@ -1131,15 +1167,18 @@ try {
                             <th><?= htmlspecialchars($t('start_time')) ?></th>
                             <th><?= htmlspecialchars($t('end_time')) ?></th>
                             <th><?= htmlspecialchars($t('status')) ?></th>
+                            <th><?= htmlspecialchars($t('attendance')) ?></th>
                         </tr>
                     </thead>
                     <tbody>
                         <?php if (count($appointments) === 0): ?>
                             <tr>
-                                <td colspan="6" class="text-center text-muted"><?= htmlspecialchars($t('no_appointments_found')) ?></td>
+                                <td colspan="7" class="text-center text-muted"><?= htmlspecialchars($t('no_appointments_found')) ?></td>
                             </tr>
                         <?php else: ?>
+                            <?php $todayDate = date('Y-m-d'); ?>
                             <?php foreach ($appointments as $appointment): ?>
+                                <?php $canMarkAttendance = ((string)$appointment['Appointment_Date'] === $todayDate); ?>
                                 <tr>
                                     <td><?= htmlspecialchars((string)$appointment['Appointment_ID']) ?></td>
                                     <td><?= htmlspecialchars((string)($appointment['Student_External_ID'] ?? $appointment['Student_ID'])) ?></td>
@@ -1155,6 +1194,29 @@ try {
                                             <span class="badge bg-danger"><?= htmlspecialchars($t('cancelled')) ?></span>
                                         <?php else: ?>
                                             <span class="badge bg-dark"><?= htmlspecialchars((string)$appointment['Status']) ?></span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td>
+                                        <?php if ($canMarkAttendance): ?>
+                                            <form action="../backend/modules/dispatcher.php"
+                                                  method="POST"
+                                                  class="d-flex align-items-center gap-2"
+                                                  onsubmit="event.preventDefault(); customConfirm('<?= htmlspecialchars($t('mark_attendance_confirm')) ?>', function(ok) { if (ok) this.submit(); }.bind(this));">
+                                                <input type="hidden" name="action" value="/appointment/action">
+                                                <input type="hidden" name="_csrf" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
+                                                <input type="hidden" name="appointment_action" value="mark_attendance">
+                                                <input type="hidden" name="appointment_id" value="<?= (int)$appointment['Appointment_ID'] ?>">
+                                                <input type="hidden" name="redirect_target" value="advisor_dashboard_appointments">
+                                                <select name="student_attendance" class="form-select form-select-sm" required>
+                                                    <option value="Attended"><?= htmlspecialchars($t('attended')) ?></option>
+                                                    <option value="No Show"><?= htmlspecialchars($t('no_show')) ?></option>
+                                                </select>
+                                                <button type="submit" class="btn btn-primary btn-sm text-nowrap">
+                                                    <?= htmlspecialchars($t('mark_attendance')) ?>
+                                                </button>
+                                            </form>
+                                        <?php else: ?>
+                                            <span class="text-muted small"><?= htmlspecialchars($t('attendance_available_on_day')) ?></span>
                                         <?php endif; ?>
                                     </td>
                                 </tr>
@@ -1188,6 +1250,7 @@ try {
                             <th><?= htmlspecialchars($t('request_id')) ?></th>
                             <th><?= htmlspecialchars($t('student_id')) ?></th>
                             <th><?= htmlspecialchars($t('status')) ?></th>
+                            <th><?= htmlspecialchars($t('attendance')) ?></th>
                             <th><?= htmlspecialchars($t('student_reason')) ?></th>
                             <th><?= htmlspecialchars($t('advisor_reason')) ?></th>
                             <th><?= htmlspecialchars($t('date')) ?></th>
@@ -1196,12 +1259,13 @@ try {
                     <tbody>
                         <?php if (count($historyRows) === 0): ?>
                             <tr>
-                                <td colspan="6" class="text-center text-muted"><?= htmlspecialchars($t('no_history_found')) ?></td>
+                                <td colspan="7" class="text-center text-muted"><?= htmlspecialchars($t('no_history_found')) ?></td>
                             </tr>
                         <?php else: ?>
                             <?php foreach ($historyRows as $history): ?>
                                 <?php $historyStudentReason = trim((string)($history['Student_Reason'] ?? '')); ?>
                                 <?php $historyAdvisorReason = trim((string)($history['Advisor_Reason'] ?? '')); ?>
+                                <?php $historyAttendance = trim((string)($history['Student_Attendance'] ?? '')); ?>
                                 <tr>
                                     <td><?= htmlspecialchars((string)$history['Request_ID']) ?></td>
                                     <td><?= htmlspecialchars((string)$history['Student_External_ID']) ?></td>
@@ -1214,6 +1278,15 @@ try {
                                             <span class="badge bg-dark"><?= htmlspecialchars($t('cancelled')) ?></span>
                                         <?php else: ?>
                                             <span class="badge bg-primary"><?= htmlspecialchars((string)$history['Status']) ?></span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td>
+                                        <?php if ($historyAttendance === 'Attended'): ?>
+                                            <span class="badge bg-success"><?= htmlspecialchars($t('attended')) ?></span>
+                                        <?php elseif ($historyAttendance === 'No Show'): ?>
+                                            <span class="badge bg-danger"><?= htmlspecialchars($t('no_show')) ?></span>
+                                        <?php else: ?>
+                                            <span class="text-muted">-</span>
                                         <?php endif; ?>
                                     </td>
                                     <td>
@@ -1622,10 +1695,7 @@ try {
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="<?= htmlspecialchars($t('close')) ?>"></button>
             </div>
             <div class="modal-body">
-                <textarea id="advisorReasonModalText" class="form-control" rows="8" readonly style="resize: vertical; min-height: 220px;"></textarea>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-primary" data-bs-dismiss="modal"><?= htmlspecialchars($t('close')) ?></button>
+                <div class="calendar-reason-box" id="advisorReasonModalText"></div>
             </div>
         </div>
     </div>
@@ -1700,7 +1770,7 @@ function openAdvisorReasonModal(titleText, reasonText) {
     if (!titleEl || !textEl || !advisorReasonModal) return;
 
     titleEl.textContent = String(titleText ?? '').trim() || <?= json_encode($t('reason')) ?>;
-    textEl.value = String(reasonText ?? '').trim() || '-';
+    textEl.textContent = String(reasonText ?? '').trim() || '-';
     advisorReasonModal.show();
 }
 

@@ -258,30 +258,95 @@ class AppointmentApproval
         }
     }
 
-    public function markAttendance(int $appointmentId, int $advisorId, int $attendance): bool
+    public function markAttendance(int $appointmentId, int $advisorId, string $studentAttendance): bool
     {
-        $newStatus = match ($attendance) {
-            1 => 'Completed',
-            2 => 'Cancelled',
+        $studentAttendance = trim($studentAttendance);
+
+        $newStatus = match ($studentAttendance) {
+            'Attended' => 'Completed',
+            'No Show' => 'Cancelled',
             default => ''
         };
+
+        $historyActionType = $studentAttendance === 'Attended' ? 'Completed' : 'Cancelled';
+        $historyReason = $studentAttendance === 'Attended'
+            ? 'Student attendance marked as Attended by advisor.'
+            : 'Student attendance marked as No Show by advisor.';
 
         if ($newStatus === '') {
             return false;
         }
 
         try {
+            $currentAppointmentSql = "SELECT Appointment_ID, Request_ID, Student_ID, Advisor_ID, Appointment_Date, Status, COALESCE(Student_Attendance, 'Pending') AS Student_Attendance
+                                      FROM appointments
+                                      WHERE Appointment_ID = ?
+                                        AND Advisor_ID = ?
+                                      LIMIT 1";
+
+            $currentAppointmentStmt = $this->conn->prepare($currentAppointmentSql);
+            $currentAppointmentStmt->execute([$appointmentId, $advisorId]);
+            $appointment = $currentAppointmentStmt->fetch(PDO::FETCH_ASSOC);
+
+            if ($appointment === false) {
+                return false;
+            }
+
+            if ((string)($appointment['Status'] ?? '') !== 'Scheduled') {
+                return false;
+            }
+
+            if ((string)($appointment['Student_Attendance'] ?? 'Pending') !== 'Pending') {
+                return false;
+            }
+
+            $today = date('Y-m-d');
+            if ((string)($appointment['Appointment_Date'] ?? '') !== $today) {
+                return false;
+            }
+
+            $this->conn->beginTransaction();
+
             $sql = "UPDATE appointments
-                    SET Status = ?
+                    SET Student_Attendance = ?,
+                        Status = ?,
+                        Updated_At = CURRENT_TIMESTAMP
                     WHERE Appointment_ID = ?
                       AND Advisor_ID = ?
-                      AND Status = 'Scheduled'";
+                      AND Status = 'Scheduled'
+                      AND COALESCE(Student_Attendance, 'Pending') = 'Pending'";
 
             $stmt = $this->conn->prepare($sql);
-            $stmt->execute([$newStatus, $appointmentId, $advisorId]);
+            $stmt->execute([$studentAttendance, $newStatus, $appointmentId, $advisorId]);
 
-            return $stmt->rowCount() > 0;
+            if ($stmt->rowCount() <= 0) {
+                $this->conn->rollBack();
+                return false;
+            }
+
+            $historyStmt = $this->conn->prepare(
+                "INSERT INTO appointment_history
+                 (Request_ID, Appointment_ID, Student_ID, Advisor_ID, Action_Type, Action_Reason, Action_By)
+                 VALUES
+                 (?, ?, ?, ?, ?, ?, ?)"
+            );
+            $historyStmt->execute([
+                (int)$appointment['Request_ID'],
+                (int)$appointment['Appointment_ID'],
+                (int)$appointment['Student_ID'],
+                (int)$appointment['Advisor_ID'],
+                $historyActionType,
+                $historyReason,
+                $advisorId,
+            ]);
+
+            $this->conn->commit();
+            return true;
+
         } catch (Throwable $e) {
+            if ($this->conn->inTransaction()) {
+                $this->conn->rollBack();
+            }
             error_log('AppointmentApproval::markAttendance error: ' . $e->getMessage());
             return false;
         }

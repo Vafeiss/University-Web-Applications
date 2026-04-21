@@ -387,3 +387,6 @@ CONSTRAINT `fk_notifications_conversation`
 FOREIGN KEY (`Related_Conversation_ID`) REFERENCES `conversations` (`Conversation_ID`)
 ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+ALTER TABLE appointments
+ADD COLUMN Student_Attendance enum('Pending','Attended','No Show') DEFAULT 'Pending';

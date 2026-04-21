@@ -3,6 +3,7 @@
 $router->post('/login', ['UsersController','Authentication']);
 $router->post('/logout', ['UsersController','logout']);
 $router->post('/password/change', ['UsersController','changePassword']);
+$router->post('/notification/delete', ['UsersController','deleteNotification']);
 
 //admin routes
 $router->post('/student/add', ['AdminController','addStudent']);

@@ -420,6 +420,7 @@ $buildCurrentUrl = static function (array $overrides = [], array $remove = []): 
 
 $toggleLang = $lang === 'en' ? 'el' : 'en';
 $toggleUrl = $buildCurrentUrl(['set_lang' => $toggleLang], ['notification_id']);
+$notificationReturnUrl = $buildCurrentUrl([], ['notification_id']);
 $langButtonLabel = $lang === 'en' ? 'EN / EL' : 'EL / EN';
   
 
@@ -513,7 +514,12 @@ if ($advisorId !== null) {
     $globalAdditionalBlockSql = "SELECT AdditionalSlot_ID
                                  FROM appointment_requests
                                  WHERE AdditionalSlot_ID IS NOT NULL
-                                   AND LOWER(TRIM(Status)) IN ('pending', 'approved')";
+                                   AND LOWER(TRIM(Status)) IN ('pending', 'approved')
+                                 UNION
+                                 SELECT AdditionalSlot_ID
+                                 FROM appointments
+                                 WHERE AdditionalSlot_ID IS NOT NULL
+                                   AND Status = 'Scheduled'";
 
     $globalAdditionalBlockStmt = $pdo->query($globalAdditionalBlockSql);
     $blockedAdditionalSlots = [];
@@ -875,21 +881,37 @@ try {
               $redirectSeparator = str_contains($redirectUrl, '?') ? '&' : '?';
               $notificationUrl = $redirectUrl . $redirectSeparator . 'notification_id=' . (int)($notification['Notification_ID'] ?? 0);
               ?>
-              <a href="<?= htmlspecialchars($notificationUrl) ?>"
-                 class="dropdown-item px-3 py-3 border-bottom text-wrap <?= $isUnread ? 'fw-semibold bg-light' : '' ?>">
+              <div class="dropdown-item px-3 py-3 border-bottom text-wrap <?= $isUnread ? 'fw-semibold bg-light' : '' ?>">
                 <div class="d-flex align-items-start justify-content-between gap-2">
-                  <span><?= htmlspecialchars((string)($notification['Title'] ?? 'Notification')) ?></span>
-                  <?php if ($isUnread): ?>
-                    <span class="badge bg-primary"><?= htmlspecialchars($t('unread')) ?></span>
-                  <?php endif; ?>
+                  <a href="<?= htmlspecialchars($notificationUrl) ?>" class="text-decoration-none text-reset flex-grow-1">
+                    <div class="d-flex align-items-start justify-content-between gap-2">
+                      <span><?= htmlspecialchars((string)($notification['Title'] ?? 'Notification')) ?></span>
+                      <?php if ($isUnread): ?>
+                        <span class="badge bg-primary"><?= htmlspecialchars($t('unread')) ?></span>
+                      <?php endif; ?>
+                    </div>
+                    <div class="text-muted mt-1" style="font-size:.9rem; white-space: normal;">
+                      <?= htmlspecialchars((string)($notification['Message'] ?? '')) ?>
+                    </div>
+                    <div class="text-muted mt-2" style="font-size:.78rem;">
+                      <?= htmlspecialchars((string)($notification['Created_At'] ?? '')) ?>
+                    </div>
+                  </a>
+
+                  <form action="../backend/modules/dispatcher.php" method="POST" class="ms-2">
+                    <input type="hidden" name="action" value="/notification/delete">
+                    <input type="hidden" name="_csrf" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
+                    <input type="hidden" name="notification_id" value="<?= (int)($notification['Notification_ID'] ?? 0) ?>">
+                    <input type="hidden" name="redirect_to" value="<?= htmlspecialchars($notificationReturnUrl, ENT_QUOTES, 'UTF-8') ?>">
+                    <button type="submit"
+                            class="btn btn-sm btn-outline-danger"
+                            title="Delete notification"
+                            aria-label="Delete notification">
+                      <i class="bi bi-trash"></i>
+                    </button>
+                  </form>
                 </div>
-                <div class="text-muted mt-1" style="font-size:.9rem; white-space: normal;">
-                  <?= htmlspecialchars((string)($notification['Message'] ?? '')) ?>
-                </div>
-                <div class="text-muted mt-2" style="font-size:.78rem;">
-                  <?= htmlspecialchars((string)($notification['Created_At'] ?? '')) ?>
-                </div>
-              </a>
+              </div>
             <?php endforeach; ?>
           </div>
         <?php endif; ?>
@@ -1179,11 +1201,11 @@ try {
                   <td><?= htmlspecialchars((string)$request['Appointment_Date']) ?></td>
                   <td>
                     <?php if ($studentReason !== ''): ?>
-                      <button type="button"
-                              class="btn btn-outline-primary btn-sm request-reason-btn"
+                            <button type="button"
+                              class="btn btn-outline-primary btn-sm calendar-reason-btn request-reason-btn"
                               data-reason-title="<?= htmlspecialchars($t('reason')) ?>"
                               data-reason-content="<?= htmlspecialchars($studentReason) ?>">
-                        <?= htmlspecialchars($t('view_reason')) ?>
+                        <?= htmlspecialchars($t('view_details')) ?>
                       </button>
                     <?php else: ?>
                       <span class="text-muted">-</span>
@@ -1192,11 +1214,11 @@ try {
                   <td><span class="badge bg-secondary"><?= htmlspecialchars($t('pending')) ?></span></td>
                   <td>
                     <?php if ($declineReason !== ''): ?>
-                      <button type="button"
-                              class="btn btn-outline-primary btn-sm request-reason-btn"
+                            <button type="button"
+                              class="btn btn-outline-primary btn-sm calendar-reason-btn request-reason-btn"
                               data-reason-title="<?= htmlspecialchars($t('decline_reason')) ?>"
                               data-reason-content="<?= htmlspecialchars($declineReason) ?>">
-                        <?= htmlspecialchars($t('view_reason')) ?>
+                        <?= htmlspecialchars($t('view_details')) ?>
                       </button>
                     <?php else: ?>
                       <span class="text-muted">-</span>
@@ -1571,10 +1593,7 @@ try {
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="<?= htmlspecialchars($t('close')) ?>"></button>
       </div>
       <div class="modal-body">
-        <textarea id="requestReasonModalText" class="form-control" rows="8" readonly style="resize: vertical; min-height: 220px;"></textarea>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-primary" data-bs-dismiss="modal"><?= htmlspecialchars($t('close')) ?></button>
+        <div class="calendar-reason-box" id="requestReasonModalText"></div>
       </div>
     </div>
   </div>
@@ -1609,7 +1628,7 @@ function openRequestReasonModal(titleText, reasonText) {
   if (!titleEl || !textEl || !requestReasonModal) return;
 
   titleEl.textContent = String(titleText ?? '').trim() || <?= json_encode($t('reason')) ?>;
-  textEl.value = String(reasonText ?? '').trim() || '-';
+  textEl.textContent = String(reasonText ?? '').trim() || '-';
   requestReasonModal.show();
 }
 

@@ -13,8 +13,63 @@ declare(strict_types=1);
 require_once __DIR__ . '/../modules/UsersClass.php';
 require_once __DIR__ . '/../modules/NotificationsClass.php';
 require_once __DIR__ . '/../modules/Csrf.php';
+require_once __DIR__ . '/../modules/databaseconnect.php';
 
 class UsersController {
+
+    public function deleteNotification()
+    {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            Notifications::error("Invalid request method.");
+            header('Location: ../../frontend/index.php');
+            exit();
+        }
+
+        if (!Csrf::validateRequestToken()) {
+            Notifications::error("Request validation failed.");
+            header('Location: ../../frontend/index.php');
+            exit();
+        }
+
+        if (!isset($_SESSION['UserID']) || !is_numeric($_SESSION['UserID'])) {
+            Notifications::error("Unauthorized session.");
+            header('Location: ../../frontend/index.php');
+            exit();
+        }
+
+        $notificationId = (int)($_POST['notification_id'] ?? 0);
+        $recipientId = (int)$_SESSION['UserID'];
+        $redirectTo = $this->safeFrontendRedirect((string)($_POST['redirect_to'] ?? 'index.php'));
+
+        if ($notificationId <= 0) {
+            Notifications::error("Invalid notification.");
+            header('Location: ../../frontend/' . $redirectTo);
+            exit();
+        }
+
+        try {
+            $pdo = ConnectToDatabase();
+            $deleteSql = "DELETE FROM notifications WHERE Notification_ID = :notification_id AND Recipient_ID = :recipient_id
+                          LIMIT 1";
+
+            $deleteStmt = $pdo->prepare($deleteSql);
+            $deleteStmt->execute([
+                'notification_id' => $notificationId,
+                'recipient_id' => $recipientId,
+            ]);
+
+            if ($deleteStmt->rowCount() > 0) {
+                Notifications::success("Notification deleted.");
+            } else {
+                Notifications::error("Notification not found.");
+            }
+        } catch (Throwable $e) {
+            Notifications::error("Failed to delete notification.");
+        }
+
+        header('Location: ../../frontend/' . $redirectTo);
+        exit();
+    }
 
     public function logout(){
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -117,6 +172,38 @@ class UsersController {
         }
 
         return true;
+    }
+
+    private function safeFrontendRedirect(string $target): string
+    {
+        $target = trim($target);
+
+        if ($target === '' || str_contains($target, '://') || str_starts_with($target, '/')) {
+            return 'index.php';
+        }
+
+        if (str_contains($target, '..') || str_contains($target, "\\")) {
+            return 'index.php';
+        }
+
+        $allowed = [
+            'StudentAppointmentDashboard.php',
+            'AdvisorAppointmentDashboard.php',
+            'admin_dashboard.php',
+            'superuser_reports.php',
+            'changepassword.php',
+            'index.php',
+        ];
+
+        $path = (string)parse_url($target, PHP_URL_PATH);
+        $basename = basename($path);
+
+        if (!in_array($basename, $allowed, true)) {
+            return 'index.php';
+        }
+
+        $query = (string)parse_url($target, PHP_URL_QUERY);
+        return $query !== '' ? ($basename . '?' . $query) : $basename;
     }
 
     public function Authentication(){

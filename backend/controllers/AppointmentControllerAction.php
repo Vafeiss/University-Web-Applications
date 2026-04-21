@@ -52,6 +52,7 @@ class AppointmentControllerAction
     private AppointmentApproval $appointmentApproval;
     private const REDIRECT_TARGETS = [
         'advisor_dashboard_requests' => '../../frontend/AdvisorAppointmentDashboard.php?section=requests',
+        'advisor_dashboard_appointments' => '../../frontend/AdvisorAppointmentDashboard.php?section=appointments',
         'advisor_requests_controller' => '../../backend/controllers/AdvisorAppointmentRequests.php'
     ];
 
@@ -64,9 +65,16 @@ class AppointmentControllerAction
     {
         $appointmentAction = trim((string)($_POST['appointment_action'] ?? $_GET['action'] ?? ''));
         $requestId = (int)($_POST['request_id'] ?? $_GET['id'] ?? 0);
+        $appointmentId = (int)($_POST['appointment_id'] ?? $_GET['appointment_id'] ?? 0);
+        $studentAttendance = trim((string)($_POST['student_attendance'] ?? $_GET['student_attendance'] ?? ''));
         $advisorId = isset($_SESSION['UserID']) && is_numeric($_SESSION['UserID']) ? (int)$_SESSION['UserID'] : 2;
 
-        if ($requestId <= 0) {
+        if ($appointmentAction === 'mark_attendance' && $appointmentId <= 0) {
+            Notifications::error("Invalid appointment ID.");
+            $this->redirectToAdvisorRequests();
+        }
+
+        if ($appointmentAction !== 'mark_attendance' && $requestId <= 0) {
             Notifications::error("Invalid request ID.");
             $this->redirectToAdvisorRequests();
         }
@@ -74,6 +82,59 @@ class AppointmentControllerAction
         try {
             require_once __DIR__ . '/../modules/databaseconnect.php';
             $pdo = ConnectToDatabase();
+
+            if ($appointmentAction === 'mark_attendance') {
+                if (!in_array($studentAttendance, ['Attended', 'No Show'], true)) {
+                    Notifications::error("Invalid attendance value.");
+                    $this->redirectToAdvisorRequests();
+                }
+
+                $ok = $this->appointmentApproval->markAttendance($appointmentId, $advisorId, $studentAttendance);
+
+                if (!$ok) {
+                    Notifications::error("Attendance can only be marked on the appointment day for scheduled appointments.");
+                    $this->redirectToAdvisorRequests();
+                }
+
+                try {
+                    $appointmentContextSql = "SELECT Student_ID, Request_ID FROM appointments WHERE Appointment_ID = :appointment_id AND Advisor_ID = :advisor_id
+                    LIMIT 1";
+
+                    $appointmentContextStmt = $pdo->prepare($appointmentContextSql);
+                    $appointmentContextStmt->execute([
+                        'appointment_id' => $appointmentId,
+                        'advisor_id' => $advisorId
+                    ]);
+
+                    $appointmentContext = $appointmentContextStmt->fetch(PDO::FETCH_ASSOC);
+                    $studentId = (int)($appointmentContext['Student_ID'] ?? 0);
+                    $relatedRequestId = isset($appointmentContext['Request_ID']) ? (int)$appointmentContext['Request_ID'] : null;
+
+                    if ($studentId > 0) {
+                        $notificationSql = "INSERT INTO notifications
+                                            (Recipient_ID, Sender_ID, Type, Title, Message, Related_Request_ID, Related_Appointment_ID, Is_Read)
+                                            VALUES
+                                            (:recipient_id, :sender_id, :type, :title, :message, :related_request_id, :related_appointment_id, :is_read)";
+
+                        $notificationStmt = $pdo->prepare($notificationSql);
+                        $notificationStmt->execute([
+                            'recipient_id' => $studentId,
+                            'sender_id' => $advisorId,
+                            'type' => $studentAttendance === 'Attended' ? 'appointment_completed' : 'appointment_cancelled',
+                            'title' => $studentAttendance === 'Attended' ? 'Attendance Confirmed' : 'Attendance Marked as No Show',
+                            'message' => $studentAttendance === 'Attended' ? 'Your attendance was marked as attended by your advisor.' : 'Your advisor marked your attendance as no show.',
+                            'related_request_id' => $relatedRequestId,
+                            'related_appointment_id' => $appointmentId,
+                            'is_read' => 0
+                        ]);
+                    }
+                } catch (Throwable $e) {
+                    error_log('AppointmentControllerAction attendance notification insert error: ' . $e->getMessage());
+                }
+
+                Notifications::success("Attendance marked successfully.");
+                $this->redirectToAdvisorRequests();
+            }
 
            if ($appointmentAction === 'approve') {
             $requestContextSql = "SELECT ar.OfficeHour_ID,

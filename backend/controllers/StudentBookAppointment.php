@@ -174,23 +174,34 @@ try {
             redirectToStudentDashboard('book');
         }
 
-        $duplicateSql = "SELECT Request_ID
-                         FROM appointment_requests
-                         WHERE Student_ID = :student_id
-                           AND OfficeHour_ID = :slot_id
-                           AND Appointment_Date = :appointment_date
-                           AND LOWER(TRIM(Status)) IN ('pending', 'approved')
-                         LIMIT 1";
+                $duplicateSql = "SELECT Request_ID
+                                                 FROM appointment_requests WHERE OfficeHour_ID = :slot_id
+                                                     AND Appointment_Date = :appointment_date
+                                                     AND LOWER(TRIM(Status)) IN ('pending', 'approved')
+                                                 LIMIT 1";
 
         $duplicateStmt = $pdo->prepare($duplicateSql);
         $duplicateStmt->execute([
-            'student_id' => $studentId,
             'slot_id' => $slotId,
             'appointment_date' => $appointmentDate
         ]);
 
         if ($duplicateStmt->fetch(PDO::FETCH_ASSOC)) {
-            Notifications::error("You already have a request or approved appointment for this recurring slot and date.");
+            Notifications::error("This recurring slot is already requested by another student for that date.");
+            redirectToStudentDashboard('book');
+        }
+
+        $scheduledDuplicateSql = "SELECT Appointment_ID FROM appointments WHERE OfficeHour_ID = :slot_id AND Appointment_Date = :appointment_date AND Status = 'Scheduled'
+                                  LIMIT 1";
+
+        $scheduledDuplicateStmt = $pdo->prepare($scheduledDuplicateSql);
+        $scheduledDuplicateStmt->execute([
+            'slot_id' => $slotId,
+            'appointment_date' => $appointmentDate
+        ]);
+
+        if ($scheduledDuplicateStmt->fetch(PDO::FETCH_ASSOC)) {
+            Notifications::error("This recurring slot is already booked for that date.");
             redirectToStudentDashboard('book');
         }
 
@@ -259,11 +270,9 @@ try {
             redirectToStudentDashboard('book');
         }
 
-        $duplicateSql = "SELECT Request_ID
-                         FROM appointment_requests
-                         WHERE AdditionalSlot_ID = :slot_id
-                           AND LOWER(TRIM(Status)) IN ('pending', 'approved')
-                         LIMIT 1";
+                $duplicateSql = "SELECT Request_ID FROM appointment_requests WHERE AdditionalSlot_ID = :slot_id
+                AND LOWER(TRIM(Status)) IN ('pending', 'approved')
+                LIMIT 1";
 
         $duplicateStmt = $pdo->prepare($duplicateSql);
         $duplicateStmt->execute([
@@ -271,16 +280,27 @@ try {
         ]);
 
         if ($duplicateStmt->fetch(PDO::FETCH_ASSOC)) {
-            Notifications::error("This additional slot has already been requested or approved.");
+            Notifications::error("This additional slot is already requested.");
             redirectToStudentDashboard('book');
         }
 
-        $studentDuplicateSql = "SELECT Request_ID
-                                FROM appointment_requests
-                                WHERE Student_ID = :student_id
-                                  AND AdditionalSlot_ID = :slot_id
-                                  AND LOWER(TRIM(Status)) IN ('pending', 'approved')
-                                LIMIT 1";
+        $scheduledAdditionalSql = "SELECT Appointment_ID FROM appointments WHERE AdditionalSlot_ID = :slot_id
+        AND Status = 'Scheduled'
+        LIMIT 1";
+
+        $scheduledAdditionalStmt = $pdo->prepare($scheduledAdditionalSql);
+        $scheduledAdditionalStmt->execute([
+            'slot_id' => $slotId
+        ]);
+
+        if ($scheduledAdditionalStmt->fetch(PDO::FETCH_ASSOC)) {
+            Notifications::error("This additional slot is already booked.");
+            redirectToStudentDashboard('book');
+        }
+
+                $studentDuplicateSql = "SELECT Request_ID FROM appointment_requests WHERE Student_ID = :student_id
+                AND AdditionalSlot_ID = :slot_id AND LOWER(TRIM(Status)) IN ('pending', 'approved')
+                LIMIT 1";
 
         $studentDuplicateStmt = $pdo->prepare($studentDuplicateSql);
         $studentDuplicateStmt->execute([
@@ -289,7 +309,7 @@ try {
         ]);
 
         if ($studentDuplicateStmt->fetch(PDO::FETCH_ASSOC)) {
-            Notifications::error("You already have a request or approved appointment for this additional slot.");
+            Notifications::error("You already have a pending request for this additional slot.");
             redirectToStudentDashboard('book');
         }
 
