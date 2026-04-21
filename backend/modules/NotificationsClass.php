@@ -10,6 +10,11 @@ Changes:
 - Replaced Bootstrap alert with custom toast popup notification (no browser alert/confirm)
 - Improved UI display (top-right popup instead of inline message)
 
+UPDATED BY: Panteleimoni Alexandrou
+Date: 21-Apr-2026
+Changes:
+- Adjusted popup notification rendering to top-center floating layout with success/error accent styling
+
 Inputs: message(string)
 Outputs: none
 Error Messages: None
@@ -37,32 +42,36 @@ class Notifications{
         $type = $_SESSION['notification']['type'];
         $message = htmlspecialchars($_SESSION['notification']['message'], ENT_QUOTES, 'UTF-8');
 
-        $bgColor = ($type === 'success') ? '#198754' : '#dc3545';
+        $accentColor = ($type === 'success') ? '#198754' : '#dc3545';
+        $accentSoft = ($type === 'success') ? '#e8f6ee' : '#fdecec';
         $title = ($type === 'success') ? 'Success' : 'Error';
 
         echo "
         <style>
             .custom-toast-notification{
                 position: fixed;
-                top: 50%;
+                top: 24px;
                 left: 50%;
-                transform: translate(-50%, -50%);
+                transform: translateX(-50%);
                 min-width: 320px;
-                max-width: 420px;
+                width: min(420px, calc(100vw - 32px));
                 background: #ffffff;
-                border-left: 6px solid {$bgColor};
-                border-radius: 12px;
-                box-shadow: 0 10px 30px rgba(0,0,0,0.18);
+                border-left: 5px solid {$accentColor};
+                border-right: 5px solid {$accentColor};
+                border-radius: 14px;
+                box-shadow: 0 16px 36px rgba(15, 23, 42, 0.16);
                 z-index: 99999;
                 overflow: hidden;
-                animation: popInCenter 0.3s ease;
+                animation: popInToast 0.3s ease;
                 font-family: Arial, Helvetica, sans-serif;
+                border-top: 1px solid rgba(15, 23, 42, 0.08);
+                border-bottom: 1px solid rgba(15, 23, 42, 0.08);
             }
 
             @media (max-width: 576px){
                 .custom-toast-notification{
-                    min-width: calc(100vw - 32px);
-                    max-width: calc(100vw - 32px);
+                    min-width: 0;
+                    top: 20px;
                 }
             }
 
@@ -73,13 +82,14 @@ class Notifications{
                 padding: 12px 16px 8px 16px;
                 font-weight: bold;
                 font-size: 16px;
-                color: {$bgColor};
+                color: {$accentColor};
+                background: linear-gradient(180deg, {$accentSoft} 0%, #ffffff 100%);
             }
 
             .custom-toast-body{
                 padding: 0 16px 14px 16px;
                 font-size: 14px;
-                color: #333;
+                color: #334155;
                 line-height: 1.5;
             }
 
@@ -89,32 +99,32 @@ class Notifications{
                 font-size: 20px;
                 line-height: 1;
                 cursor: pointer;
-                color: #666;
+                color: #64748b;
             }
 
             .custom-toast-close:hover{
                 color: #000;
             }
 
-            @keyframes popInCenter{
+            @keyframes popInToast{
                 from{
                     opacity: 0;
-                    transform: translate(-50%, -50%) scale(0.96);
+                    transform: translateX(-50%) translateY(-10px) scale(0.97);
                 }
                 to{
                     opacity: 1;
-                    transform: translate(-50%, -50%) scale(1);
+                    transform: translateX(-50%) translateY(0) scale(1);
                 }
             }
 
             @keyframes fadeOutToast{
                 from{
                     opacity: 1;
-                    transform: translate(-50%, -50%) scale(1);
+                    transform: translateX(-50%) translateY(0) scale(1);
                 }
                 to{
                     opacity: 0;
-                    transform: translate(-50%, -50%) scale(0.96);
+                    transform: translateX(-50%) translateY(-10px) scale(0.97);
                 }
             }
         </style>
