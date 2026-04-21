@@ -299,8 +299,8 @@ $advisorCounts = $reports->getAdvisorStudentCounts(
       <i class="bi bi-globe2 me-1"></i><?= htmlspecialchars($langButtonLabel) ?>
     </a>
     <div class="dropdown">
-      <button class="btn p-0 border-0 bg-transparent dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-        <div class="user-avatar">S</div>
+      <button class="btn btn-outline-secondary rounded-circle d-inline-flex align-items-center justify-content-center p-0" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Menu" style="width: 38px; height: 38px;">
+        <i class="bi bi-list fs-4"></i>
       </button>
       <div class="dropdown-menu dropdown-menu-end p-2" style="min-width: 190px;">
         <button class="dropdown-item" type="button" data-bs-toggle="modal" data-bs-target="#manualInstructionsModal">

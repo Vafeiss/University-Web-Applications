@@ -807,8 +807,8 @@ try {
         </a>
 
         <div class="dropdown">
-            <button class="btn p-0 border-0 bg-transparent dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-                <div class="user-avatar"><?= htmlspecialchars(strtoupper(substr($advisorName, 0, 1))) ?></div>
+            <button class="btn btn-outline-secondary rounded-circle d-inline-flex align-items-center justify-content-center p-0" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="<?= htmlspecialchars($t('manual')) ?> menu" style="width: 38px; height: 38px;">
+                <i class="bi bi-list fs-4"></i>
             </button>
             <div class="dropdown-menu dropdown-menu-end p-2" style="min-width: 220px;">
                 <button class="dropdown-item" type="button" data-bs-toggle="modal" data-bs-target="#manualInstructionsModal">
@@ -995,9 +995,6 @@ try {
                 </div>
 
                 <div class="d-flex align-items-center gap-2 flex-wrap">
-                    <button type="button" class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addAdditionalSlotModal">
-                        <i class="bi bi-calendar-plus me-1"></i> <?= htmlspecialchars($t('add_additional_slot')) ?>
-                    </button>
                     <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addOfficeHourModal">
                         <i class="bi bi-plus-circle me-1"></i> <?= htmlspecialchars($t('add_slot')) ?>
                     </button>
@@ -1046,59 +1043,65 @@ try {
                     </tbody>
                 </table>
             </div>
+        </div>
 
-            <div class="section-card mt-4">
-                <div class="d-flex align-items-center justify-content-between mb-4">
-                    <div>
-                        <h5 class="mb-0 fw-semibold"><?= htmlspecialchars($t('additional_slots_title')) ?></h5>
-                        <p class="text-muted mb-0" style="font-size:.85rem;"><?= htmlspecialchars($t('additional_slots_subtitle')) ?></p>
-                    </div>
+        <div class="section-card mt-4">
+            <div class="d-flex align-items-center justify-content-between mb-4">
+                <div>
+                    <h5 class="mb-0 fw-semibold"><?= htmlspecialchars($t('additional_slots_title')) ?></h5>
+                    <p class="text-muted mb-0" style="font-size:.85rem;"><?= htmlspecialchars($t('additional_slots_subtitle')) ?></p>
                 </div>
 
-                <?php if ($additionalSlotsError !== ''): ?>
-                    <div class="alert alert-danger">
-                        <?= htmlspecialchars($additionalSlotsError) ?>
-                    </div>
-                <?php endif; ?>
+                <div class="d-flex align-items-center gap-2 flex-wrap">
+                    <button type="button" class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addAdditionalSlotModal">
+                        <i class="bi bi-calendar-plus me-1"></i> <?= htmlspecialchars($t('add_additional_slot')) ?>
+                    </button>
+                </div>
+            </div>
 
-                <div class="table-responsive">
-                    <table class="table table-sm table-hover align-middle mb-0">
-                        <thead class="table-light">
+            <?php if ($additionalSlotsError !== ''): ?>
+                <div class="alert alert-danger">
+                    <?= htmlspecialchars($additionalSlotsError) ?>
+                </div>
+            <?php endif; ?>
+
+            <div class="table-responsive">
+                <table class="table table-sm table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th><?= htmlspecialchars($t('date')) ?></th>
+                            <th><?= htmlspecialchars($t('start_time')) ?></th>
+                            <th><?= htmlspecialchars($t('end_time')) ?></th>
+                            <th><?= htmlspecialchars($t('type')) ?></th>
+                            <th><?= htmlspecialchars($t('status')) ?></th>
+                            <th style="width:120px;"><?= htmlspecialchars($t('action')) ?></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php if (count($additionalSlots) === 0): ?>
                             <tr>
-                                <th><?= htmlspecialchars($t('date')) ?></th>
-                                <th><?= htmlspecialchars($t('start_time')) ?></th>
-                                <th><?= htmlspecialchars($t('end_time')) ?></th>
-                                <th><?= htmlspecialchars($t('type')) ?></th>
-                                <th><?= htmlspecialchars($t('status')) ?></th>
-                                <th style="width:120px;"><?= htmlspecialchars($t('action')) ?></th>
+                                <td colspan="6" class="text-center text-muted"><?= htmlspecialchars($t('no_additional_slots_found')) ?></td>
                             </tr>
-                        </thead>
-                        <tbody>
-                            <?php if (count($additionalSlots) === 0): ?>
+                        <?php else: ?>
+                            <?php foreach ($additionalSlots as $additionalSlot): ?>
                                 <tr>
-                                    <td colspan="6" class="text-center text-muted"><?= htmlspecialchars($t('no_additional_slots_found')) ?></td>
+                                    <td><?= htmlspecialchars((string)$additionalSlot['Slot_Date']) ?></td>
+                                    <td><?= htmlspecialchars(substr((string)$additionalSlot['Start_Time'], 0, 5)) ?></td>
+                                    <td><?= htmlspecialchars(substr((string)$additionalSlot['End_Time'], 0, 5)) ?></td>
+                                    <td><span class="badge bg-info text-dark"><?= htmlspecialchars($t('additional')) ?></span></td>
+                                    <td><span class="badge bg-success"><?= htmlspecialchars($t('active')) ?></span></td>
+                                    <td>
+                                        <a href="../backend/controllers/AdvisorOfficeHours.php?delete_additional=<?= (int)$additionalSlot['AdditionalSlot_ID'] ?>"
+                                           class="btn btn-outline-danger btn-sm"
+                                           onclick="event.preventDefault(); customConfirm('<?= htmlspecialchars($t('delete_additional_slot_confirm')) ?>', function(ok) { if (ok) window.location.href = this.href; }.bind(this));">
+                                            <i class="bi bi-trash"></i>
+                                        </a>
+                                    </td>
                                 </tr>
-                            <?php else: ?>
-                                <?php foreach ($additionalSlots as $additionalSlot): ?>
-                                    <tr>
-                                        <td><?= htmlspecialchars((string)$additionalSlot['Slot_Date']) ?></td>
-                                        <td><?= htmlspecialchars(substr((string)$additionalSlot['Start_Time'], 0, 5)) ?></td>
-                                        <td><?= htmlspecialchars(substr((string)$additionalSlot['End_Time'], 0, 5)) ?></td>
-                                        <td><span class="badge bg-info text-dark"><?= htmlspecialchars($t('additional')) ?></span></td>
-                                        <td><span class="badge bg-success"><?= htmlspecialchars($t('active')) ?></span></td>
-                                        <td>
-                                            <a href="../backend/controllers/AdvisorOfficeHours.php?delete_additional=<?= (int)$additionalSlot['AdditionalSlot_ID'] ?>"
-                                               class="btn btn-outline-danger btn-sm"
-                                               onclick="event.preventDefault(); customConfirm('<?= htmlspecialchars($t('delete_additional_slot_confirm')) ?>', function(ok) { if (ok) window.location.href = this.href; }.bind(this));">
-                                                <i class="bi bi-trash"></i>
-                                            </a>
-                                        </td>
-                                    </tr>
-                                <?php endforeach; ?>
-                            <?php endif; ?>
-                        </tbody>
-                    </table>
-                </div>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>
