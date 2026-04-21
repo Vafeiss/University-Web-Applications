@@ -228,6 +228,18 @@ class AdminController {
             exit();
         }
 
+        if (is_array($result) && ($result['status'] ?? '') === 'wrong_headers') {
+            Notifications::error("CSV not imported wrong headers");
+            header("Location: ../../frontend/admin_dashboard.php?tab=students");
+            exit();
+        }
+
+        if (is_array($result) && (int)($result['added'] ?? 0) <= 0) {
+            Notifications::error("Failed to add students.");
+            header("Location: ../../frontend/admin_dashboard.php?tab=students");
+            exit();
+        }
+
         Notifications::success("Students added successfully.");
         header("Location: ../../frontend/admin_dashboard.php?tab=students");
         exit();

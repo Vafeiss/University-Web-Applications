@@ -506,42 +506,16 @@ try {
 FETCH AVAILABLE OFFICE HOUR SLOTS
 ------------------------------------------------------------
 */
+$studentModule = new StudentClass();
+
 if ($advisorId !== null) {
   try {
     $todayDate = date('Y-m-d');
     $currentTime = date('H:i:s');
 
-    $globalAdditionalBlockSql = "SELECT AdditionalSlot_ID
-                                 FROM appointment_requests
-                                 WHERE AdditionalSlot_ID IS NOT NULL
-                                   AND LOWER(TRIM(Status)) IN ('pending', 'approved')
-                                 UNION
-                                 SELECT AdditionalSlot_ID
-                                 FROM appointments
-                                 WHERE AdditionalSlot_ID IS NOT NULL
-                                   AND Status = 'Scheduled'";
+    $blockedAdditionalSlots = $studentModule->getBlockedAdditionalSlots();
 
-    $globalAdditionalBlockStmt = $pdo->query($globalAdditionalBlockSql);
-    $blockedAdditionalSlots = [];
-    if ($globalAdditionalBlockStmt instanceof PDOStatement) {
-      foreach ($globalAdditionalBlockStmt->fetchAll(PDO::FETCH_ASSOC) as $blockedRow) {
-        $blockedAdditionalSlots[(int)$blockedRow['AdditionalSlot_ID']] = true;
-      }
-    }
-
-    $recurringSql = "SELECT OfficeHour_ID, Advisor_ID, Day_of_Week, Start_Time, End_Time
-                     FROM office_hours
-                     WHERE Advisor_ID = :advisor_id
-                     ORDER BY
-                         FIELD(Day_of_Week, 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'),
-                         Start_Time ASC";
-
-    $recurringStmt = $pdo->prepare($recurringSql);
-    $recurringStmt->execute([
-      'advisor_id' => $advisorId
-    ]);
-
-    $recurringRows = $recurringStmt->fetchAll(PDO::FETCH_ASSOC);
+    $recurringRows = $studentModule->getAvailableRecurringSlots($advisorId);
 
     foreach ($recurringRows as $row) {
       $recurringSlots[] = [
@@ -554,20 +528,7 @@ if ($advisorId !== null) {
       ];
     }
 
-    $additionalSql = "SELECT AdditionalSlot_ID, Slot_Date, Start_Time, End_Time
-                      FROM advisor_additional_slots
-                      WHERE Advisor_ID = :advisor_id
-                        AND Is_Active = 1
-                        AND Slot_Date >= :today_date
-                      ORDER BY Slot_Date ASC, Start_Time ASC";
-
-    $additionalStmt = $pdo->prepare($additionalSql);
-    $additionalStmt->execute([
-      'advisor_id' => $advisorId,
-      'today_date' => $todayDate
-    ]);
-
-    $additionalRows = $additionalStmt->fetchAll(PDO::FETCH_ASSOC);
+    $additionalRows = $studentModule->getAvailableAdditionalSlots($advisorId);
 
     foreach ($additionalRows as $row) {
       $slotDate = (string)$row['Slot_Date'];
@@ -629,29 +590,7 @@ FETCH ONLY PENDING STUDENT REQUESTS
 ------------------------------------------------------------
 */
 try {
-    $sql = "SELECT ar.Request_ID,
-                   ar.Student_ID,
-                   ar.Advisor_ID,
-                   u.First_name AS Advisor_First_Name,
-                   u.Last_Name AS Advisor_Last_Name,
-                   ar.OfficeHour_ID,
-                   ar.Appointment_Date,
-                   ar.Student_Reason,
-                   ar.Advisor_Reason,
-                   ar.Status,
-                   ar.Created_At
-            FROM appointment_requests ar
-            LEFT JOIN users u ON ar.Advisor_ID = u.User_ID
-            WHERE ar.Student_ID = :student_id
-              AND LOWER(TRIM(Status)) = 'pending'
-            ORDER BY ar.Created_At DESC";
-
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute([
-      'student_id' => $studentId
-    ]);
-
-    $studentRequests = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $studentRequests = $studentModule->getPendingRequests($studentId);
 } catch (Throwable $e) {
     $studentRequestsError = $t('could_not_load_requests');
 }
@@ -664,45 +603,7 @@ If no rows are found, fallback to approved requests.
 ------------------------------------------------------------
 */
 try {
-  $sql = "SELECT a.Appointment_ID, a.Request_ID, a.Student_ID, a.Advisor_ID, u.Last_Name AS Advisor_Last_Name, a.OfficeHour_ID, a.Appointment_Date, a.Start_Time, a.End_Time, a.Status, a.Created_At
-      FROM appointments a
-      LEFT JOIN users u ON a.Advisor_ID = u.User_ID
-            WHERE Student_ID = :student_id
-            ORDER BY Appointment_Date DESC, Start_Time DESC";
-
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute([
-      'student_id' => $studentId
-    ]);
-
-    $studentAppointments = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-    if (count($studentAppointments) === 0) {
-        $fallbackSql = "SELECT 
-                            NULL AS Appointment_ID,
-                            Request_ID,
-                            Student_ID,
-                            Advisor_ID,
-                            u.Last_Name AS Advisor_Last_Name,
-                            OfficeHour_ID,
-                            Appointment_Date,
-                            NULL AS Start_Time,
-                            NULL AS End_Time,
-                            Status,
-                            Created_At
-                        FROM appointment_requests ar
-                        LEFT JOIN users u ON ar.Advisor_ID = u.User_ID
-                        WHERE Student_ID = :student_id
-                          AND LOWER(TRIM(Status)) = 'approved'
-                        ORDER BY Appointment_Date DESC, Created_At DESC";
-
-        $fallbackStmt = $pdo->prepare($fallbackSql);
-        $fallbackStmt->execute([
-          'student_id' => $studentId
-        ]);
-
-        $studentAppointments = $fallbackStmt->fetchAll(PDO::FETCH_ASSOC);
-    }
+  $studentAppointments = $studentModule->getApprovedAppointments($studentId);
 } catch (Throwable $e) {
     $studentAppointmentsError = $t('could_not_load_appointments');
 }
@@ -714,19 +615,7 @@ Use non-pending request records as history for now
 ------------------------------------------------------------
 */
 try {
-    $sql = "SELECT ar.Request_ID, ar.Student_ID, ar.Advisor_ID, u.Last_Name AS Advisor_Last_Name, ar.Appointment_Date, ar.Student_Reason, ar.Advisor_Reason, ar.Status, ar.Created_At
-            FROM appointment_requests ar
-            LEFT JOIN users u ON ar.Advisor_ID = u.User_ID
-            WHERE ar.Student_ID = :student_id
-              AND LOWER(TRIM(Status)) <> 'pending'
-            ORDER BY Created_At DESC";
-
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute([
-      'student_id' => $studentId
-    ]);
-
-    $studentHistory = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $studentHistory = $studentModule->getAppointmentHistory($studentId);
 } catch (Throwable $e) {
     $studentHistoryError = $t('could_not_load_history');
 }
@@ -737,28 +626,7 @@ FETCH STUDENT CALENDAR EVENTS
 ------------------------------------------------------------
 */
 try {
-  $calendarSql = "SELECT
-            ar.Request_ID,
-            ar.Appointment_Date,
-            ar.Student_Reason,
-            ar.Advisor_Reason,
-            ar.Status,
-            oh.Start_Time,
-            oh.End_Time,
-            u.First_name AS Advisor_First_Name,
-            u.Last_Name AS Advisor_Last_Name
-          FROM appointment_requests ar
-          LEFT JOIN office_hours oh ON ar.OfficeHour_ID = oh.OfficeHour_ID
-          LEFT JOIN users u ON ar.Advisor_ID = u.User_ID
-          WHERE ar.Student_ID = :student_id
-          ORDER BY ar.Appointment_Date ASC, oh.Start_Time ASC";
-
-  $calendarStmt = $pdo->prepare($calendarSql);
-  $calendarStmt->execute([
-    'student_id' => $studentId
-  ]);
-
-  $calendarRows = $calendarStmt->fetchAll(PDO::FETCH_ASSOC);
+  $calendarRows = $studentModule->getCalendarEvents($studentId);
 
   foreach ($calendarRows as $row) {
     $status = (string)($row['Status'] ?? 'Pending');
@@ -796,29 +664,9 @@ try {
 }
 
 try {
-  $studentNotificationsSql = "SELECT Notification_ID, Type, Title, Message, Is_Read, Created_At
-                              FROM notifications
-                              WHERE Recipient_ID = :recipient_id
-                                AND Type IN ('appointment_approved', 'appointment_declined')
-                              ORDER BY Created_At DESC";
-
-  $studentNotificationsStmt = $pdo->prepare($studentNotificationsSql);
-  $studentNotificationsStmt->execute([
-    'recipient_id' => $studentId
-  ]);
-
-  $studentNotifications = $studentNotificationsStmt->fetchAll(PDO::FETCH_ASSOC);
+  $studentNotifications = Notifications::getStudentNotifications($studentId);
 
   foreach ($studentNotifications as &$notification) {
-    $notificationType = trim((string)($notification['Type'] ?? ''));
-    $notification['Redirect_URL'] = 'StudentAppointmentDashboard.php?section=calendar';
-
-    if ($notificationType === 'appointment_approved') {
-      $notification['Redirect_URL'] = 'StudentAppointmentDashboard.php?section=appointments';
-    } elseif ($notificationType === 'appointment_declined') {
-      $notification['Redirect_URL'] = 'StudentAppointmentDashboard.php?section=history';
-    }
-
     if ((int)($notification['Is_Read'] ?? 0) === 0) {
       $studentUnreadNotifications++;
     }

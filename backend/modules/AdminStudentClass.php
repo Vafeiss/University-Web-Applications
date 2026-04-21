@@ -66,6 +66,28 @@ class AdminStudentClass
         return $password;
     }
 
+    private function resolveDegreeId(string $degreeInput): int
+    {
+        $value = trim($degreeInput);
+        if ($value === '') {
+            return 0;
+        }
+
+        if (ctype_digit($value)) {
+            return (int)$value;
+        }
+
+        try {
+            $stmt = $this->conn->prepare('SELECT DegreeID FROM degree WHERE LOWER(TRIM(DegreeName)) = LOWER(TRIM(?)) LIMIT 1');
+            $stmt->execute([$value]);
+            $degreeId = $stmt->fetchColumn();
+
+            return $degreeId === false ? 0 : (int)$degreeId;
+        } catch (Throwable $e) {
+            return 0;
+        }
+    }
+
     //get students information for the admin dashboard with the filters provided by the admin in the dashboard
     public function getStudentsByFilters(string $yearInput = '', int $department = 0, int $degree = 0)
     {
@@ -269,49 +291,94 @@ class AdminStudentClass
             return ['added' => 0, 'skipped' => 0, 'errors' => ['empty_file']];
         }
 
-        $header = [];
-        $isHeader = false;
-        $lowerRow = array_map(static function ($v) {
-            return strtolower((string)$v);
-        }, $firstRow);
+        $normalizeHeader = static function ($value): string {
+            $value = strtolower(trim((string)$value));
+            return preg_replace('/[\s-]+/', '_', $value) ?? '';
+        };
 
-        if (in_array('first_name', $lowerRow, true) || in_array('first', $lowerRow, true) || in_array('email', $lowerRow, true)) {
-            $isHeader = true;
-            $header = $lowerRow;
+        $canonicalAliases = [
+            'external_id' => ['external_id', 'student_id', 'id'],
+            'first_name' => ['first_name', 'first', 'firstname'],
+            'last_name' => ['last_name', 'last', 'lastname', 'surname'],
+            'email' => ['email', 'uni_email'],
+            'degree' => ['degree', 'degree_name'],
+            'year' => ['year', 'student_year'],
+            'advisor_id' => ['advisor_id', 'advisor'],
+        ];
+
+        $normalizedHeaders = array_map($normalizeHeader, $firstRow);
+        $headerIndexes = [];
+        foreach ($canonicalAliases as $canonicalField => $aliases) {
+            $headerIndexes[$canonicalField] = null;
+            foreach ($normalizedHeaders as $index => $headerName) {
+                if (in_array($headerName, $aliases, true)) {
+                    $headerIndexes[$canonicalField] = $index;
+                    break;
+                }
+            }
         }
 
-        $rows = $isHeader ? [] : [$firstRow];
+        $matchedHeaders = array_filter($headerIndexes, static function ($value): bool {
+            return $value !== null;
+        });
+
+        if ($matchedHeaders === []) {
+            fclose($handle);
+            return ['added' => 0, 'skipped' => 0, 'errors' => ['wrong_headers'], 'status' => 'wrong_headers'];
+        }
+
+        $rows = [];
         while (($row = fgetcsv($handle)) !== false) {
             $rows[] = $row;
         }
 
         foreach ($rows as $r) {
-            $r = array_pad($r, 7, '');
-
-            if ($isHeader && !empty($header)) {
-                $map = array_combine($header, $r);
-                $external_id = $map['student_id'] ?? $map['student_external_id'] ?? $map['external_id'] ?? $map['id'] ?? '';
-                $first = $map['first_name'] ?? $map['first'] ?? $map['firstname'] ?? '';
-                $last = $map['last_name'] ?? $map['last'] ?? $map['lastname'] ?? '';
-                $email = $map['email'] ?? $map['uni_email'] ?? '';
-                $degree = $map['degree'] ?? $map['degree_id'] ?? $map['department'] ?? '1';
-                $year = $map['year'] ?? '';
-                $advisorid = $map['advisor'] ?? $map['advisor_id'] ?? $map['advisorid'] ?? '';
-            } else {
-                [$external_id, $first, $last, $email, $degree, $year, $advisorid] = $r;
+            $rowValues = array_values($r);
+            if (count(array_filter($rowValues, static function ($value): bool {
+                return trim((string)$value) !== '';
+            })) === 0) {
+                continue;
             }
+
+            $data = [
+                'external_id' => '',
+                'first_name' => '',
+                'last_name' => '',
+                'email' => '',
+                'degree' => '',
+                'year' => '',
+                'advisor_id' => null,
+            ];
+
+            foreach ($data as $field => $defaultValue) {
+                $headerIndex = $headerIndexes[$field] ?? null;
+                if ($headerIndex !== null && array_key_exists($headerIndex, $rowValues)) {
+                    $value = trim((string)$rowValues[$headerIndex]);
+                    $data[$field] = ($field === 'advisor_id') ? ($value === '' ? null : $value) : $value;
+                } else {
+                    $data[$field] = $defaultValue;
+                }
+            }
+
+            $external_id = $data['external_id'];
+            $first = $data['first_name'];
+            $last = $data['last_name'];
+            $email = $data['email'];
+            $degree = $this->resolveDegreeId((string)$data['degree']);
+            $year = $data['year'];
+            $advisorid = $data['advisor_id'];
 
             $external_id = trim((string)$external_id);
             $first = trim((string)$first);
             $last = trim((string)$last);
             $email = trim((string)$email);
-            $degree = (int)trim((string)$degree);
             $year = trim((string)$year);
             $advisoridRaw = trim((string)$advisorid);
             $advisorid = ($advisoridRaw === '' ? null : (int)$advisoridRaw);
 
-            if ($first === '' || $last === '' || $email === '' || $external_id === '' || (int)$external_id <= 0 || $degree <= 0) {
+            if ($external_id === '' || $degree <= 0) {
                 $skipped++;
+                $errors[] = $external_id !== '' ? $external_id : 'missing_external_id';
                 continue;
             }
 

@@ -175,5 +175,134 @@ class AdvisorClass
         }
     }
 
+    // Fetch office hours for advisor dashboard
+    public function getOfficeHours(int $advisorUserId): array
+    {
+        try {
+            $sql = "SELECT OfficeHour_ID, Day_of_Week, Start_Time, End_Time
+                    FROM office_hours
+                    WHERE Advisor_ID = ?
+                    ORDER BY
+                        FIELD(Day_of_Week, 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'),
+                        Start_Time ASC";
+
+            $stmt = $this->conn->prepare($sql);
+            $stmt->execute([$advisorUserId]);
+            return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        } catch (Throwable $e) {
+            error_log('AdvisorClass::getOfficeHours error: ' . $e->getMessage());
+            return [];
+        }
+    }
+
+    // Fetch additional slots for advisor dashboard
+    public function getAdditionalSlots(int $advisorUserId): array
+    {
+        try {
+            $sql = "SELECT AdditionalSlot_ID, Slot_Date, Start_Time, End_Time, Is_Active
+                    FROM advisor_additional_slots
+                    WHERE Advisor_ID = ?
+                      AND Is_Active = 1
+                    ORDER BY Slot_Date ASC, Start_Time ASC";
+
+            $stmt = $this->conn->prepare($sql);
+            $stmt->execute([$advisorUserId]);
+            return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        } catch (Throwable $e) {
+            error_log('AdvisorClass::getAdditionalSlots error: ' . $e->getMessage());
+            return [];
+        }
+    }
+
+    // Fetch pending appointment requests for advisor
+    public function getPendingRequests(int $advisorUserId): array
+    {
+        try {
+            $sql = "SELECT ar.Request_ID, ar.Student_ID, COALESCE(s.External_ID, ar.Student_ID) AS Student_External_ID,
+                           ar.Advisor_ID,ar.OfficeHour_ID, ar.Appointment_Date, ar.Student_Reason, ar.Advisor_Reason,
+                           ar.Status, ar.Created_At
+                    FROM appointment_requests ar
+                    INNER JOIN users s ON s.User_ID = ar.Student_ID
+                    WHERE ar.Advisor_ID = ?
+                      AND LOWER(TRIM(ar.Status)) = 'pending'
+                    ORDER BY ar.Created_At DESC";
+
+            $stmt = $this->conn->prepare($sql);
+            $stmt->execute([$advisorUserId]);
+            return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        } catch (Throwable $e) {
+            error_log('AdvisorClass::getPendingRequests error: ' . $e->getMessage());
+            return [];
+        }
+    }
+
+    // Fetch scheduled appointments with pending attendance for advisor
+    public function getScheduledAppointmentsWithPendingAttendance(int $advisorUserId): array
+    {
+        try {
+            $sql = "SELECT a.Appointment_ID,a.Request_ID, a.Student_ID, s.External_ID AS Student_External_ID, a.Advisor_ID,
+                           a.OfficeHour_ID, a.Appointment_Date, a.Start_Time, a.End_Time, a.Student_Attendance, a.Status,
+                           a.Created_At
+                    FROM appointments a
+                    INNER JOIN users s ON s.User_ID = a.Student_ID
+                    WHERE a.Advisor_ID = ?
+                      AND a.Status = 'Scheduled'
+                      AND COALESCE(a.Student_Attendance, 'Pending') = 'Pending'
+                    ORDER BY a.Appointment_Date DESC, a.Start_Time DESC";
+
+            $stmt = $this->conn->prepare($sql);
+            $stmt->execute([$advisorUserId]);
+            return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        } catch (Throwable $e) {
+            error_log('AdvisorClass::getScheduledAppointmentsWithPendingAttendance error: ' . $e->getMessage());
+            return [];
+        }
+    }
+
+    // Fetch appointment history for advisor (completed, declined, cancelled)
+    public function getAppointmentHistory(int $advisorUserId): array
+    {
+        try {
+            $sql = "SELECT 
+                        ar.Request_ID, COALESCE(s.External_ID, ar.Student_ID) AS Student_External_ID, ar.Status, ap.Student_Attendance,
+                        ar.Student_Reason, ar.Advisor_Reason, ar.Appointment_Date, ar.Created_At
+                    FROM appointment_requests ar
+                    LEFT JOIN users s ON s.User_ID = ar.Student_ID
+                    LEFT JOIN appointments ap ON ap.Request_ID = ar.Request_ID
+                    WHERE ar.Advisor_ID = ?
+                      AND LOWER(TRIM(ar.Status)) IN ('approved', 'declined', 'cancelled')
+                    ORDER BY ar.Created_At DESC";
+
+            $stmt = $this->conn->prepare($sql);
+            $stmt->execute([$advisorUserId]);
+            return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        } catch (Throwable $e) {
+            error_log('AdvisorClass::getAppointmentHistory error: ' . $e->getMessage());
+            return [];
+        }
+    }
+
+    // Fetch advisor calendar events for full calendar view
+    public function getCalendarEvents(int $advisorUserId): array
+    {
+        try {
+            $sql = "SELECT
+                        ar.Request_ID, ar.Appointment_Date, ar.Student_Reason, ar.Advisor_Reason, ar.Status,
+                        oh.Start_Time, oh.End_Time, u.First_name AS Student_First_Name, u.Last_Name AS Student_Last_Name
+                    FROM appointment_requests ar
+                    LEFT JOIN office_hours oh ON ar.OfficeHour_ID = oh.OfficeHour_ID
+                    LEFT JOIN users u ON ar.Student_ID = u.User_ID
+                    WHERE ar.Advisor_ID = ?
+                    ORDER BY ar.Appointment_Date ASC, oh.Start_Time ASC";
+
+            $stmt = $this->conn->prepare($sql);
+            $stmt->execute([$advisorUserId]);
+            return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        } catch (Throwable $e) {
+            error_log('AdvisorClass::getCalendarEvents error: ' . $e->getMessage());
+            return [];
+        }
+    }
+
     
 }

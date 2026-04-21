@@ -20,7 +20,24 @@ Outputs: none
 Error Messages: None
 */
 
+require_once __DIR__ . '/databaseconnect.php';
+
 class Notifications{
+
+    private static ?PDO $conn = null;
+
+    private static function getConnection(): ?PDO
+    {
+        if (self::$conn === null) {
+            try {
+                self::$conn = ConnectToDatabase();
+            } catch (Throwable $e) {
+                error_log('Notifications::getConnection error: ' . $e->getMessage());
+                return null;
+            }
+        }
+        return self::$conn;
+    }
 
     public static function success($message){
         $_SESSION['notification'] = [
@@ -159,5 +176,113 @@ class Notifications{
         ";
 
         unset($_SESSION['notification']);
+    }
+
+    // Get notifications for advisor dashboard
+    public static function getAdvisorNotifications(int $advisorUserId): array
+    {
+        try {
+            $conn = self::getConnection();
+            if ($conn === null) {
+                return [];
+            }
+
+            $sql = "SELECT Notification_ID, Type, Title, Message, Is_Read, Created_At
+                    FROM notifications
+                    WHERE Recipient_ID = ?
+                      AND Type = 'appointment_requested'
+                    ORDER BY Created_At DESC";
+
+            $stmt = $conn->prepare($sql);
+            if ($stmt === false) {
+                return [];
+            }
+
+            $stmt->execute([$advisorUserId]);
+            $notifications = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+            // Add redirect URLs based on notification type
+            foreach ($notifications as &$notification) {
+                $notificationType = trim((string)($notification['Type'] ?? ''));
+                $notification['Redirect_URL'] = 'AdvisorAppointmentDashboard.php?section=calendar';
+
+                if ($notificationType === 'appointment_requested') {
+                    $notification['Redirect_URL'] = 'AdvisorAppointmentDashboard.php?section=requests';
+                }
+            }
+            unset($notification);
+
+            return $notifications;
+        } catch (Throwable $e) {
+            error_log('Notifications::getAdvisorNotifications error: ' . $e->getMessage());
+            return [];
+        }
+    }
+
+    // Get notifications for student dashboard
+    public static function getStudentNotifications(int $studentUserId): array
+    {
+        try {
+            $conn = self::getConnection();
+            if ($conn === null) {
+                return [];
+            }
+
+            $sql = "SELECT Notification_ID, Type, Title, Message, Is_Read, Created_At
+                    FROM notifications
+                    WHERE Recipient_ID = ?
+                      AND Type IN ('appointment_approved', 'appointment_declined')
+                    ORDER BY Created_At DESC";
+
+            $stmt = $conn->prepare($sql);
+            if ($stmt === false) {
+                return [];
+            }
+
+            $stmt->execute([$studentUserId]);
+            $notifications = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+            // Add redirect URLs based on notification type
+            foreach ($notifications as &$notification) {
+                $notificationType = trim((string)($notification['Type'] ?? ''));
+                $notification['Redirect_URL'] = 'StudentAppointmentDashboard.php?section=calendar';
+
+                if ($notificationType === 'appointment_approved') {
+                    $notification['Redirect_URL'] = 'StudentAppointmentDashboard.php?section=appointments';
+                } elseif ($notificationType === 'appointment_declined') {
+                    $notification['Redirect_URL'] = 'StudentAppointmentDashboard.php?section=history';
+                }
+            }
+            unset($notification);
+
+            return $notifications;
+        } catch (Throwable $e) {
+            error_log('Notifications::getStudentNotifications error: ' . $e->getMessage());
+            return [];
+        }
+    }
+
+    // Get notification count for user
+    public static function getUnreadNotificationCount(int $userId): int
+    {
+        try {
+            $conn = self::getConnection();
+            if ($conn === null) {
+                return 0;
+            }
+
+            $sql = "SELECT COUNT(*) as unread_count FROM notifications WHERE Recipient_ID = ? AND Is_Read = 0";
+            $stmt = $conn->prepare($sql);
+            if ($stmt === false) {
+                return 0;
+            }
+
+            $stmt->execute([$userId]);
+            $result = $stmt->fetch(PDO::FETCH_ASSOC);
+            return isset($result['unread_count']) ? (int)$result['unread_count'] : 0;
+        } catch (Throwable $e) {
+            error_log('Notifications::getUnreadNotificationCount error: ' . $e->getMessage());
+            return 0;
+        }
     }
 }
