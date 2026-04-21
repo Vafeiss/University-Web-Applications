@@ -94,6 +94,46 @@ if (isset($_GET['delete'])) {
 
 /*
 ------------------------------------------------------------
+DELETE ADDITIONAL SLOT
+------------------------------------------------------------
+*/
+if (isset($_GET['delete_additional'])) {
+    $deleteAdditionalId = (int)($_GET['delete_additional']);
+
+    if ($deleteAdditionalId <= 0) {
+        Notifications::error("Invalid additional slot ID.");
+        redirectToOfficeHoursDashboard();
+    }
+
+    try {
+        // Keep historical references intact by deactivating the slot.
+        $sql = "UPDATE advisor_additional_slots
+                SET Is_Active = 0
+                WHERE AdditionalSlot_ID = :id
+                  AND Advisor_ID = :advisor_id
+                  AND Is_Active = 1";
+
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([
+            'id' => $deleteAdditionalId,
+            'advisor_id' => $advisorId
+        ]);
+
+        if ($stmt->rowCount() > 0) {
+            Notifications::success("Additional slot deleted successfully.");
+        } else {
+            Notifications::error("Failed to delete additional slot.");
+        }
+
+        redirectToOfficeHoursDashboard();
+    } catch (Throwable $e) {
+        Notifications::error("Failed to delete additional slot.");
+        redirectToOfficeHoursDashboard();
+    }
+}
+
+/*
+------------------------------------------------------------
 ADD SLOT
 ------------------------------------------------------------
 */

@@ -213,6 +213,18 @@ $selectedDepartment = isset($_GET['department_id']) ? (int)$_GET['department_id'
 $selectedDegree = isset($_GET['degree_id']) ? (int)$_GET['degree_id'] : 0;
 $selectedYear = isset($_GET['year']) ? (int)$_GET['year'] : 0;
 
+$pdfQueryParams = [];
+if ($selectedDepartment > 0) {
+  $pdfQueryParams['department_id'] = $selectedDepartment;
+}
+if ($selectedDegree > 0) {
+  $pdfQueryParams['degree_id'] = $selectedDegree;
+}
+if ($selectedYear > 0) {
+  $pdfQueryParams['year'] = $selectedYear;
+}
+$superUserPdfUrl = 'superuser_reports_pdf.php' . ($pdfQueryParams !== [] ? '?' . http_build_query($pdfQueryParams) : '');
+
 $departments = $reports->getDepartments();
 $statsDegrees = $reports->getDegrees($statsDepartment > 0 ? $statsDepartment : null);
 $statsDepartmentName = $t('all_departments');
@@ -283,12 +295,6 @@ $advisorCounts = $reports->getAdvisorStudentCounts(
   </div>
 
   <div class="d-flex align-items-center gap-3">
-    <a href="admin_appointment_reports.php" class="btn btn-outline-success btn-sm">
-      <i class="bi bi-clipboard-data me-1"></i> <?= htmlspecialchars($t('appointment_reports')) ?>
-    </a>
-    <a href="superuser_reports_pdf.php" class="btn btn-outline-primary btn-sm">
-      <i class="bi bi-file-earmark-pdf me-1"></i> <?= htmlspecialchars($t('superuser_reports_pdf')) ?>
-    </a>
     <a href="<?= htmlspecialchars($toggleUrl) ?>" class="btn btn-sm btn-outline-secondary rounded-pill px-2 py-1">
       <i class="bi bi-globe2 me-1"></i><?= htmlspecialchars($langButtonLabel) ?>
     </a>
@@ -300,6 +306,12 @@ $advisorCounts = $reports->getAdvisorStudentCounts(
         <button class="dropdown-item" type="button" data-bs-toggle="modal" data-bs-target="#manualInstructionsModal">
           <i class="bi bi-journal-text me-2"></i><?= htmlspecialchars($t('manual')) ?>
         </button>
+        <a class="dropdown-item" href="admin_appointment_reports.php">
+          <i class="bi bi-clipboard-data me-2"></i><?= htmlspecialchars($t('appointment_reports')) ?>
+        </a>
+        <a class="dropdown-item" href="<?= htmlspecialchars($superUserPdfUrl) ?>">
+          <i class="bi bi-file-earmark-pdf me-2"></i><?= htmlspecialchars($t('superuser_reports_pdf')) ?>
+        </a>
         <div class="dropdown-divider"></div>
         <form action="../backend/modules/dispatcher.php" method="POST" class="mb-0">
           <input type="hidden" name="action" value="/logout">

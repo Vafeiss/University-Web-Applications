@@ -44,8 +44,9 @@ class Notifications{
         <style>
             .custom-toast-notification{
                 position: fixed;
-                top: 20px;
-                right: 20px;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
                 min-width: 320px;
                 max-width: 420px;
                 background: #ffffff;
@@ -54,8 +55,15 @@ class Notifications{
                 box-shadow: 0 10px 30px rgba(0,0,0,0.18);
                 z-index: 99999;
                 overflow: hidden;
-                animation: slideInRight 0.35s ease;
+                animation: popInCenter 0.3s ease;
                 font-family: Arial, Helvetica, sans-serif;
+            }
+
+            @media (max-width: 576px){
+                .custom-toast-notification{
+                    min-width: calc(100vw - 32px);
+                    max-width: calc(100vw - 32px);
+                }
             }
 
             .custom-toast-header{
@@ -88,25 +96,25 @@ class Notifications{
                 color: #000;
             }
 
-            @keyframes slideInRight{
+            @keyframes popInCenter{
                 from{
                     opacity: 0;
-                    transform: translateX(100%);
+                    transform: translate(-50%, -50%) scale(0.96);
                 }
                 to{
                     opacity: 1;
-                    transform: translateX(0);
+                    transform: translate(-50%, -50%) scale(1);
                 }
             }
 
             @keyframes fadeOutToast{
                 from{
                     opacity: 1;
-                    transform: translateX(0);
+                    transform: translate(-50%, -50%) scale(1);
                 }
                 to{
                     opacity: 0;
-                    transform: translateX(40px);
+                    transform: translate(-50%, -50%) scale(0.96);
                 }
             }
         </style>

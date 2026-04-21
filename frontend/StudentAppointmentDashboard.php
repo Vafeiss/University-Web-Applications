@@ -125,7 +125,7 @@ $lang = isset($_SESSION['appointment_dashboard_lang']) && in_array($_SESSION['ap
 $translations = [
   'en' => [
     'page_title' => 'Student Appointment Portal',
-    'welcome' => 'Welcome To Advicut! 👋',
+    'welcome' => 'Welcome to AdviCut, %s! 👋',
     'notifications' => 'Notifications',
     'notifications_subtitle' => 'Appointment-related updates',
     'no_notifications' => 'No notifications yet.',
@@ -155,7 +155,7 @@ $translations = [
   ],
   'el' => [
     'page_title' => 'Πύλη Ραντεβού Φοιτητή',
-    'welcome' => 'Καλώς ήρθες στο Advicut! 👋',
+    'welcome' => 'Καλώς ήρθες στο AdviCut, %s! 👋',
     'notifications' => 'Ειδοποιήσεις',
     'notifications_subtitle' => 'Ενημερώσεις σχετικές με ραντεβού',
     'no_notifications' => 'Δεν υπάρχουν ειδοποιήσεις ακόμη.',
@@ -186,7 +186,7 @@ $translations = [
 ];
 
 $translations['en'] = array_merge($translations['en'], [
-  'welcome' => 'Welcome To Advicut! 👋',
+  'welcome' => 'Welcome to AdviCut, %s! 👋',
   'requests_subtitle' => 'View all your pending appointment requests',
   'search_requests' => 'Search requests...',
   'advisor' => 'Advisor',
@@ -254,7 +254,7 @@ $translations['en'] = array_merge($translations['en'], [
 ]);
 
 $translations['el'] = array_merge($translations['el'], [
-  'welcome' => 'Καλώς ήρθες στο Advicut! 👋',
+  'welcome' => 'Καλώς ήρθες στο AdviCut, %s! 👋',
   'requests_subtitle' => 'Δείτε όλα τα εκκρεμή αιτήματα ραντεβού σας',
   'search_requests' => 'Αναζήτηση αιτημάτων...',
   'advisor' => 'Σύμβουλος',
@@ -426,6 +426,7 @@ $langButtonLabel = $lang === 'en' ? 'EN / EL' : 'EL / EN';
 $currentStudent = [];
 $myAdvisor = null;
 $studentExternalId = 0;
+$studentName = 'Student';
 
 if ($studentId > 0) {
   try {
@@ -443,14 +444,15 @@ if ($studentId > 0) {
   }
 }
 
+$studentFirstName = trim((string)($currentStudent['First_name'] ?? ''));
+if ($studentFirstName !== '') {
+  $studentName = $studentFirstName;
+} elseif (!empty($_SESSION['First_name']) && is_string($_SESSION['First_name'])) {
+  $studentName = trim((string)$_SESSION['First_name']);
+}
+
 // Get active section from URL
 $activeSection = isset($_GET['section']) ? $_GET['section'] : 'calendar';
-
-// Flash messages
-$flash = isset($_SESSION['flash']) ? $_SESSION['flash'] : null;
-$flashType = isset($_SESSION['flash_type']) ? $_SESSION['flash_type'] : 'success';
-
-unset($_SESSION['flash'], $_SESSION['flash_type']);
 
 // Student advisor mapping
 $advisorId = null;
@@ -621,11 +623,22 @@ FETCH ONLY PENDING STUDENT REQUESTS
 ------------------------------------------------------------
 */
 try {
-    $sql = "SELECT Request_ID, Student_ID, Advisor_ID, OfficeHour_ID, Appointment_Date, Student_Reason, Advisor_Reason, Status, Created_At
-            FROM appointment_requests
-            WHERE Student_ID = :student_id
+    $sql = "SELECT ar.Request_ID,
+                   ar.Student_ID,
+                   ar.Advisor_ID,
+                   u.First_name AS Advisor_First_Name,
+                   u.Last_Name AS Advisor_Last_Name,
+                   ar.OfficeHour_ID,
+                   ar.Appointment_Date,
+                   ar.Student_Reason,
+                   ar.Advisor_Reason,
+                   ar.Status,
+                   ar.Created_At
+            FROM appointment_requests ar
+            LEFT JOIN users u ON ar.Advisor_ID = u.User_ID
+            WHERE ar.Student_ID = :student_id
               AND LOWER(TRIM(Status)) = 'pending'
-            ORDER BY Created_At DESC";
+            ORDER BY ar.Created_At DESC";
 
     $stmt = $pdo->prepare($sql);
     $stmt->execute([
@@ -830,7 +843,7 @@ try {
   <img src="../documents/tepaklogo.png" alt="Logo" class="logo">
 
   <div class="navbar-center">
-    <span class="welcome-text"><?= htmlspecialchars($t('welcome')) ?></span>
+    <span class="welcome-text"><?= htmlspecialchars(sprintf($t('welcome'), $studentName)) ?></span>
   </div>
 
   <div class="d-flex align-items-center gap-3">
@@ -1153,12 +1166,42 @@ try {
               </tr>
             <?php else: ?>
               <?php foreach ($studentRequests as $request): ?>
+                <?php
+                  $requestAdvisorName = trim(
+                    (string)($request['Advisor_First_Name'] ?? '') . ' ' .
+                    (string)($request['Advisor_Last_Name'] ?? '')
+                  );
+                  $studentReason = trim((string)($request['Student_Reason'] ?? ''));
+                  $declineReason = trim((string)($request['Advisor_Reason'] ?? ''));
+                ?>
                 <tr class="student-request-row">
-                  <td><?= htmlspecialchars('Advisor ID: ' . (string)$request['Advisor_ID']) ?></td>
+                  <td><?= htmlspecialchars($requestAdvisorName !== '' ? $requestAdvisorName : $t('advisor')) ?></td>
                   <td><?= htmlspecialchars((string)$request['Appointment_Date']) ?></td>
-                  <td><?= htmlspecialchars((string)$request['Student_Reason']) ?></td>
+                  <td>
+                    <?php if ($studentReason !== ''): ?>
+                      <button type="button"
+                              class="btn btn-outline-primary btn-sm request-reason-btn"
+                              data-reason-title="<?= htmlspecialchars($t('reason')) ?>"
+                              data-reason-content="<?= htmlspecialchars($studentReason) ?>">
+                        <?= htmlspecialchars($t('view_reason')) ?>
+                      </button>
+                    <?php else: ?>
+                      <span class="text-muted">-</span>
+                    <?php endif; ?>
+                  </td>
                   <td><span class="badge bg-secondary"><?= htmlspecialchars($t('pending')) ?></span></td>
-                  <td>-</td>
+                  <td>
+                    <?php if ($declineReason !== ''): ?>
+                      <button type="button"
+                              class="btn btn-outline-primary btn-sm request-reason-btn"
+                              data-reason-title="<?= htmlspecialchars($t('decline_reason')) ?>"
+                              data-reason-content="<?= htmlspecialchars($declineReason) ?>">
+                        <?= htmlspecialchars($t('view_reason')) ?>
+                      </button>
+                    <?php else: ?>
+                      <span class="text-muted">-</span>
+                    <?php endif; ?>
+                  </td>
                 </tr>
               <?php endforeach; ?>
             <?php endif; ?>
@@ -1519,6 +1562,24 @@ try {
   </div>
 </div>
 
+<!-- Request Reason Modal -->
+<div class="modal fade" id="requestReasonModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content rounded-4">
+      <div class="modal-header">
+        <h5 class="modal-title" id="requestReasonModalTitle"><?= htmlspecialchars($t('reason')) ?></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="<?= htmlspecialchars($t('close')) ?>"></button>
+      </div>
+      <div class="modal-body">
+        <textarea id="requestReasonModalText" class="form-control" rows="8" readonly style="resize: vertical; min-height: 220px;"></textarea>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-primary" data-bs-dismiss="modal"><?= htmlspecialchars($t('close')) ?></button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/locales-all.global.min.js"></script>
@@ -1530,6 +1591,7 @@ let commLoaded = false;
 let studentCalendarLoaded = false;
 let studentCalendarInstance = null;
 let historyDetailsModal = null;
+let requestReasonModal = null;
 
 function openHistoryDetailsModal(reasonText) {
   const content = document.getElementById('historyDetailsText');
@@ -1538,6 +1600,17 @@ function openHistoryDetailsModal(reasonText) {
   const cleanReason = String(reasonText ?? '').trim();
   content.textContent = cleanReason !== '' ? cleanReason : '-';
   historyDetailsModal.show();
+}
+
+function openRequestReasonModal(titleText, reasonText) {
+  const titleEl = document.getElementById('requestReasonModalTitle');
+  const textEl = document.getElementById('requestReasonModalText');
+
+  if (!titleEl || !textEl || !requestReasonModal) return;
+
+  titleEl.textContent = String(titleText ?? '').trim() || <?= json_encode($t('reason')) ?>;
+  textEl.value = String(reasonText ?? '').trim() || '-';
+  requestReasonModal.show();
 }
 
 const studentCalendarEvents = <?= json_encode($studentCalendarEvents, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
@@ -1638,10 +1711,15 @@ function commFetchThread() {
   const fd = new FormData();
   fd.append('action', '/student/message/thread');
   fd.append('student_id', window.commStudentId);
+  fd.append('_csrf', <?= json_encode($csrfToken) ?>);
 
   fetch('../backend/modules/dispatcher.php', { method: 'POST', body: fd })
     .then(r => r.json())
-    .then(messages => {
+    .then(payload => {
+      const messages = Array.isArray(payload)
+        ? payload
+        : (payload && Array.isArray(payload.data) ? payload.data : []);
+
       if (!messages.length) {
         box.innerHTML = [
           '<div class="comm-placeholder">',
@@ -1658,6 +1736,7 @@ function commFetchThread() {
       const markReadFd = new FormData();
       markReadFd.append('action', '/student/message/read');
       markReadFd.append('student_id', window.commStudentId);
+      markReadFd.append('_csrf', <?= json_encode($csrfToken) ?>);
       fetch('../backend/modules/dispatcher.php', { method: 'POST', body: markReadFd }).catch(() => {});
     })
     .catch(() => {
@@ -1713,6 +1792,7 @@ function commSend() {
   fd.append('action', '/student/message/send');
   fd.append('student_id', window.commStudentId);
   fd.append('message_body', body);
+  fd.append('_csrf', <?= json_encode($csrfToken) ?>);
 
   fetch('../backend/modules/dispatcher.php', { method: 'POST', body: fd })
     .then(r => r.json())
@@ -1722,7 +1802,7 @@ function commSend() {
         commWordCount(textarea);
         commFetchThread();
       } else {
-        showPageMessage(data.error || <?= json_encode($t('failed_to_send_message')) ?>, 'danger');
+        showPageMessage(data.message || <?= json_encode($t('failed_to_send_message')) ?>, 'danger');
         btn.disabled = false;
       }
     })
@@ -1749,9 +1829,23 @@ document.addEventListener("DOMContentLoaded", function () {
     historyDetailsModal = new bootstrap.Modal(historyModalEl);
   }
 
+  const requestReasonModalEl = document.getElementById('requestReasonModal');
+  if (requestReasonModalEl) {
+    requestReasonModal = new bootstrap.Modal(requestReasonModalEl);
+  }
+
   document.querySelectorAll('.history-details-btn').forEach(function (btn) {
     btn.addEventListener('click', function () {
       openHistoryDetailsModal(btn.getAttribute('data-history-reason'));
+    });
+  });
+
+  document.querySelectorAll('.request-reason-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      openRequestReasonModal(
+        btn.getAttribute('data-reason-title'),
+        btn.getAttribute('data-reason-content')
+      );
     });
   });
 

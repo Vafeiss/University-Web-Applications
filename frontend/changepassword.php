@@ -12,7 +12,20 @@ if (!isset($_SESSION["UserID"])) {
     header("Location: index.php?error=not_logged_in");
     exit();
 
-} ?>
+}
+
+$fallbackBackUrl = 'index.php';
+$role = strtolower(trim((string)($_SESSION['role'] ?? '')));
+if ($role === 'student') {
+    $fallbackBackUrl = 'StudentAppointmentDashboard.php';
+} elseif ($role === 'advisor') {
+    $fallbackBackUrl = 'AdvisorAppointmentDashboard.php';
+} elseif ($role === 'admin') {
+    $fallbackBackUrl = 'admin_dashboard.php';
+} elseif ($role === 'superuser') {
+    $fallbackBackUrl = 'superuser_reports.php';
+}
+?>
 
 <!DOCTYPE html>
 <html>
@@ -68,6 +81,10 @@ if (!isset($_SESSION["UserID"])) {
     </div>
 
     <button type="submit" class="btn btn-primary w-100">Update Password</button>
+    <button type="button" class="btn btn-outline-secondary w-100 mt-2"
+            onclick="if (window.history.length > 1) { window.history.back(); } else { window.location.href='<?= htmlspecialchars($fallbackBackUrl, ENT_QUOTES, 'UTF-8') ?>'; }">
+        Back
+    </button>
 
 </form>
 </div>

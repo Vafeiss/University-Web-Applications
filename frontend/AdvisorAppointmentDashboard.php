@@ -214,6 +214,11 @@ $translations['en'] = array_merge($translations['en'], [
     'declined' => 'Declined',
     'my_students_title' => 'My Students',
     'my_students_subtitle' => 'View students currently assigned to you',
+    'search_students' => 'Search students...',
+    'filter_by_year' => 'Filter by year',
+    'all_years' => 'All years',
+    'apply_filters' => 'Apply filters',
+    'reset' => 'Reset',
     'name' => 'Name',
     'last_name' => 'Last Name',
     'year' => 'Year',
@@ -263,6 +268,7 @@ $translations['en'] = array_merge($translations['en'], [
     'network_error_sending' => 'Network error while sending message.',
     'you' => 'You',
     'delete_office_hour_confirm' => 'Delete this office hour slot?',
+    'delete_additional_slot_confirm' => 'Delete this additional slot?',
     'decline_reason_placeholder' => 'Write the reason for declining this request...',
     'ok' => 'OK'
 ]);
@@ -304,6 +310,11 @@ $translations['el'] = array_merge($translations['el'], [
     'declined' => 'Απορρίφθηκε',
     'my_students_title' => 'Οι Φοιτητές Μου',
     'my_students_subtitle' => 'Δείτε τους φοιτητές που είναι αυτή τη στιγμή ανατεθειμένοι σε εσάς',
+    'search_students' => 'Αναζήτηση φοιτητών...',
+    'filter_by_year' => 'Φίλτρο ανά έτος',
+    'all_years' => 'Όλα τα έτη',
+    'apply_filters' => 'Εφαρμογή φίλτρων',
+    'reset' => 'Επαναφορά',
     'name' => 'Όνομα',
     'last_name' => 'Επώνυμο',
     'year' => 'Έτος',
@@ -357,6 +368,9 @@ $translations['en'] = array_merge($translations['en'], [
     'you' => 'You',
     'delete_office_hour_confirm' => 'Delete this office hour slot?',
     'decline_reason_placeholder' => 'Write the reason for declining this request...',
+    'confirm_action' => 'Confirm Action',
+    'confirm_continue' => 'Are you sure you want to continue?',
+    'confirm' => 'Confirm',
     'ok' => 'OK'
 ]);
 
@@ -380,7 +394,11 @@ $translations['el'] = array_merge($translations['el'], [
     'network_error_sending' => 'Σφάλμα δικτύου κατά την αποστολή μηνύματος.',
     'you' => 'Εσείς',
     'delete_office_hour_confirm' => 'Να διαγραφεί αυτή η ώρα γραφείου;',
+    'delete_additional_slot_confirm' => 'Να διαγραφεί αυτό το επιπλέον slot;',
     'decline_reason_placeholder' => 'Γράψτε τον λόγο απόρριψης αυτού του αιτήματος...',
+    'confirm_action' => 'Επιβεβαίωση Ενέργειας',
+    'confirm_continue' => 'Είστε σίγουροι ότι θέλετε να συνεχίσετε;',
+    'confirm' => 'Επιβεβαίωση',
     'ok' => 'OK'
 ]);
 
@@ -408,12 +426,12 @@ $translations['en'] = array_merge($translations['en'], [
 ]);
 
 $translations['el'] = array_merge($translations['el'], [
-    'could_not_load_additional_slots' => 'Î”ÎµÎ½ Î®Ï„Î±Î½ Î´Ï…Î½Î±Ï„Î® Î· Ï†ÏŒÏÏ„Ï‰ÏƒÎ· ÎµÏ€Î¹Ï€Î»Î­Î¿Î½ slot.',
-    'additional_slots_title' => 'Î•Ï€Î¹Ï€Î»Î­Î¿Î½ Slots',
-    'additional_slots_subtitle' => 'Î”ÎµÎ¯Ï„Îµ Ï„Î· one-off custom Î´Î¹Î±Î¸ÎµÏƒÎ¹Î¼ÏŒÏ„Î·Ï„Î± ÏÎ±Î½Ï„ÎµÎ²Î¿Ï ÏƒÎ±Ï‚',
-    'type' => 'Î¤ÏÏ€Î¿Ï‚',
-    'additional' => 'Î•Ï€Î¹Ï€Î»Î­Î¿Î½',
-    'no_additional_slots_found' => 'Î”ÎµÎ½ Î²ÏÎ­Î¸Î·ÎºÎ±Î½ ÎµÏ€Î¹Ï€Î»Î­Î¿Î½ slots.'
+    'could_not_load_additional_slots' => 'Δεν ήταν δυνατή η φόρτωση επιπλέον slots.',
+    'additional_slots_title' => 'Επιπλέον Slots',
+    'additional_slots_subtitle' => 'Δείτε τη μη επαναλαμβανόμενη διαθεσιμότητα ραντεβού σας',
+    'type' => 'Τύπος',
+    'additional' => 'Επιπλέον',
+    'no_additional_slots_found' => 'Δεν βρέθηκαν επιπλέον slots.'
 ]);
 
 $t = static function (string $key) use ($translations, $lang): string {
@@ -485,6 +503,7 @@ $advisorCalendarError = '';
 
 $assignedStudents = [];
 $communicationsError = '';
+$selectedStudentsYear = trim((string)($_GET['student_year'] ?? ''));
 
 $advisorNotifications = [];
 $advisorNotificationsError = '';
@@ -588,6 +607,7 @@ try {
                       ar.Request_ID,
                       COALESCE(s.External_ID, ar.Student_ID) AS Student_External_ID,
                       ar.Status,
+                      ar.Student_Reason,
                       ar.Advisor_Reason,
                       ar.Appointment_Date,
                       ar.Created_At
@@ -610,6 +630,12 @@ try {
 try {
     $advisorModule = new AdvisorClass();
     $assignedStudents = $advisorModule->getAssignedStudents($advisorId);
+
+    if ($selectedStudentsYear !== '') {
+        $assignedStudents = array_values(array_filter($assignedStudents, static function (array $student) use ($selectedStudentsYear): bool {
+            return (string)($student['StuYear'] ?? '') === $selectedStudentsYear;
+        }));
+    }
 } catch (Throwable $e) {
     $communicationsError = $t('could_not_load_communications');
 }
@@ -896,12 +922,38 @@ try {
                             </tr>
                         <?php else: ?>
                             <?php foreach ($requests as $request): ?>
+                                <?php
+                                    $requestStudentReason = trim((string)($request['Student_Reason'] ?? ''));
+                                    $requestAdvisorReason = trim((string)($request['Advisor_Reason'] ?? ''));
+                                ?>
                                 <tr class="request-row">
                                     <td><?= htmlspecialchars((string)($request['Student_External_ID'] ?? '-')) ?></td>
                                     <td><?= htmlspecialchars((string)$request['Appointment_Date']) ?></td>
-                                    <td><?= htmlspecialchars((string)$request['Student_Reason']) ?></td>
+                                    <td>
+                                        <?php if ($requestStudentReason !== ''): ?>
+                                            <button type="button"
+                                                    class="btn btn-outline-primary btn-sm advisor-reason-btn"
+                                                    data-reason-title="<?= htmlspecialchars($t('student_reason')) ?>"
+                                                    data-reason-content="<?= htmlspecialchars($requestStudentReason) ?>">
+                                                <?= htmlspecialchars($t('view_reason')) ?>
+                                            </button>
+                                        <?php else: ?>
+                                            <span class="text-muted">-</span>
+                                        <?php endif; ?>
+                                    </td>
                                     <td><span class="badge bg-secondary"><?= htmlspecialchars($t('pending')) ?></span></td>
-                                    <td><?= htmlspecialchars((string)($request['Advisor_Reason'] ?? '-')) ?></td>
+                                    <td>
+                                        <?php if ($requestAdvisorReason !== ''): ?>
+                                            <button type="button"
+                                                    class="btn btn-outline-primary btn-sm advisor-reason-btn"
+                                                    data-reason-title="<?= htmlspecialchars($t('advisor_reason')) ?>"
+                                                    data-reason-content="<?= htmlspecialchars($requestAdvisorReason) ?>">
+                                                <?= htmlspecialchars($t('view_reason')) ?>
+                                            </button>
+                                        <?php else: ?>
+                                            <span class="text-muted">-</span>
+                                        <?php endif; ?>
+                                    </td>
                                     <td>
                                         <div class="d-flex gap-2">
                                             <form action="../backend/modules/dispatcher.php" method="POST" class="mb-0">
@@ -931,51 +983,6 @@ try {
                 </table>
             </div>
 
-            <div class="section-card mt-4">
-                <div class="d-flex align-items-center justify-content-between mb-4">
-                    <div>
-                        <h5 class="mb-0 fw-semibold"><?= htmlspecialchars($t('additional_slots_title')) ?></h5>
-                        <p class="text-muted mb-0" style="font-size:.85rem;"><?= htmlspecialchars($t('additional_slots_subtitle')) ?></p>
-                    </div>
-                </div>
-
-                <?php if ($additionalSlotsError !== ''): ?>
-                    <div class="alert alert-danger">
-                        <?= htmlspecialchars($additionalSlotsError) ?>
-                    </div>
-                <?php endif; ?>
-
-                <div class="table-responsive">
-                    <table class="table table-sm table-hover align-middle mb-0">
-                        <thead class="table-light">
-                            <tr>
-                                <th><?= htmlspecialchars($t('date')) ?></th>
-                                <th><?= htmlspecialchars($t('start_time')) ?></th>
-                                <th><?= htmlspecialchars($t('end_time')) ?></th>
-                                <th><?= htmlspecialchars($t('type')) ?></th>
-                                <th><?= htmlspecialchars($t('status')) ?></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php if (count($additionalSlots) === 0): ?>
-                                <tr>
-                                    <td colspan="5" class="text-center text-muted"><?= htmlspecialchars($t('no_additional_slots_found')) ?></td>
-                                </tr>
-                            <?php else: ?>
-                                <?php foreach ($additionalSlots as $additionalSlot): ?>
-                                    <tr>
-                                        <td><?= htmlspecialchars((string)$additionalSlot['Slot_Date']) ?></td>
-                                        <td><?= htmlspecialchars(substr((string)$additionalSlot['Start_Time'], 0, 5)) ?></td>
-                                        <td><?= htmlspecialchars(substr((string)$additionalSlot['End_Time'], 0, 5)) ?></td>
-                                        <td><span class="badge bg-info text-dark"><?= htmlspecialchars($t('additional')) ?></span></td>
-                                        <td><span class="badge bg-success"><?= htmlspecialchars($t('active')) ?></span></td>
-                                    </tr>
-                                <?php endforeach; ?>
-                            <?php endif; ?>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
         </div>
     </div>
 
@@ -1038,6 +1045,60 @@ try {
                         <?php endif; ?>
                     </tbody>
                 </table>
+            </div>
+
+            <div class="section-card mt-4">
+                <div class="d-flex align-items-center justify-content-between mb-4">
+                    <div>
+                        <h5 class="mb-0 fw-semibold"><?= htmlspecialchars($t('additional_slots_title')) ?></h5>
+                        <p class="text-muted mb-0" style="font-size:.85rem;"><?= htmlspecialchars($t('additional_slots_subtitle')) ?></p>
+                    </div>
+                </div>
+
+                <?php if ($additionalSlotsError !== ''): ?>
+                    <div class="alert alert-danger">
+                        <?= htmlspecialchars($additionalSlotsError) ?>
+                    </div>
+                <?php endif; ?>
+
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th><?= htmlspecialchars($t('date')) ?></th>
+                                <th><?= htmlspecialchars($t('start_time')) ?></th>
+                                <th><?= htmlspecialchars($t('end_time')) ?></th>
+                                <th><?= htmlspecialchars($t('type')) ?></th>
+                                <th><?= htmlspecialchars($t('status')) ?></th>
+                                <th style="width:120px;"><?= htmlspecialchars($t('action')) ?></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php if (count($additionalSlots) === 0): ?>
+                                <tr>
+                                    <td colspan="6" class="text-center text-muted"><?= htmlspecialchars($t('no_additional_slots_found')) ?></td>
+                                </tr>
+                            <?php else: ?>
+                                <?php foreach ($additionalSlots as $additionalSlot): ?>
+                                    <tr>
+                                        <td><?= htmlspecialchars((string)$additionalSlot['Slot_Date']) ?></td>
+                                        <td><?= htmlspecialchars(substr((string)$additionalSlot['Start_Time'], 0, 5)) ?></td>
+                                        <td><?= htmlspecialchars(substr((string)$additionalSlot['End_Time'], 0, 5)) ?></td>
+                                        <td><span class="badge bg-info text-dark"><?= htmlspecialchars($t('additional')) ?></span></td>
+                                        <td><span class="badge bg-success"><?= htmlspecialchars($t('active')) ?></span></td>
+                                        <td>
+                                            <a href="../backend/controllers/AdvisorOfficeHours.php?delete_additional=<?= (int)$additionalSlot['AdditionalSlot_ID'] ?>"
+                                               class="btn btn-outline-danger btn-sm"
+                                               onclick="event.preventDefault(); customConfirm('<?= htmlspecialchars($t('delete_additional_slot_confirm')) ?>', function(ok) { if (ok) window.location.href = this.href; }.bind(this));">
+                                                <i class="bi bi-trash"></i>
+                                            </a>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            <?php endif; ?>
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
     </div>
@@ -1124,6 +1185,7 @@ try {
                             <th><?= htmlspecialchars($t('request_id')) ?></th>
                             <th><?= htmlspecialchars($t('student_id')) ?></th>
                             <th><?= htmlspecialchars($t('status')) ?></th>
+                            <th><?= htmlspecialchars($t('student_reason')) ?></th>
                             <th><?= htmlspecialchars($t('advisor_reason')) ?></th>
                             <th><?= htmlspecialchars($t('date')) ?></th>
                         </tr>
@@ -1131,10 +1193,12 @@ try {
                     <tbody>
                         <?php if (count($historyRows) === 0): ?>
                             <tr>
-                                <td colspan="5" class="text-center text-muted"><?= htmlspecialchars($t('no_history_found')) ?></td>
+                                <td colspan="6" class="text-center text-muted"><?= htmlspecialchars($t('no_history_found')) ?></td>
                             </tr>
                         <?php else: ?>
                             <?php foreach ($historyRows as $history): ?>
+                                <?php $historyStudentReason = trim((string)($history['Student_Reason'] ?? '')); ?>
+                                <?php $historyAdvisorReason = trim((string)($history['Advisor_Reason'] ?? '')); ?>
                                 <tr>
                                     <td><?= htmlspecialchars((string)$history['Request_ID']) ?></td>
                                     <td><?= htmlspecialchars((string)$history['Student_External_ID']) ?></td>
@@ -1149,7 +1213,30 @@ try {
                                             <span class="badge bg-primary"><?= htmlspecialchars((string)$history['Status']) ?></span>
                                         <?php endif; ?>
                                     </td>
-                                    <td><?= htmlspecialchars((string)($history['Advisor_Reason'] ?? '-')) ?></td>
+                                    <td>
+                                        <?php if ($historyStudentReason !== ''): ?>
+                                            <button type="button"
+                                                    class="btn btn-outline-primary btn-sm advisor-reason-btn"
+                                                    data-reason-title="<?= htmlspecialchars($t('student_reason')) ?>"
+                                                    data-reason-content="<?= htmlspecialchars($historyStudentReason) ?>">
+                                                <?= htmlspecialchars($t('view_reason')) ?>
+                                            </button>
+                                        <?php else: ?>
+                                            <span class="text-muted">-</span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td>
+                                        <?php if ($historyAdvisorReason !== ''): ?>
+                                            <button type="button"
+                                                    class="btn btn-outline-primary btn-sm advisor-reason-btn"
+                                                    data-reason-title="<?= htmlspecialchars($t('advisor_reason')) ?>"
+                                                    data-reason-content="<?= htmlspecialchars($historyAdvisorReason) ?>">
+                                                <?= htmlspecialchars($t('view_reason')) ?>
+                                            </button>
+                                        <?php else: ?>
+                                            <span class="text-muted">-</span>
+                                        <?php endif; ?>
+                                    </td>
                                    <td><?= htmlspecialchars((string)($history['Appointment_Date'] ?? $history['Created_At'])) ?></td>
                                 </tr>
                             <?php endforeach; ?>
@@ -1175,6 +1262,38 @@ try {
                 </div>
             <?php endif; ?>
 
+            <form method="GET" class="mb-3">
+                <input type="hidden" name="section" value="mystudents">
+
+                <div class="d-flex flex-wrap gap-2 mb-3">
+                    <button class="btn btn-outline-primary btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#studentYearFilterWrap" aria-expanded="false" aria-controls="studentYearFilterWrap">
+                        <i class="bi bi-calendar3 me-1"></i> <?= htmlspecialchars($t('filter_by_year')) ?>
+                    </button>
+                    <button class="btn btn-primary btn-sm" type="submit">
+                        <i class="bi bi-funnel-fill me-1"></i> <?= htmlspecialchars($t('apply_filters')) ?>
+                    </button>
+                    <a href="AdvisorAppointmentDashboard.php?section=mystudents" class="btn btn-outline-secondary btn-sm">
+                        <i class="bi bi-arrow-counterclockwise me-1"></i> <?= htmlspecialchars($t('reset')) ?>
+                    </a>
+                </div>
+
+                <div class="row g-2 align-items-end mb-3">
+                    <div class="col-sm-4 col-md-3 collapse <?= $selectedStudentsYear !== '' ? 'show' : '' ?>" id="studentYearFilterWrap">
+                        <label for="studentYearFilter" class="form-label mb-1"><?= htmlspecialchars($t('filter_by_year')) ?></label>
+                        <select class="form-select" id="studentYearFilter" name="student_year">
+                            <option value="" <?= $selectedStudentsYear === '' ? 'selected' : '' ?>><?= htmlspecialchars($t('all_years')) ?></option>
+                            <?php for ($yearValue = 1; $yearValue <= 6; $yearValue++): ?>
+                                <option value="<?= $yearValue ?>" <?= $selectedStudentsYear === (string)$yearValue ? 'selected' : '' ?>>
+                                    <?= htmlspecialchars(sprintf($t('year_label'), (string)$yearValue)) ?>
+                                </option>
+                            <?php endfor; ?>
+                        </select>
+                    </div>
+                </div>
+            </form>
+
+            <input class="form-control mb-3" id="studentSearch" placeholder="<?= htmlspecialchars($t('search_students')) ?>">
+
             <div class="table-responsive">
                 <table class="table table-sm table-hover align-middle mb-0">
                     <thead class="table-light">
@@ -1192,7 +1311,7 @@ try {
                             </tr>
                         <?php else: ?>
                             <?php foreach ($assignedStudents as $student): ?>
-                                <tr>
+                                <tr class="student-row" data-year="<?= htmlspecialchars((string)($student['StuYear'] ?? '')) ?>">
                                     <td><?= htmlspecialchars((string)($student['StuExternal_ID'] ?? '-')) ?></td>
                                     <td><?= htmlspecialchars((string)($student['First_name'] ?? '-')) ?></td>
                                     <td><?= htmlspecialchars((string)($student['Last_Name'] ?? '-')) ?></td>
@@ -1492,6 +1611,41 @@ try {
     </div>
 </div>
 
+<div class="modal fade" id="advisorReasonModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content rounded-4">
+            <div class="modal-header">
+                <h5 class="modal-title" id="advisorReasonModalTitle"><?= htmlspecialchars($t('reason')) ?></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="<?= htmlspecialchars($t('close')) ?>"></button>
+            </div>
+            <div class="modal-body">
+                <textarea id="advisorReasonModalText" class="form-control" rows="8" readonly style="resize: vertical; min-height: 220px;"></textarea>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" data-bs-dismiss="modal"><?= htmlspecialchars($t('close')) ?></button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="advisorConfirmModal" tabindex="-1" aria-labelledby="advisorConfirmModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-semibold" id="advisorConfirmModalLabel"><?= htmlspecialchars($t('confirm_action')) ?></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="<?= htmlspecialchars($t('close')) ?>"></button>
+            </div>
+            <div class="modal-body pt-2">
+                <p class="mb-0" id="advisorConfirmMessage"><?= htmlspecialchars($t('confirm_continue')) ?></p>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal"><?= htmlspecialchars($t('cancel')) ?></button>
+                <button type="button" class="btn btn-danger" id="advisorConfirmButton"><?= htmlspecialchars($t('confirm')) ?></button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/locales-all.global.min.js"></script>
@@ -1503,6 +1657,9 @@ let commActiveStudentId = 0;
 let commLoadedForStudent = 0;
 let advisorCalendarLoaded = false;
 let advisorCalendarInstance = null;
+let advisorReasonModal = null;
+let advisorConfirmModalInstance = null;
+let pendingAdvisorConfirmCallback = null;
 
 const advisorCalendarEvents = <?= json_encode($advisorCalendarEvents, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
 
@@ -1531,6 +1688,17 @@ function resetCalendarReasonState(wrapId) {
 
     const collapse = bootstrap.Collapse.getOrCreateInstance(wrap, { toggle: false });
     collapse.hide();
+}
+
+function openAdvisorReasonModal(titleText, reasonText) {
+    const titleEl = document.getElementById('advisorReasonModalTitle');
+    const textEl = document.getElementById('advisorReasonModalText');
+
+    if (!titleEl || !textEl || !advisorReasonModal) return;
+
+    titleEl.textContent = String(titleText ?? '').trim() || <?= json_encode($t('reason')) ?>;
+    textEl.value = String(reasonText ?? '').trim() || '-';
+    advisorReasonModal.show();
 }
 
 function renderAdvisorCalendar() {
@@ -1601,10 +1769,15 @@ function commLoadThread(studentId) {
     const fd = new FormData();
     fd.append('action', '/message/thread');
     fd.append('student_id', String(studentId));
+    fd.append('_csrf', <?= json_encode($csrfToken) ?>);
 
     fetch('../backend/modules/dispatcher.php', { method: 'POST', body: fd })
         .then(function (r) { return r.json(); })
-        .then(function (messages) {
+        .then(function (payload) {
+            const messages = Array.isArray(payload)
+                ? payload
+                : (payload && Array.isArray(payload.data) ? payload.data : []);
+
             if (!Array.isArray(messages) || messages.length === 0) {
                 box.innerHTML = '<div class="comm-placeholder"><i class="bi bi-chat"></i><p><?= htmlspecialchars($t('no_messages_yet_reply')) ?></p></div>';
             } else {
@@ -1629,6 +1802,7 @@ function commLoadThread(studentId) {
             const readFd = new FormData();
             readFd.append('action', '/message/read');
             readFd.append('student_id', String(studentId));
+            readFd.append('_csrf', <?= json_encode($csrfToken) ?>);
             fetch('../backend/modules/dispatcher.php', { method: 'POST', body: readFd }).catch(function () {});
 
             const activeItem = document.querySelector('.comm-student-item.active .comm-unread');
@@ -1665,6 +1839,7 @@ function commSend() {
     fd.append('action', '/message/send');
     fd.append('student_id', String(commActiveStudentId));
     fd.append('message_body', messageBody);
+    fd.append('_csrf', <?= json_encode($csrfToken) ?>);
 
     fetch('../backend/modules/dispatcher.php', { method: 'POST', body: fd })
         .then(function (r) { return r.json(); })
@@ -1674,7 +1849,7 @@ function commSend() {
                 commWordCount(textarea);
                 commLoadThread(commActiveStudentId);
             } else {
-                showPageMessage((data && data.error) ? data.error : <?= json_encode($t('failed_to_send_message')) ?>, 'danger');
+                showPageMessage((data && data.message) ? data.message : <?= json_encode($t('failed_to_send_message')) ?>, 'danger');
             }
         })
         .catch(function () {
@@ -1705,33 +1880,64 @@ function showPageMessage(message, type = 'success') {
   }, 3000);
 }
 
+function openAdvisorConfirmModal(message, options = {}) {
+    const modalElement = document.getElementById('advisorConfirmModal');
+    const messageElement = document.getElementById('advisorConfirmMessage');
+    const confirmButton = document.getElementById('advisorConfirmButton');
+
+    if (!modalElement || !messageElement || !confirmButton) {
+        return;
+    }
+
+    if (!advisorConfirmModalInstance) {
+        advisorConfirmModalInstance = new bootstrap.Modal(modalElement);
+    }
+
+    messageElement.textContent = String(message ?? '').trim() || <?= json_encode($t('confirm_continue')) ?>;
+    confirmButton.textContent = options.confirmLabel || <?= json_encode($t('confirm')) ?>;
+
+    pendingAdvisorConfirmCallback = typeof options.onConfirm === 'function' ? options.onConfirm : null;
+
+    confirmButton.onclick = function () {
+        if (advisorConfirmModalInstance) {
+            advisorConfirmModalInstance.hide();
+        }
+
+        const callback = pendingAdvisorConfirmCallback;
+        pendingAdvisorConfirmCallback = null;
+
+        if (callback) {
+            callback(true);
+        }
+    };
+
+    modalElement.addEventListener('hidden.bs.modal', function clearAdvisorConfirmState() {
+        pendingAdvisorConfirmCallback = null;
+        modalElement.removeEventListener('hidden.bs.modal', clearAdvisorConfirmState);
+    });
+
+    advisorConfirmModalInstance.show();
+}
+
 function customConfirm(message, callback) {
-  const box = document.createElement('div');
-  box.className = 'alert alert-warning position-fixed top-0 start-50 translate-middle-x mt-3 shadow';
-  box.style.zIndex = '9999';
-  box.style.minWidth = '300px';
-  box.innerHTML = `
-    <div class="mb-2">${message}</div>
-    <div class="d-flex justify-content-end gap-2">
-      <button class="btn btn-sm btn-secondary" id="cancelBtn"><?= htmlspecialchars($t('cancel')) ?></button>
-      <button class="btn btn-sm btn-danger" id="okBtn"><?= htmlspecialchars($t('ok')) ?></button>
-    </div>
-  `;
-
-  document.body.appendChild(box);
-
-  box.querySelector('#okBtn').onclick = () => {
-    box.remove();
-    callback(true);
-  };
-
-  box.querySelector('#cancelBtn').onclick = () => {
-    box.remove();
-    callback(false);
-  };
+    openAdvisorConfirmModal(message, { onConfirm: callback });
 }
 
 document.addEventListener("DOMContentLoaded", function () {
+    const advisorReasonModalEl = document.getElementById('advisorReasonModal');
+    if (advisorReasonModalEl) {
+        advisorReasonModal = new bootstrap.Modal(advisorReasonModalEl);
+    }
+
+    document.querySelectorAll('.advisor-reason-btn').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            openAdvisorReasonModal(
+                btn.getAttribute('data-reason-title'),
+                btn.getAttribute('data-reason-content')
+            );
+        });
+    });
+
     const params = new URLSearchParams(window.location.search);
     const section = params.get("section");
 
@@ -1794,6 +2000,16 @@ document.addEventListener("DOMContentLoaded", function () {
         requestSearch.addEventListener('input', function () {
             const q = this.value.toLowerCase();
             document.querySelectorAll('.request-row').forEach(function (row) {
+                row.style.display = row.textContent.toLowerCase().includes(q) ? '' : 'none';
+            });
+        });
+    }
+
+    const studentSearch = document.getElementById('studentSearch');
+    if (studentSearch) {
+        studentSearch.addEventListener('input', function () {
+            const q = this.value.toLowerCase();
+            document.querySelectorAll('.student-row').forEach(function (row) {
                 row.style.display = row.textContent.toLowerCase().includes(q) ? '' : 'none';
             });
         });

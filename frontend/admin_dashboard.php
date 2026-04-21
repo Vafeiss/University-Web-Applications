@@ -177,6 +177,7 @@ $translations = [
     'phone_number' => 'Phone Number',
     'delete_selected' => 'Delete Selected',
     'edit_selected' => 'Edit Selected',
+    'no_advisors_found' => 'No advisors found',
     'students' => 'Students',
     'manage_enrolled_students' => 'Manage enrolled students',
     'import_csv' => 'Import CSV',
@@ -250,6 +251,7 @@ $translations = [
     'phone_number' => 'Τηλέφωνο',
     'delete_selected' => 'Διαγραφή Επιλεγμένων',
     'edit_selected' => 'Επεξεργασία Επιλεγμένου',
+    'no_advisors_found' => 'Δεν βρέθηκαν σύμβουλοι',
     'students' => 'Φοιτητές',
     'manage_enrolled_students' => 'Διαχείριση εγγεγραμμένων φοιτητών',
     'import_csv' => 'Εισαγωγή CSV',
@@ -303,7 +305,7 @@ $promotion = new PromotionClass();
 $promotion->promoteStudents();
 
 //get result sets
-$advisors = $user->getAdvisors();
+$selectedAdvisorsDepartment = (int)($_GET['Advisor_Department'] ?? 0);
 //get students information for filtering
 $selectedStudentsYear =  trim((string)($_GET['student_year'] ?? ''));
 $selectedStudentsDegree = (int)($_GET['Student_Degree'] ?? 0);
@@ -344,6 +346,20 @@ if (is_array($availableFilterDegrees)) {
       $DegreeOptions[$degreeID] = $degreeName;
     }
   }
+}
+
+if ($selectedAdvisorsDepartment > 0 && !isset($DepartmentOptions[(string)$selectedAdvisorsDepartment])) {
+  $selectedAdvisorsDepartment = 0;
+}
+
+$advisors = resultFetchAllAssoc($user->getAdvisors());
+if ($selectedAdvisorsDepartment > 0) {
+  $advisors = array_values(array_filter(
+    $advisors,
+    static function (array $advisor) use ($selectedAdvisorsDepartment): bool {
+      return (int)($advisor['DepartmentID'] ?? 0) === $selectedAdvisorsDepartment;
+    }
+  ));
 }
 
 if ($selectedStudentsDegree > 0 && !isset($DegreeOptions[(string)$selectedStudentsDegree])) {
@@ -435,11 +451,6 @@ $totalAdvisors   = count($allAdvisors);
 $totalSuperusers = count($allSuperusers);
 $unassignedCount = $totalStudents - $assignedCount;
 
-// Flash messages
-$flash        = $_SESSION['flash']        ?? null;
-$flashType    = $_SESSION['flash_type']   ?? 'success';
-unset($_SESSION['flash'], $_SESSION['flash_type']);
-
 // Active section (default: advisors)
 $activeSection = $_GET['tab'] ?? ($_GET['section'] ?? 'advisors');
 Notifications::createNotification();
@@ -466,18 +477,6 @@ $YearOptions = [
   <link rel="stylesheet" href="css/admin_dashboard.css">
 </head>
 <body>
-
-<?php if ($flash): ?>
-<div class="flash-toast alert alert-<?= $flashType === 'error' ? 'danger' : 'success' ?> mb-0" id="flashToast">
-  <span class="flash-content">
-    <i class="bi bi-<?= $flashType === 'error' ? 'x-circle' : 'check-circle' ?>-fill"></i>
-    <?= htmlspecialchars($flash) ?>
-  </span>
-</div>
-<script>
-  setTimeout(() => document.getElementById('flashToast')?.remove(), 3500);
-</script>
-<?php endif; ?>
 
 
 <!-- navigation bar -->
@@ -568,7 +567,7 @@ $YearOptions = [
     <i class="bi bi-bar-chart-line"></i> <?= htmlspecialchars($t('tab_statistics')) ?>
   </button>
   <button class="tab-btn <?= $activeSection === 'degrees'    ? 'active' : '' ?>" data-section="degrees">
-    <i class="bi bi-graduation-cap"></i> <?= htmlspecialchars($t('tab_degrees')) ?>
+    <i class="bi bi-mortarboard"></i> <?= htmlspecialchars($t('tab_degrees')) ?>
   </button>
 </div>
 
@@ -592,6 +591,37 @@ $YearOptions = [
         </button>
       </div>
 
+      <form method="GET" class="mb-3">
+        <input type="hidden" name="tab" value="advisors">
+        <input type="hidden" name="section" value="advisors">
+
+        <div class="d-flex flex-wrap gap-2 mb-3">
+          <button class="btn btn-outline-primary btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#advisorDepartmentFilterWrap" aria-expanded="false" aria-controls="advisorDepartmentFilterWrap">
+            <i class="bi bi-building me-1"></i> <?= htmlspecialchars($t('department_filter')) ?>
+          </button>
+          <button class="btn btn-primary btn-sm" type="submit">
+            <i class="bi bi-funnel-fill me-1"></i> <?= htmlspecialchars($t('apply_filters')) ?>
+          </button>
+          <a href="admin_dashboard.php?section=advisors" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-arrow-counterclockwise me-1"></i> <?= htmlspecialchars($t('reset')) ?>
+          </a>
+        </div>
+
+        <div class="row g-2 align-items-end">
+          <div class="col-sm-4 col-md-3 collapse <?= $selectedAdvisorsDepartment > 0 ? 'show' : '' ?>" id="advisorDepartmentFilterWrap">
+            <label for="advisorDepartmentFilter" class="form-label mb-1"><?= htmlspecialchars($t('filter_by_department')) ?></label>
+            <select class="form-select" id="advisorDepartmentFilter" name="Advisor_Department">
+              <option value="" <?= $selectedAdvisorsDepartment === 0 ? 'selected' : '' ?>><?= htmlspecialchars($t('all_departments')) ?></option>
+              <?php foreach ($DepartmentOptions as $departmentValue => $departmentLabel): ?>
+              <option value="<?= htmlspecialchars($departmentValue) ?>" <?= (string)$selectedAdvisorsDepartment === (string)$departmentValue ? 'selected' : '' ?>>
+                <?= htmlspecialchars($departmentLabel) ?>
+              </option>
+              <?php endforeach; ?>
+            </select>
+          </div>
+        </div>
+      </form>
+
       <input class="form-control mb-3" id="advisorSearch" placeholder="<?= htmlspecialchars($t('search_advisors')) ?>">
 
       <form action="../backend/modules/dispatcher.php" method="POST" id="advisorForm">
@@ -611,27 +641,33 @@ $YearOptions = [
               </tr>
             </thead>
             <tbody>
-              <?php while (($advisor = resultFetchAssoc($advisors)) !== null): ?>
-              <tr class="advisor-row">
-                <td>
-                  <input class="form-check-input mt-0"
-                        type="checkbox"
-                        name="advisor_id[]"
-                        value="<?= htmlspecialchars($advisor['Advisor_ID']) ?>"
-                        data-first-name="<?= htmlspecialchars($advisor['First_name']) ?>"
-                        data-last-name="<?= htmlspecialchars($advisor['Last_Name']) ?>"
-                        data-email="<?= htmlspecialchars($advisor['Email']) ?>"
-                        data-phone="<?= htmlspecialchars($advisor['Phone'] ?? '') ?>"
-                        data-department-id="<?= htmlspecialchars((string)($advisor['DepartmentID'] ?? '')) ?>">
-                </td>
-                <td><?= htmlspecialchars($advisor['First_name']) ?></td>
-                <td><?= htmlspecialchars($advisor['Last_Name']) ?></td>
-                <td><?= htmlspecialchars($advisor['Advisor_ID']) ?></td>
-                <td><?= htmlspecialchars($advisor['Email']) ?></td>
-                <td><?= htmlspecialchars($advisor['Department']) ?></td>
-                <td><?= htmlspecialchars($advisor['Phone'] ?? '') ?></td>
+              <?php if (empty($advisors)): ?>
+              <tr>
+                <td colspan="7" class="text-center text-muted py-4"><?= htmlspecialchars($t('no_advisors_found')) ?></td>
               </tr>
-              <?php endwhile; ?>
+              <?php else: ?>
+                <?php foreach ($advisors as $advisor): ?>
+                <tr class="advisor-row" data-department-id="<?= htmlspecialchars((string)($advisor['DepartmentID'] ?? '')) ?>">
+                  <td>
+                    <input class="form-check-input mt-0"
+                          type="checkbox"
+                          name="advisor_id[]"
+                          value="<?= htmlspecialchars($advisor['Advisor_ID']) ?>"
+                          data-first-name="<?= htmlspecialchars($advisor['First_name']) ?>"
+                          data-last-name="<?= htmlspecialchars($advisor['Last_Name']) ?>"
+                          data-email="<?= htmlspecialchars($advisor['Email']) ?>"
+                          data-phone="<?= htmlspecialchars($advisor['Phone'] ?? '') ?>"
+                          data-department-id="<?= htmlspecialchars((string)($advisor['DepartmentID'] ?? '')) ?>">
+                  </td>
+                  <td><?= htmlspecialchars($advisor['First_name']) ?></td>
+                  <td><?= htmlspecialchars($advisor['Last_Name']) ?></td>
+                  <td><?= htmlspecialchars($advisor['Advisor_ID']) ?></td>
+                  <td><?= htmlspecialchars($advisor['Email']) ?></td>
+                  <td><?= htmlspecialchars($advisor['Department']) ?></td>
+                  <td><?= htmlspecialchars($advisor['Phone'] ?? '') ?></td>
+                </tr>
+                <?php endforeach; ?>
+              <?php endif; ?>
             </tbody>
           </table>
         </div>
@@ -1764,6 +1800,22 @@ $YearOptions = [
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script>
 
+const CSRF_TOKEN = <?= json_encode($csrfToken) ?>;
+
+function injectCsrfTokenIntoDispatcherForms() {
+  document.querySelectorAll('form[action*="dispatcher.php"][method="POST"]').forEach(function (form) {
+    if (form.querySelector('input[name="_csrf"]')) {
+      return;
+    }
+
+    const tokenInput = document.createElement('input');
+    tokenInput.type = 'hidden';
+    tokenInput.name = '_csrf';
+    tokenInput.value = CSRF_TOKEN;
+    form.appendChild(tokenInput);
+  });
+}
+
 let pendingConfirmForm = null;
 let pendingConfirmCallback = null;
 let adminConfirmModalInstance = null;
@@ -1831,6 +1883,8 @@ function showPageMessage(message, type = 'success') {
 }
 
 document.addEventListener('DOMContentLoaded', function () {
+  injectCsrfTokenIntoDispatcherForms();
+
   const confirmButton = document.getElementById('adminConfirmButton');
   const modalElement = document.getElementById('adminConfirmModal');
 
@@ -1880,6 +1934,28 @@ document.addEventListener('DOMContentLoaded', function () {
       });
     });
   });
+
+  document.addEventListener('submit', function (event) {
+    const form = event.target;
+
+    if (!(form instanceof HTMLFormElement)) {
+      return;
+    }
+
+    if (!form.matches('form[action*="dispatcher.php"][method="POST"]')) {
+      return;
+    }
+
+    if (form.querySelector('input[name="_csrf"]')) {
+      return;
+    }
+
+    const tokenInput = document.createElement('input');
+    tokenInput.type = 'hidden';
+    tokenInput.name = '_csrf';
+    tokenInput.value = CSRF_TOKEN;
+    form.appendChild(tokenInput);
+  }, true);
 });
 
 //script to maintain active tab on page reload and handle tab switching with URL
