@@ -8,6 +8,12 @@
 require '../backend/modules/ResetPassword.php';
 require '../backend/modules/Csrf.php';
 
+header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+header('Pragma: no-cache');
+header('Expires: 0');
+
+$csrfToken = Csrf::ensureToken();
+
 $message = '';
 
 $isError = false;
@@ -47,8 +53,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 </div>
             <?php endif; ?>
 
-            <form action="" method="POST">
-                <input type="hidden" name="_csrf" value="<?= htmlspecialchars(Csrf::ensureToken(), ENT_QUOTES, 'UTF-8') ?>">
+            <form action="forgot_password.php" method="POST">
+                <input type="hidden" name="_csrf" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
                 <div class="mb-3">
                     <label class="form-label" for="email">University Email</label>
                     <input type="email" class="form-control" id="email" name="email" required placeholder="you@edu.cut.ac.cy">

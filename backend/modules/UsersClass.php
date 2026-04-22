@@ -48,32 +48,16 @@ if (session_status() === PHP_SESSION_NONE) {
 }
 
 require_once __DIR__ . '/databaseconnect.php';
+require_once __DIR__ . '/../config/app.php';
 
 class Users {
 private PDO $conn;
 
-//have a base path function to help with redirections in the project
-private function appBasePath(): string {
-    $scriptName = str_replace('\\', '/', $_SERVER['SCRIPT_NAME'] ?? '');
-
-    $backendMarker = '/backend/modules/dispatcher.php';
-    $frontendMarker = '/frontend/';
-
-    $backendPos = strpos($scriptName, $backendMarker);
-    if ($backendPos !== false) {
-        return rtrim(substr($scriptName, 0, $backendPos), '/');
-    }
-
-    $frontendPos = strpos($scriptName, $frontendMarker);
-    if ($frontendPos !== false) {
-        return rtrim(substr($scriptName, 0, $frontendPos), '/');
-    }
-
-    return '';
-}
-
 private function redirectTo(string $path): void {
-    $target = $this->appBasePath() . '/' . ltrim($path, '/');
+    $target = preg_match('/^https?:\/\//i', $path)
+        ? $path
+        : app_url($path);
+
     header('Location: ' . $target);
     exit();
 }
@@ -84,16 +68,16 @@ private function dashboardPathForRole(string $role): ?string {
     $normalized = strtolower(trim($role));
 
     if ($normalized === 'student') {
-        return '/frontend/StudentAppointmentDashboard.php';
+        return 'frontend/StudentAppointmentDashboard.php';
     }
     if ($normalized === 'advisor') {
-        return '/frontend/AdvisorAppointmentDashboard.php';
+        return 'frontend/AdvisorAppointmentDashboard.php';
     }
     if ($normalized === 'admin') {
-        return '/frontend/admin_dashboard.php';
+        return 'frontend/admin_dashboard.php';
     }
     if ($normalized === 'superuser') {
-        return '/frontend/superuser_reports.php';
+        return 'frontend/superuser_reports.php';
     }
 
     return null;
@@ -210,14 +194,14 @@ private function isStrongPassword(string $password): bool {
 public function __construct() {
     //connect using the shared PDO connection used by backend modules
     $this->conn = ConnectToDatabase();
-}
+} 
 
 
     //method to log in the user by checking email and password to the advicut database
     public function Log_in(string $email, string $password) {
         try {
             if ($this->isLoginThrottled($email)) {
-                $this->redirectTo('/frontend/index.php?error=throttled');
+                $this->redirectTo('frontend/index.php?error=throttled');
             }
 
             //query to get all the students where email and password match the input parameters
@@ -228,20 +212,23 @@ public function __construct() {
 
             if ($row === false) { //error handling if email not found go back to index
                 $this->recordFailedLoginAttempt($email);
-                $this->redirectTo('/frontend/index.php?error=invalid');
+                $this->redirectTo('frontend/index.php?error=invalid');
             }
 
             //error handling if password wrong go back to index
-            if (!password_verify($password, (string)$row["Password"])) {
+            $passwordVerified = password_verify($password, (string)$row["Password"]);
+
+            if (!$passwordVerified) {
                 $this->recordFailedLoginAttempt($email);
-                $this->redirectTo('/frontend/index.php?error=invalid');
+                $this->redirectTo('frontend/index.php?error=invalid');
             }
 
             $this->clearLoginThrottle($email);
+
             $this->Validate_Credentials($row);
         } catch (PDOException $e) {
             error_log('Users::Log_in PDO error: ' . $e->getMessage());
-            $this->redirectTo('/frontend/index.php?error=database');
+            $this->redirectTo('frontend/index.php?error=database');
         }
         
     }
@@ -256,19 +243,19 @@ public function Log_out() {
     $_SESSION = [];
     session_destroy();
 
-    $this->redirectTo('/frontend/index.php');
+    $this->redirectTo('frontend/index.php');
 }
 
 public function Check_Session(?string $requiredRole = null) {
     // UserID is the primary key for an authenticated session.
     if (!isset($_SESSION['UserID'])) {
-        $this->redirectTo('/frontend/index.php?error=unauthorized');
+        $this->redirectTo('frontend/index.php?error=unauthorized');
     }
 
     //userid is numbers and not a invalid number 
     $userId = intval($_SESSION['UserID']);
     if ($userId <= 0) {
-        $this->redirectTo('/frontend/index.php?error=unauthorized');
+        $this->redirectTo('frontend/index.php?error=unauthorized');
     }
 
     try {
@@ -277,7 +264,7 @@ public function Check_Session(?string $requiredRole = null) {
         $stmt->execute([$userId]);
         $result3 = $stmt->fetch(PDO::FETCH_ASSOC);
         if ($result3 === false) {
-            $this->redirectTo('/frontend/index.php?error=unauthorized');
+            $this->redirectTo('frontend/index.php?error=unauthorized');
         }
 
         // Keep session values aligned with DB to avoid unnecessary logouts on refresh.
@@ -286,11 +273,11 @@ public function Check_Session(?string $requiredRole = null) {
 
         //if not the required role for the page then exit
         if ($requiredRole !== null && strcasecmp(trim((string)$result3['Role']), trim((string)$requiredRole)) !== 0) {
-            $this->redirectTo('/frontend/index.php?error=forbidden');
+            $this->redirectTo('frontend/index.php?error=forbidden');
         }
     } catch (PDOException $e) {
         error_log('Users::Check_Session PDO error: ' . $e->getMessage());
-        $this->redirectTo('/frontend/index.php?error=unauthorized');
+        $this->redirectTo('frontend/index.php?error=unauthorized');
     }
 }
 
@@ -303,27 +290,27 @@ public function Validate_Credentials($row) {
             $_SESSION['UserID'] = $row['User_ID'];
             $_SESSION['role'] = $row['Role'];}
         else {
-        $this->redirectTo('/frontend/index.php?error=invalid');
+        $this->redirectTo('frontend/index.php?error=invalid');
         }
             //redirect them to the right dashboard based on their role if the session it's valid and the credentials are correct
             if ($_SESSION['role'] == 'Student') {
-                $this->redirectTo('/frontend/StudentAppointmentDashboard.php');
+                $this->redirectTo('frontend/StudentAppointmentDashboard.php');
             }
             else if ($_SESSION['role'] == 'Advisor') {
-                $this->redirectTo('/frontend/AdvisorAppointmentDashboard.php');
+                $this->redirectTo('frontend/AdvisorAppointmentDashboard.php');
             }
             else if ($_SESSION['role'] == 'Admin') {
-                $this->redirectTo('/frontend/admin_dashboard.php');
+                $this->redirectTo('frontend/admin_dashboard.php');
             }
             else if ($_SESSION['role'] == 'SuperUser') {
-                $this->redirectTo('/frontend/superuser_reports.php');
+                $this->redirectTo('frontend/superuser_reports.php');
             }
         else {
             $fallbackPath = $this->dashboardPathForRole((string)($_SESSION['role'] ?? ''));
             if ($fallbackPath !== null) {
                 $this->redirectTo($fallbackPath);
             }
-            $this->redirectTo('/frontend/index.php');
+            $this->redirectTo('frontend/index.php');
         }
 }
 

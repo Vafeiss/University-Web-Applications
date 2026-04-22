@@ -9,11 +9,11 @@
   Files in Uses: UsersClass.php , routes.php , router.php , dispatcher.php*/
 
 declare(strict_types=1);
-
 require_once __DIR__ . '/../modules/UsersClass.php';
 require_once __DIR__ . '/../modules/NotificationsClass.php';
 require_once __DIR__ . '/../modules/Csrf.php';
 require_once __DIR__ . '/../modules/databaseconnect.php';
+require_once __DIR__ . '/../config/app.php';
 
 class UsersController {
 
@@ -21,19 +21,19 @@ class UsersController {
     {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             Notifications::error("Invalid request method.");
-            header('Location: ../../frontend/index.php');
+            header('Location: ' . frontend_url('index.php'));
             exit();
         }
 
         if (!Csrf::validateRequestToken()) {
             Notifications::error("Request validation failed.");
-            header('Location: ../../frontend/index.php');
+            header('Location: ' . frontend_url('index.php'));
             exit();
         }
 
         if (!isset($_SESSION['UserID']) || !is_numeric($_SESSION['UserID'])) {
             Notifications::error("Unauthorized session.");
-            header('Location: ../../frontend/index.php');
+            header('Location: ' . frontend_url('index.php'));
             exit();
         }
 
@@ -43,7 +43,7 @@ class UsersController {
 
         if ($notificationId <= 0) {
             Notifications::error("Invalid notification.");
-            header('Location: ../../frontend/' . $redirectTo);
+            header('Location: ' . frontend_url($redirectTo));
             exit();
         }
 
@@ -67,18 +67,18 @@ class UsersController {
             Notifications::error("Failed to delete notification.");
         }
 
-        header('Location: ../../frontend/' . $redirectTo);
+        header('Location: ' . frontend_url($redirectTo));
         exit();
     }
 
     public function logout(){
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            header('Location: ../../frontend/index.php');
+            header('Location: ' . frontend_url('index.php'));
             exit();
         }
 
         if (!Csrf::validateRequestToken()) {
-            header('Location: ../../frontend/index.php?error=unauthorized');
+            header('Location: ' . frontend_url('index.php?error=unauthorized'));
             exit();
         }
 
@@ -90,19 +90,19 @@ class UsersController {
     {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             Notifications::error("Invalid request method.");
-            header('Location: ../../frontend/changepassword.php');
+            header('Location: ' . frontend_url('changepassword.php'));
             exit();
         }
 
         if (!Csrf::validateRequestToken()) {
             Notifications::error("Request validation failed.");
-            header('Location: ../../frontend/changepassword.php');
+            header('Location: ' . frontend_url('changepassword.php'));
             exit();
         }
 
         if (!isset($_SESSION['UserID'])) {
             Notifications::error("You must be logged in to change your password.");
-            header('Location: ../../frontend/index.php');
+            header('Location: ' . frontend_url('index.php'));
             exit();
         }
 
@@ -119,20 +119,20 @@ class UsersController {
             strlen($confirmPassword) > 255
         ) {
             Notifications::error("Invalid password input.");
-            header('Location: ../../frontend/changepassword.php');
+            header('Location: ' . frontend_url('changepassword.php'));
             exit();
         }
 
         if ($newPassword !== $confirmPassword) {
             Notifications::error("Passwords do not match.");
-            header('Location: ../../frontend/changepassword.php');
+            header('Location: ' . frontend_url('changepassword.php'));
             exit();
         }
 
         // Validate password strength before attempting to change
         if (!$this->isStrongPassword($newPassword)) {
             Notifications::error("Password does not meet requirements.");
-            header('Location: ../../frontend/changepassword.php');
+            header('Location: ' . frontend_url('changepassword.php'));
             exit();
         }
 
@@ -141,12 +141,12 @@ class UsersController {
 
         if (!$result) {
             Notifications::error("Your current password is incorrect.");
-            header('Location: ../../frontend/changepassword.php');
+            header('Location: ' . frontend_url('changepassword.php'));
             exit();
         }
 
         Notifications::success("Password changed successfully.");
-        header('Location: ../../frontend/index.php');
+        header('Location: ' . frontend_url('index.php'));
         exit();
     }
 
@@ -208,12 +208,12 @@ class UsersController {
 
     public function Authentication(){
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            header('Location: ../../frontend/index.php');
+            header('Location: ' . frontend_url('index.php'));
             exit();
         }
 
         if (!Csrf::validateRequestToken()) {
-            header('Location: ../../frontend/index.php?error=unauthorized');
+            header('Location: ' . frontend_url('index.php?error=unauthorized'));
             exit();
         }
 
@@ -227,7 +227,7 @@ class UsersController {
             strlen($password) > 255 ||
             !filter_var($email, FILTER_VALIDATE_EMAIL)
         ) {
-            header('Location: ../../frontend/index.php?error=invalid');
+            header('Location: ' . frontend_url('index.php?error=invalid'));
             exit();
         }
 

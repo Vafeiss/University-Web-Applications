@@ -187,7 +187,7 @@ class Notifications{
                 return [];
             }
 
-            $sql = "SELECT Notification_ID, Type, Title, Message, Is_Read, Created_At
+                        $sql = "SELECT Notification_ID, Type, Title, Notification_Message AS Message, Is_Read, Created_At
                     FROM notifications
                     WHERE Recipient_ID = ?
                       AND Type = 'appointment_requested'
@@ -228,7 +228,7 @@ class Notifications{
                 return [];
             }
 
-            $sql = "SELECT Notification_ID, Type, Title, Message, Is_Read, Created_At
+                        $sql = "SELECT Notification_ID, Type, Title, Notification_Message AS Message, Is_Read, Created_At
                     FROM notifications
                     WHERE Recipient_ID = ?
                       AND Type IN ('appointment_approved', 'appointment_declined')

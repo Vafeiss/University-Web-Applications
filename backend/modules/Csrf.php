@@ -10,10 +10,25 @@ class Csrf
 {
     private const SESSION_KEY = 'csrf_token';
 
+    private static function startSessionIfPossible(): bool
+    {
+        if (session_status() !== PHP_SESSION_NONE) {
+            return true;
+        }
+
+        if (headers_sent()) {
+            error_log('Csrf::startSessionIfPossible skipped: headers already sent');
+            return false;
+        }
+
+        session_start();
+        return session_status() === PHP_SESSION_ACTIVE;
+    }
+
     public static function ensureToken(): string
     {
-        if (session_status() === PHP_SESSION_NONE) {
-            session_start();
+        if (!self::startSessionIfPossible()) {
+            return '';
         }
 
         if (empty($_SESSION[self::SESSION_KEY]) || !is_string($_SESSION[self::SESSION_KEY])) {
@@ -25,8 +40,8 @@ class Csrf
 
     public static function validateRequestToken(): bool
     {
-        if (session_status() === PHP_SESSION_NONE) {
-            session_start();
+        if (!self::startSessionIfPossible()) {
+            return false;
         }
 
         $sessionToken = $_SESSION[self::SESSION_KEY] ?? '';

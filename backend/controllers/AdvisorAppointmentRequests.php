@@ -32,5 +32,7 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-header('Location: ../../frontend/AdvisorAppointmentDashboard.php?section=requests');
+require_once __DIR__ . '/../config/app.php';
+
+header('Location: ' . frontend_url('AdvisorAppointmentDashboard.php?section=requests'));
 exit;

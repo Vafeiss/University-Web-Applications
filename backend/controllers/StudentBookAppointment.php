@@ -38,6 +38,7 @@ require_once __DIR__ . '/../modules/NotificationsClass.php';
 require_once __DIR__ . '/../modules/databaseconnect.php';
 require_once __DIR__ . '/../modules/UsersClass.php';
 require_once __DIR__ . '/../modules/Csrf.php';
+require_once __DIR__ . '/../config/app.php';
 
 $pdo = ConnectToDatabase();
 $user = new Users();
@@ -48,7 +49,7 @@ Helper function for redirecting back to student dashboard
 */
 function redirectToStudentDashboard(string $section = 'book'): void
 {
-    header("Location: ../../frontend/StudentAppointmentDashboard.php?section=" . urlencode($section));
+    header('Location: ' . frontend_url('StudentAppointmentDashboard.php?section=' . urlencode($section)));
     exit;
 }
 
@@ -337,7 +338,7 @@ try {
 
     try {
         $notificationSql = "INSERT INTO notifications
-                            (Recipient_ID, Sender_ID, Type, Title, Message, Related_Request_ID, Is_Read)
+                            (Recipient_ID, Sender_ID, Type, Title, Notification_Message, Related_Request_ID, Is_Read)
                             VALUES
                             (:recipient_id, :sender_id, :type, :title, :message, :related_request_id, :is_read)";
 

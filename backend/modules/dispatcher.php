@@ -8,8 +8,8 @@ Outputs: None
 Error Messages: None
 Files in use: AdminController.php and UsersController.php through the router.
 */
-
 require_once __DIR__ . '/../core/router.php';
+require_once __DIR__ . '/../config/app.php';
 require_once __DIR__ . '/../controllers/AdminController.php';
 require_once __DIR__ . '/../controllers/UsersController.php';
 require_once __DIR__ . '/../controllers/AppointmentController.php';
@@ -18,18 +18,35 @@ require_once __DIR__ . '/../controllers/AdvisorController.php';
 require_once __DIR__ . '/../controllers/StudentController.php';
 require_once __DIR__ . '/Csrf.php';
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-	$action = trim((string)($_POST['action'] ?? ''));
-	$resolvedPath = $action !== ''
-		? '/' . ltrim($action, '/')
-		: (string)parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH);
+if ((string)($_GET['route_diag'] ?? '') === '1') {
+    $diagRouter = new Router();
+    require __DIR__ . '/../core/routes.php';
 
-	$expectsJson = str_starts_with($resolvedPath, '/message/')
-		|| str_starts_with($resolvedPath, '/student/message/');
+    header('Content-Type: application/json');
+    echo json_encode([
+        'ok' => true,
+        'request_method' => $_SERVER['REQUEST_METHOD'] ?? null,
+        'request_uri' => $_SERVER['REQUEST_URI'] ?? null,
+        'post_login_route_exists' => $diagRouter->hasRoute('POST', '/login'),
+    ], JSON_PRETTY_PRINT);
+    exit();
+}
 
-	if (!Csrf::validateRequestToken()) {
-		Csrf::reject($expectsJson);
-	}
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    header('Location: ' . frontend_url('index.php'));
+    exit();
+}
+
+$action = trim((string)($_POST['action'] ?? ''));
+$resolvedPath = $action !== ''
+	? '/' . ltrim($action, '/')
+	: (string)parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH);
+
+$expectsJson = str_starts_with($resolvedPath, '/message/')
+	|| str_starts_with($resolvedPath, '/student/message/');
+
+if (!Csrf::validateRequestToken()) {
+	Csrf::reject($expectsJson);
 }
 
 

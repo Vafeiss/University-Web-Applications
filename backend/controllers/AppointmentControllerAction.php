@@ -46,14 +46,15 @@ if (session_status() === PHP_SESSION_NONE) {
 
 require_once __DIR__ . '/../modules/AppointmentApprovalClass.php';
 require_once __DIR__ . '/../modules/NotificationsClass.php';
+require_once __DIR__ . '/../config/app.php';
 
 class AppointmentControllerAction
 {
     private AppointmentApproval $appointmentApproval;
     private const REDIRECT_TARGETS = [
-        'advisor_dashboard_requests' => '../../frontend/AdvisorAppointmentDashboard.php?section=requests',
-        'advisor_dashboard_appointments' => '../../frontend/AdvisorAppointmentDashboard.php?section=appointments',
-        'advisor_requests_controller' => '../../backend/controllers/AdvisorAppointmentRequests.php'
+        'advisor_dashboard_requests' => 'frontend/AdvisorAppointmentDashboard.php?section=requests',
+        'advisor_dashboard_appointments' => 'frontend/AdvisorAppointmentDashboard.php?section=appointments',
+        'advisor_requests_controller' => 'backend/controllers/AdvisorAppointmentRequests.php'
     ];
 
     public function __construct()
@@ -112,7 +113,7 @@ class AppointmentControllerAction
 
                     if ($studentId > 0) {
                         $notificationSql = "INSERT INTO notifications
-                                            (Recipient_ID, Sender_ID, Type, Title, Message, Related_Request_ID, Related_Appointment_ID, Is_Read)
+                                            (Recipient_ID, Sender_ID, Type, Title, Notification_Message, Related_Request_ID, Related_Appointment_ID, Is_Read)
                                             VALUES
                                             (:recipient_id, :sender_id, :type, :title, :message, :related_request_id, :related_appointment_id, :is_read)";
 
@@ -226,7 +227,7 @@ class AppointmentControllerAction
 
                 if ($studentId > 0) {
                     $notificationSql = "INSERT INTO notifications
-                                        (Recipient_ID, Sender_ID, Type, Title, Message, Related_Request_ID, Is_Read)
+                                        (Recipient_ID, Sender_ID, Type, Title, Notification_Message, Related_Request_ID, Is_Read)
                                         VALUES
                                         (:recipient_id, :sender_id, :type, :title, :message, :related_request_id, :is_read)";
 
@@ -273,7 +274,7 @@ class AppointmentControllerAction
 
                 if ($studentId > 0) {
                     $notificationSql = "INSERT INTO notifications
-                                        (Recipient_ID, Sender_ID, Type, Title, Message, Related_Request_ID, Is_Read)
+                                        (Recipient_ID, Sender_ID, Type, Title, Notification_Message, Related_Request_ID, Is_Read)
                                         VALUES
                                         (:recipient_id, :sender_id, :type, :title, :message, :related_request_id, :is_read)";
 
@@ -314,7 +315,7 @@ class AppointmentControllerAction
             $location .= $separator . ltrim($query, '?&');
         }
 
-        header('Location: ' . $location);
+        header('Location: ' . app_url($location));
         exit();
     }
 }

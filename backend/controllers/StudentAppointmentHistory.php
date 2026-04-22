@@ -24,5 +24,7 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-header('Location: ../../frontend/StudentAppointmentDashboard.php?section=history');
+require_once __DIR__ . '/../config/app.php';
+
+header('Location: ' . frontend_url('StudentAppointmentDashboard.php?section=history'));
 exit;

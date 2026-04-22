@@ -31,6 +31,7 @@ session_start();
 require_once __DIR__ . '/../modules/databaseconnect.php';
 require_once __DIR__ . '/../modules/UsersClass.php';
 require_once __DIR__ . '/../modules/NotificationsClass.php';
+require_once __DIR__ . '/../config/app.php';
 
 $user = new Users();
 $user->Check_Session('Advisor');
@@ -46,7 +47,7 @@ $advisorId = isset($_SESSION['UserID']) && is_numeric($_SESSION['UserID'])
 
 if ($advisorId <= 0) {
     Notifications::error("Unauthorized advisor session.");
-    header("Location: ../../frontend/index.php?error=unauthorized");
+    header('Location: ' . frontend_url('index.php?error=unauthorized'));
     exit;
 }
 
@@ -55,7 +56,7 @@ Helper function for redirecting back to dashboard
 */
 function redirectToOfficeHoursDashboard(): void
 {
-    header("Location: ../../frontend/AdvisorAppointmentDashboard.php?section=officehours");
+    header('Location: ' . frontend_url('AdvisorAppointmentDashboard.php?section=officehours'));
     exit;
 }
 

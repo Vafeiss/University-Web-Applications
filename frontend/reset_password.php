@@ -8,8 +8,13 @@
 
 require_once '../backend/modules/Csrf.php';
 
+header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+header('Pragma: no-cache');
+header('Expires: 0');
+
 $token = trim($_GET['token'] ?? '');
 $error = trim($_GET['error'] ?? '');
+$csrfToken = Csrf::ensureToken();
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -35,7 +40,7 @@ $error = trim($_GET['error'] ?? '');
 
                 <form method="POST" action="update_password.php">
                     <input type="hidden" name="token" value="<?= htmlspecialchars($token) ?>">
-                    <input type="hidden" name="_csrf" value="<?= htmlspecialchars(Csrf::ensureToken(), ENT_QUOTES, 'UTF-8') ?>">
+                    <input type="hidden" name="_csrf" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
 
                     <div class="alert alert-info small py-2" role="note">
                         Password requirements: 10-72 characters, with at least one uppercase letter, one lowercase letter, one number, and one symbol.

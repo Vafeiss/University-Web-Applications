@@ -166,5 +166,5 @@ class Participants_Processing
         }
     }
 }
-?>
+
 

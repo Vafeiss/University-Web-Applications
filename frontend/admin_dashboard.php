@@ -48,7 +48,10 @@ Panteleimoni Alexandrou
 
 */
 
+@file_put_contents(__DIR__ . '/../backend/login_trace.log', '[' . date('c') . '] [ADMIN] admin_dashboard.php entered before includes' . PHP_EOL, FILE_APPEND);
+
 require_once 'init.php';
+@file_put_contents(__DIR__ . '/../backend/login_trace.log', '[' . date('c') . '] [ADMIN] admin_dashboard.php after init.php' . PHP_EOL, FILE_APPEND);
 require_once '../backend/modules/AdminClass.php';
 require_once '../backend/modules/ParticipantsClass.php';
 require_once '../backend/modules/NotificationsClass.php';
@@ -95,6 +98,8 @@ function resultFetchAllAssoc($result): array
 
 $user = new Admin();
 $user->Check_Session('Admin');
+
+@file_put_contents(__DIR__ . '/../backend/login_trace.log', '[' . date('c') . '] [ADMIN] Check_Session passed for Admin' . PHP_EOL, FILE_APPEND);
 
 $activeTab = $_GET['tab'] ?? 'advisors';
 

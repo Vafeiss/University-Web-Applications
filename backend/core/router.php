@@ -12,6 +12,12 @@ class Router {
         $this->routes["GET"][$path] = $handler;
     }
 
+    public function hasRoute(string $method, string $path): bool
+    {
+        $normalizedMethod = strtoupper($method);
+        return isset($this->routes[$normalizedMethod][$path]);
+    }
+
     public function resolve(){
 
         $method = $_SERVER["REQUEST_METHOD"];

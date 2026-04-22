@@ -24,47 +24,49 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
+require_once __DIR__ . '/../config/app.php';
+
 class AppointmentController
 {
     public function studentBookAppointment(): void
     {
-        header("Location: ../../frontend/StudentAppointmentDashboard.php?section=book");
+        header('Location: ' . frontend_url('StudentAppointmentDashboard.php?section=book'));
         exit;
     }
 
     public function advisorAppointmentRequests(): void
     {
-        header("Location: ../../frontend/AdvisorAppointmentDashboard.php?section=requests");
+        header('Location: ' . frontend_url('AdvisorAppointmentDashboard.php?section=requests'));
         exit;
     }
 
     public function studentAppointmentHistory(): void
     {
-        header("Location: ../../frontend/StudentAppointmentDashboard.php?section=history");
+        header('Location: ' . frontend_url('StudentAppointmentDashboard.php?section=history'));
         exit;
     }
 
     public function advisorAppointmentHistory(): void
     {
-        header("Location: ../../frontend/AdvisorAppointmentDashboard.php?section=history");
+        header('Location: ' . frontend_url('AdvisorAppointmentDashboard.php?section=history'));
         exit;
     }
 
     public function studentCalendar(): void
     {
-        header("Location: ../../frontend/StudentAppointmentDashboard.php?section=calendar");
+        header('Location: ' . frontend_url('StudentAppointmentDashboard.php?section=calendar'));
         exit;
     }
 
     public function advisorCalendar(): void
     {
-        header("Location: ../../frontend/AdvisorAppointmentDashboard.php?section=appointments");
+        header('Location: ' . frontend_url('AdvisorAppointmentDashboard.php?section=appointments'));
         exit;
     }
 
     public function advisorOfficeHours(): void
     {
-        header("Location: ../../frontend/AdvisorAppointmentDashboard.php?section=officehours");
+        header('Location: ' . frontend_url('AdvisorAppointmentDashboard.php?section=officehours'));
         exit;
     }
 }

@@ -12,6 +12,7 @@ use PHPMailer\PHPMailer\Exception;
 
 require_once __DIR__ . '/databaseconnect.php';
 require_once __DIR__ . '/Env.php';
+require_once __DIR__ . '/../config/app.php';
 require_once __DIR__ . '/../config/PHPMailer/Exception.php';
 require_once __DIR__ . '/../config/PHPMailer/PHPMailer.php';
 require_once __DIR__ . '/../config/PHPMailer/SMTP.php';
@@ -55,7 +56,15 @@ class PasswordReset{
         $this->conn = $conn ?? ConnectToDatabase();
         $this->email = (string)(getenv('PASSWORD_RESET_SMTP_USER') ?: '');
         $this->password = (string)(getenv('PASSWORD_RESET_SMTP_PASS') ?: '');
-        $this->baseurl = (string)(getenv('APP_BASE_URL') ?: 'http://localhost/University-Web-Applications-System-A/');
+
+        $configuredBaseUrl = (string)(getenv('APP_BASE_URL') ?: '');
+        if ($configuredBaseUrl !== '') {
+            $this->baseurl = rtrim($configuredBaseUrl, '/');
+        } else {
+            $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+            $host = (string)($_SERVER['HTTP_HOST'] ?? 'localhost');
+            $this->baseurl = $scheme . '://' . $host . rtrim(BASE_URL, '/');
+        }
     }
 
     //function to handle the forgot password process
@@ -91,7 +100,7 @@ class PasswordReset{
         $delete = $this->conn->prepare('DELETE FROM password_resets WHERE email = :email');
         $delete->execute(['email' => $email]);
 
-        $insetnew = $this->conn->prepare('INSERT INTO password_resets (email, token, expires_at) VALUES (:email, :token, DATE_ADD(NOW(), INTERVAL 1 HOUR))');
+        $insetnew = $this->conn->prepare('INSERT INTO password_resets (email, token, expires_at) VALUES (:email, :token, DATE_ADD(UTC_TIMESTAMP(), INTERVAL 1 HOUR))');
         $insetnew->execute(['email' => $email, 'token' => $token]);
 
         return $token;
@@ -136,7 +145,7 @@ class PasswordReset{
                 <p>This link expires in <strong>1 hour</strong>.</p>
                 <p>If you did not request this, you can safely ignore this email.</p>
                 <br>
-                <small>Advicut Team — Do not reply to this email.</small>
+                <small>Advicut Team - Do not reply to this email.</small>
             ";
 
             $mail -> AltBody = "Reset your password using the following link: {$resetLink} (This link expires in 1 hour)";
@@ -156,7 +165,7 @@ class PasswordReset{
             return null;
         }
 
-        $stmt = $this->conn->prepare('SELECT email FROM password_resets WHERE token = :token AND used = 0 AND expires_at > NOW() LIMIT 1');
+        $stmt = $this->conn->prepare('SELECT email FROM password_resets WHERE token = :token AND used = 0 AND expires_at > UTC_TIMESTAMP() LIMIT 1');
         $stmt->execute(['token' => strtolower($token)]);
         $result = $stmt->fetch(PDO::FETCH_ASSOC);
 

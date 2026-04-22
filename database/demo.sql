@@ -11,7 +11,7 @@ INSERT INTO `degree` (`DegreeID`, `DepartmentID`, `DegreeName`) VALUES
 INSERT INTO `users` (`User_ID`, `External_ID`, `Uni_Email`, `Password`, `Role`, `First_name`, `Last_Name`, `Phone`) VALUES
 (1, 1, 'admin1@cut.ac.cy', '$2y$10$46bh2IXiYsStGwDSNr5zoernaZ7.ZYjHJqJeMtF4SXPlHRCvgzKoe', 'Admin', 'Admin1', 'Admin1', ''),
 (3, 30080, 'advisor1@cut.ac.cy', '$2a$12$KJG/4kJesdxexklmNSNvoexGO6iKvVIIIMYzyieNTv5H34CIKohIu', 'Advisor', 'Advisor1', 'Advisor1', '97854623'),
-(42, 24503, 'student1@edu.cut.ac.cy', '$2y$10$DKWfoubG8oTfoKRlVhM9jev3nOUx7SGtYNJjAyUNaEmLadaOKOhwK', 'Student', 'Student1', 'Student1', NULL),
+(42, 24503, 'student1@edu.cut.ac.cy', '$2y$10$46bh2IXiYsStGwDSNr5zoernaZ7.ZYjHJqJeMtF4SXPlHRCvgzKoe', 'Student', 'Student1', 'Student1', NULL),
 (43, 44556, 'advisor2@cut.ac.cy', '$2y$10$46bh2IXiYsStGwDSNr5zoernaZ7.ZYjHJqJeMtF4SXPlHRCvgzKoe', 'Advisor', 'Advisor2', 'Advisor2', '96751099'),
 (44, 23232, 'advisor3@cut.ac.cy', '$2y$10$683alx37Nbd4Vho1Bi64IOZwiz6Iwmrj/N78ck5rfGJM1j0drBGAu', 'Advisor', 'Advisor3', 'Advisor3', '99786720'),
 (55, 22222, 'student2@edu.cut.ac.cy', '$2y$10$GnssS31HIi.YXoRLgCsqf.xV/f4EeC2KDL9SaZYj3BU42DHZW80Mi', 'Student', 'Student2', 'Student2', NULL),

@@ -11,7 +11,12 @@ require_once '../backend/modules/Csrf.php';
 require '../backend/modules/ResetPassword.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !Csrf::validateRequestToken()) {
-    header('Location: reset_password.php?error=' . urlencode('Request validation failed.'));
+    $token = trim((string)($_POST['token'] ?? ''));
+    $redirectUrl = 'reset_password.php?error=' . urlencode('Request validation failed.');
+    if ($token !== '') {
+        $redirectUrl .= '&token=' . urlencode($token);
+    }
+    header('Location: ' . $redirectUrl);
     exit();
 }
 
