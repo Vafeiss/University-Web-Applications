@@ -1168,6 +1168,7 @@ try {
             <tr>
               <th><?= htmlspecialchars($t('advisor')) ?></th>
               <th><?= htmlspecialchars($t('status')) ?></th>
+              <th>Attendance</th>
               <th><?= htmlspecialchars($t('date')) ?></th>
               <th><?= htmlspecialchars($t('details')) ?></th>
             </tr>
@@ -1175,7 +1176,7 @@ try {
           <tbody>
             <?php if (count($studentHistory) === 0): ?>
               <tr>
-                <td colspan="4" class="text-center text-muted"><?= htmlspecialchars($t('no_history_loaded')) ?></td>
+                <td colspan="5" class="text-center text-muted"><?= htmlspecialchars($t('no_history_loaded')) ?></td>
               </tr>
             <?php else: ?>
               <?php foreach ($studentHistory as $history): ?>
@@ -1196,6 +1197,7 @@ try {
                       <span class="badge bg-primary"><?= htmlspecialchars((string)$history['Status']) ?></span>
                     <?php endif; ?>
                   </td>
+                  <td><?= htmlspecialchars(trim((string)($history['Student_Attendance'] ?? '')) !== '' ? (string)$history['Student_Attendance'] : 'Pending') ?></td>
                   <td><?= htmlspecialchars((string)$history['Appointment_Date']) ?></td>
                   <td>
                     <?php if ($historyReason !== ''): ?>

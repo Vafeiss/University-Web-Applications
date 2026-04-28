@@ -278,7 +278,7 @@ class AppointmentApproval
         }
 
         try {
-            $currentAppointmentSql = "SELECT Appointment_ID, Request_ID, Student_ID, Advisor_ID, Appointment_Date, Status, COALESCE(Student_Attendance, 'Pending') AS Student_Attendance
+            $currentAppointmentSql = "SELECT Appointment_ID, Request_ID, Student_ID, Advisor_ID, Appointment_Date, Status
                                       FROM appointments
                                       WHERE Appointment_ID = ?
                                         AND Advisor_ID = ?
@@ -296,28 +296,17 @@ class AppointmentApproval
                 return false;
             }
 
-            if ((string)($appointment['Student_Attendance'] ?? 'Pending') !== 'Pending') {
-                return false;
-            }
-
-            $today = date('Y-m-d');
-            if ((string)($appointment['Appointment_Date'] ?? '') !== $today) {
-                return false;
-            }
-
             $this->conn->beginTransaction();
 
             $sql = "UPDATE appointments
-                    SET Student_Attendance = ?,
-                        Status = ?,
+                    SET Status = ?,
                         Updated_At = CURRENT_TIMESTAMP
                     WHERE Appointment_ID = ?
                       AND Advisor_ID = ?
-                      AND Status = 'Scheduled'
-                      AND COALESCE(Student_Attendance, 'Pending') = 'Pending'";
+                      AND Status = 'Scheduled'";
 
             $stmt = $this->conn->prepare($sql);
-            $stmt->execute([$studentAttendance, $newStatus, $appointmentId, $advisorId]);
+            $stmt->execute([$newStatus, $appointmentId, $advisorId]);
 
             if ($stmt->rowCount() <= 0) {
                 $this->conn->rollBack();
@@ -348,6 +337,66 @@ class AppointmentApproval
                 $this->conn->rollBack();
             }
             error_log('AppointmentApproval::markAttendance error: ' . $e->getMessage());
+            return false;
+        }
+    }
+
+    public function markAttendanceByRequest(int $requestId, int $advisorId, string $studentAttendance): bool
+    {
+        try {
+            $appointmentStmt = $this->conn->prepare(
+                "SELECT Appointment_ID
+                 FROM appointments
+                 WHERE Request_ID = ?
+                   AND Advisor_ID = ?
+                 LIMIT 1"
+            );
+            $appointmentStmt->execute([$requestId, $advisorId]);
+            $appointmentId = (int)($appointmentStmt->fetchColumn() ?: 0);
+
+            if ($appointmentId <= 0) {
+                $requestStmt = $this->conn->prepare(
+                    "SELECT ar.Request_ID, ar.Student_ID, ar.Advisor_ID, ar.OfficeHour_ID, ar.AdditionalSlot_ID, ar.Appointment_Date,
+                            COALESCE(oh.Start_Time, aas.Start_Time) AS Start_Time,
+                            COALESCE(oh.End_Time, aas.End_Time) AS End_Time
+                     FROM appointment_requests ar
+                     LEFT JOIN office_hours oh ON oh.OfficeHour_ID = ar.OfficeHour_ID
+                     LEFT JOIN advisor_additional_slots aas ON aas.AdditionalSlot_ID = ar.AdditionalSlot_ID
+                     WHERE ar.Request_ID = ?
+                       AND ar.Advisor_ID = ?
+                       AND ar.Status = 'Approved'
+                     LIMIT 1"
+                );
+                $requestStmt->execute([$requestId, $advisorId]);
+                $request = $requestStmt->fetch(PDO::FETCH_ASSOC);
+
+                if ($request === false || empty($request['Start_Time']) || empty($request['End_Time'])) {
+                    return false;
+                }
+
+                $insertStmt = $this->conn->prepare(
+                    "INSERT INTO appointments
+                     (Request_ID, Student_ID, Advisor_ID, OfficeHour_ID, AdditionalSlot_ID, Appointment_Date, Start_Time, End_Time, Status)
+                     VALUES
+                     (?, ?, ?, ?, ?, ?, ?, ?, 'Scheduled')"
+                );
+                $insertStmt->execute([
+                    (int)$request['Request_ID'],
+                    (int)$request['Student_ID'],
+                    (int)$request['Advisor_ID'],
+                    !empty($request['OfficeHour_ID']) ? (int)$request['OfficeHour_ID'] : null,
+                    !empty($request['AdditionalSlot_ID']) ? (int)$request['AdditionalSlot_ID'] : null,
+                    (string)$request['Appointment_Date'],
+                    (string)$request['Start_Time'],
+                    (string)$request['End_Time'],
+                ]);
+
+                $appointmentId = (int)$this->conn->lastInsertId();
+            }
+
+            return $this->markAttendance($appointmentId, $advisorId, $studentAttendance);
+        } catch (Throwable $e) {
+            error_log('AppointmentApproval::markAttendanceByRequest error: ' . $e->getMessage());
             return false;
         }
     }
