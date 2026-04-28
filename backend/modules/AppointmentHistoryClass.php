@@ -1,4 +1,16 @@
 <?php
+/*
+   NAME: Appointment History Class
+   Description: This class is used to retrieve past appointment requests for both students 
+   and advisors, including details such as date, time, status and reasons.
+   Author: Panteleimoni Alexandrou
+   Date: 30-Mar-2026
+   Version: v1.3
+
+   Inputs: student ID or advisor ID
+   Outputs: list of past appointment records
+   Files in use: databaseconnect.php
+*/
 declare(strict_types=1);
 
 require_once __DIR__ . '/databaseconnect.php';

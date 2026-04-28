@@ -1,10 +1,10 @@
 <?php
-declare(strict_types=1);
 /*
 20-Apr-2026 v1.1
 Added support for approving additional appointment slots alongside recurring office hours
 Panteleimoni Alexandrou
 */
+declare(strict_types=1);
 
 require_once __DIR__ . '/databaseconnect.php';
 

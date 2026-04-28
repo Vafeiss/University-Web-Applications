@@ -1,4 +1,17 @@
 <?php
+/*
+   NAME: Appointment Booking Class
+   Description: This class handles all booking-related actions for students, including 
+   retrieving available advisor slots and creating new appointment requests.
+   Author: Panteleimoni Alexandrou
+   Date: 30-Mar-2026
+   Version: v1.0
+
+   Inputs: student ID, office hour ID, student reason
+   Outputs: list of available slots or success/failure for booking
+   Files in use: databaseconnect.php
+*/
+
 declare(strict_types=1);
 
 require_once __DIR__ . '/databaseconnect.php';

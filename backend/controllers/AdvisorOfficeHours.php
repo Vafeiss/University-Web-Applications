@@ -1,4 +1,4 @@
-<?php declare(strict_types=1);
+<?php 
 /*
    NAME: Advisor Office Hours Controller
    Description: This controller handles advisor office hour actions such as add and delete and redirects back to the advisor dashboard
@@ -26,6 +26,7 @@
    Panteleimoni Alexandrou
 */
 
+declare(strict_types=1);
 session_start();
 
 require_once __DIR__ . '/../modules/databaseconnect.php';
@@ -38,9 +39,8 @@ $user->Check_Session('Advisor');
 
 $pdo = ConnectToDatabase();
 
-/*
-Resolve advisor user id from authenticated session.
-*/
+
+//Resolve advisor user id from authenticated session.
 $advisorId = isset($_SESSION['UserID']) && is_numeric($_SESSION['UserID'])
     ? (int)$_SESSION['UserID']
     : 0;
@@ -51,20 +51,14 @@ if ($advisorId <= 0) {
     exit;
 }
 
-/*
-Helper function for redirecting back to dashboard
-*/
+//Helper function for redirecting back to dashboard
 function redirectToOfficeHoursDashboard(): void
 {
     header('Location: ' . frontend_url('AdvisorAppointmentDashboard.php?section=officehours'));
     exit;
 }
 
-/*
-------------------------------------------------------------
-DELETE SLOT
-------------------------------------------------------------
-*/
+//DELETE SLOT
 if (isset($_GET['delete'])) {
     $deleteId = (int)($_GET['delete']);
 
@@ -93,11 +87,7 @@ if (isset($_GET['delete'])) {
     }
 }
 
-/*
-------------------------------------------------------------
-DELETE ADDITIONAL SLOT
-------------------------------------------------------------
-*/
+//DELETE ADDITIONAL SLOT
 if (isset($_GET['delete_additional'])) {
     $deleteAdditionalId = (int)($_GET['delete_additional']);
 
@@ -133,11 +123,7 @@ if (isset($_GET['delete_additional'])) {
     }
 }
 
-/*
-------------------------------------------------------------
-ADD SLOT
-------------------------------------------------------------
-*/
+//ADD SLOT
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = trim((string)($_POST['action'] ?? ''));
 
@@ -283,9 +269,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     try {
-        /*
-        Prevent duplicate or overlapping slots on the same day
-        */
+        //Prevent duplicate or overlapping slots on the same day
+
         $checkSql = "SELECT OfficeHour_ID
                      FROM office_hours
                      WHERE Advisor_ID = :advisor_id
@@ -331,8 +316,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-/*
-Fallback for invalid direct access
-*/
+//Fallback for invalid direct access
 Notifications::error("Invalid action.");
 redirectToOfficeHoursDashboard();
