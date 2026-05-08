@@ -44,6 +44,24 @@ text-align: center;
 .section-panel { display: none; }
 .section-panel.active { display: block; }
 
+.student-list-scroll {
+    max-height: calc(100vh - 430px);
+    overflow-y: auto;
+    scrollbar-gutter: stable;
+}
+
+.advisor-list-scroll {
+    max-height: calc(100vh - 430px);
+    overflow-y: auto;
+    scrollbar-gutter: stable;
+}
+
+.assignment-accordion-scroll {
+    max-height: calc(100vh - 530px);
+    overflow-y: auto;
+    scrollbar-gutter: stable;
+}
+
 /*flash toast css*/
 .flash-toast { position: fixed; top: 1rem; right: 1rem; z-index: 9999; min-width: 280px; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,.12); padding: .85rem 1.1rem; display: flex; align-items: center; gap: .6rem; font-size: .92rem; }
 

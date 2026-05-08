@@ -230,70 +230,6 @@
     }
   }
 
-  function degToggleEdit(id) {
-    var item = document.getElementById('degItem-' + id);
-    var form = document.getElementById('degForm-' + id);
-    if (!item || !form) return;
-
-    var isOpen = item.classList.contains('editing');
-    document.querySelectorAll('.deg-list-item.editing').forEach(function (el) {
-      el.classList.remove('editing');
-      var inlineForm = el.querySelector('.deg-inline-form');
-      if (inlineForm) {
-        inlineForm.style.display = 'none';
-      }
-    });
-
-    if (!isOpen) {
-      item.classList.add('editing');
-      form.style.display = 'flex';
-      item.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    }
-  }
-
-  function deptToggleEdit(id) {
-    var item = document.getElementById('deptItem-' + id);
-    var form = document.getElementById('deptForm-' + id);
-    if (!item || !form) return;
-
-    var isOpen = item.classList.contains('editing');
-    document.querySelectorAll('.deg-list-item.editing').forEach(function (el) {
-      el.classList.remove('editing');
-      var inlineForm = el.querySelector('.deg-inline-form');
-      if (inlineForm) {
-        inlineForm.style.display = 'none';
-      }
-    });
-
-    if (!isOpen) {
-      item.classList.add('editing');
-      form.style.display = 'flex';
-      item.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    }
-  }
-
-  function bindInlineEditSearch() {
-    var degreeSearchInput = document.getElementById('degreeSearch');
-    if (degreeSearchInput) {
-      degreeSearchInput.addEventListener('input', function () {
-        var q = this.value.toLowerCase();
-        document.querySelectorAll('.deg-list-item').forEach(function (item) {
-          item.style.display = item.textContent.toLowerCase().includes(q) ? '' : 'none';
-        });
-      });
-    }
-
-    var departmentSearchInput = document.getElementById('departmentSearch');
-    if (departmentSearchInput) {
-      departmentSearchInput.addEventListener('input', function () {
-        var q = this.value.toLowerCase();
-        document.querySelectorAll('#departmentEditList .deg-list-item').forEach(function (item) {
-          item.style.display = item.textContent.toLowerCase().includes(q) ? '' : 'none';
-        });
-      });
-    }
-  }
-
   function renderAdvisorChart() {
     var canvas = document.getElementById('advisorPieChart');
     if (!canvas || typeof Chart === 'undefined') return;
@@ -438,10 +374,6 @@
     bindEditButtons();
     bindDeleteConfirmation();
     bindCollapseState();
-    bindInlineEditSearch();
     renderAdvisorChart();
-
-    window.degToggleEdit = degToggleEdit;
-    window.deptToggleEdit = deptToggleEdit;
   });
 })();

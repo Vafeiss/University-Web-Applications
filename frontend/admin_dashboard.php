@@ -65,6 +65,30 @@ if (session_status() === PHP_SESSION_NONE) {
 
 $csrfToken = Csrf::ensureToken();
 
+// Extract form data from session if available (for reopening modals on error)
+$formDataJson = '{}';
+$modalToOpen = null;
+
+if (isset($_GET['modal'])) {
+  $modalToOpen = $_GET['modal'];
+  // Map modal names to session keys
+  $modalSessionMap = [
+    'addStudentModal' => 'form_data_add_student',
+    'editStudentModal' => 'form_data_edit_student',
+    'addAdvisorModal' => 'form_data_add_advisor',
+    'editAdvisorModal' => 'form_data_edit_advisor',
+  ];
+  
+  if (isset($modalSessionMap[$modalToOpen])) {
+    $formDataKey = $modalSessionMap[$modalToOpen];
+    if (isset($_SESSION[$formDataKey])) {
+      $formData = $_SESSION[$formDataKey];
+      unset($_SESSION[$formDataKey]);
+      $formDataJson = json_encode($formData, JSON_HEX_TAG|JSON_HEX_AMP|JSON_HEX_APOS|JSON_HEX_QUOT);
+    }
+  }
+}
+
 if (isset($_GET['set_lang']) && in_array((string)$_GET['set_lang'], ['en', 'el'], true)) {
   $_SESSION['management_dashboard_lang'] = (string)$_GET['set_lang'];
   $redirectParams = $_GET;
@@ -215,6 +239,7 @@ $translations = [
     'filter_students' => 'Filter students...',
     'save_assignment' => 'Save Assignment',
     'assigned_suffix' => 'assigned',
+      'all_students_assigned' => 'All students are assigned',
     'confirm_action' => 'Confirm Action',
     'confirm_continue' => 'Are you sure you want to continue?',
     'cancel' => 'Cancel',
@@ -289,6 +314,7 @@ $translations = [
     'filter_students' => 'Φιλτράρισμα φοιτητών...',
     'save_assignment' => 'Αποθήκευση Ανάθεσης',
     'assigned_suffix' => 'ανατεθειμένοι',
+    'all_students_assigned' => 'Όλοι οι φοιτητές έχουν ανατεθεί',
     'confirm_action' => 'Επιβεβαίωση Ενέργειας',
     'confirm_continue' => 'Είστε σίγουροι ότι θέλετε να συνεχίσετε;',
     'cancel' => 'Ακύρωση',
@@ -436,18 +462,21 @@ $participants = new Participants_Processing();
 $assignmentMap = $participants->Get_Student_Advisor();
 $studentAssignmentMap = $participants->Assign_Students_Advisors();
 
-//build a set of assigned student IDs for stats
+// build a set of assigned student IDs for stats and a mapping of student IDs and advisor ID for assignment tab
 $assignedStudentIds = [];
-if ($assignmentMap) {
-  foreach ($assignmentMap as $advisorStudents) {
+$studentToAdvisor = [];
+if (!empty($assignmentMap) && is_array($assignmentMap)) {
+  foreach ($assignmentMap as $advId => $advisorStudents) {
     if (is_array($advisorStudents)) {
       foreach ($advisorStudents as $studentExternalId => $isAssigned) {
         if ($isAssigned) {
-          $assignedStudentIds[] = (int)$studentExternalId;
+          $sid = (int)$studentExternalId;
+          $assignedStudentIds[] = $sid;
+          $studentToAdvisor[$sid] = (int)$advId;
         }
       }
     }
-    }
+  }
 }
 
 $assignedCount   = count(array_unique($assignedStudentIds));
@@ -632,7 +661,7 @@ $YearOptions = [
       <form action="../backend/modules/dispatcher.php" method="POST" id="advisorForm">
         <input type="hidden" name="action" value="/advisor/delete">
 
-        <div class="table-responsive" id="advisorList">
+        <div class="table-responsive advisor-list-scroll" id="advisorList">
           <table class="table table-sm table-hover align-middle mb-0">
             <thead class="table-light">
               <tr>
@@ -780,7 +809,7 @@ $YearOptions = [
       <form action="../backend/modules/dispatcher.php" method="POST" id="studentForm">
         <input type="hidden" name="action" value="/student/delete">
 
-        <div class="table-responsive" id="studentList">
+        <div class="table-responsive student-list-scroll" id="studentList">
           <table class="table table-sm table-hover align-middle mb-0">
             <thead class="table-light">
               <tr>
@@ -969,7 +998,9 @@ $YearOptions = [
         </div>
       </form>
 
-      <div class="accordion" id="assignAdvisorAccordion">
+      <input class="form-control mb-3" id="assignmentSearch" placeholder="<?= htmlspecialchars($t('search_advisors')) ?>">
+
+      <div class="accordion assignment-accordion-scroll" id="assignAdvisorAccordion">
 
         <?php foreach ($assignAdvisors as $advisor):
           $advisorUserId    = (int)$advisor['User_ID'];
@@ -1015,7 +1046,18 @@ $YearOptions = [
                   <div style="flex:1;">Year</div>
                 </div>
 
-                  <?php foreach ($assignStudents as $student):
+                  <?php
+                  $hasShownStudents = false;
+                  foreach ($assignStudents as $student) {
+                    $stuExt = (int)($student['StuExternal_ID'] ?? 0);
+                    $assignedAdv = $studentToAdvisor[$stuExt] ?? null;
+
+                    // show student if unassigned or assigned to this advisor
+                    if ($assignedAdv !== null && $assignedAdv !== $advisorExternalId) {
+                      continue;
+                    }
+
+                    $hasShownStudents = true;
                     $sFirstName = htmlspecialchars($student['First_name']);
                     $sLastName  = htmlspecialchars($student['Last_Name']);
                     $sId        = htmlspecialchars($student['StuExternal_ID']);
@@ -1039,7 +1081,11 @@ $YearOptions = [
                     <div style="flex:1;color:#6c757d;"><?= $sYear ?></div>
                   </label>
                 </div>
-                <?php endforeach; ?>
+                <?php }
+
+                  if (!$hasShownStudents): ?>
+                <div class="text-center text-muted py-3"><?= htmlspecialchars($t('all_students_assigned')) ?></div>
+                <?php endif; ?>
 
               </div>
 
@@ -1805,6 +1851,10 @@ $YearOptions = [
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script>
 
+// Form data and modal to reopen after error
+window.formDataToRestore = <?= $formDataJson ?>;
+window.modalToOpen = <?= $modalToOpen ? json_encode($modalToOpen) : 'null' ?>;
+
 const CSRF_TOKEN = <?= json_encode($csrfToken) ?>;
 
 function injectCsrfTokenIntoDispatcherForms() {
@@ -1890,6 +1940,30 @@ function showPageMessage(message, type = 'success') {
 document.addEventListener('DOMContentLoaded', function () {
   injectCsrfTokenIntoDispatcherForms();
 
+  // Restore form data and open modal if redirected from error
+  if (window.modalToOpen && window.formDataToRestore) {
+    const modalEl = document.getElementById(window.modalToOpen);
+    if (modalEl) {
+      const modal = new bootstrap.Modal(modalEl);
+      
+      // Restore form data
+      Object.keys(window.formDataToRestore).forEach(key => {
+        const value = window.formDataToRestore[key];
+        const inputs = modalEl.querySelectorAll('[name="' + key + '"]');
+        inputs.forEach(input => {
+          if (input.type === 'checkbox' || input.type === 'radio') {
+            input.checked = (Array.isArray(value) ? value.includes(input.value) : input.value === value);
+          } else {
+            input.value = value;
+          }
+        });
+      });
+      
+      // Open the modal
+      modal.show();
+    }
+  }
+
   const confirmButton = document.getElementById('adminConfirmButton');
   const modalElement = document.getElementById('adminConfirmModal');
 
@@ -1962,7 +2036,6 @@ document.addEventListener('DOMContentLoaded', function () {
     form.appendChild(tokenInput);
   }, true);
 });
-
 //script to maintain active tab on page reload and handle tab switching with URL
 document.addEventListener("DOMContentLoaded", () => {
 
@@ -2037,6 +2110,18 @@ document.querySelectorAll('.assign-search').forEach(input => {
     });
   });
 });
+
+//assignment tab search (search advisors)
+const assignmentSearch = document.getElementById('assignmentSearch');
+if (assignmentSearch) {
+  assignmentSearch.addEventListener('input', function () {
+    const q = this.value.toLowerCase();
+    document.querySelectorAll('#assignAdvisorAccordion .accordion-item').forEach(item => {
+      const advisorName = item.textContent.toLowerCase();
+      item.style.display = advisorName.includes(q) ? '' : 'none';
+    });
+  });
+}
 
 //edit advisor script
 const editAdvisorBtn = document.getElementById('editAdvisorBtn');

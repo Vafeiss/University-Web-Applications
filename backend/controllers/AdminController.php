@@ -159,7 +159,24 @@ class AdminController {
         return $map[$action] ?? 'advisors';
     }
 
-    //get the post request from the frontend and call the function from adminclass
+    private function storeFormDataInSession(array $formData, string $sessionKey): void
+    {
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
+        $_SESSION[$sessionKey] = $formData;
+    }
+
+    private function getFormDataFromSession(string $sessionKey): array
+    {
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
+        $data = $_SESSION[$sessionKey] ?? [];
+        unset($_SESSION[$sessionKey]);
+        return $data;
+    }
+
     public function addStudent()
     {
         $this->requireMutationRequest(frontend_url('admin_dashboard.php?tab='));
@@ -172,8 +189,9 @@ class AdminController {
         $degreeInput = $_POST['degree'] ?? ($_POST['Degree'] ?? null);
         $degree = (int)$degreeInput;
         if ($degree <= 0) {
+            $this->storeFormDataInSession($_POST, 'form_data_add_student');
             Notifications::error("Please select a valid degree.");
-            header('Location: ' . frontend_url('admin_dashboard.php?tab=students'));
+            header('Location: ' . frontend_url('admin_dashboard.php?tab=students&modal=addStudentModal'));
             exit();
         }
 
@@ -185,8 +203,9 @@ class AdminController {
         $added = $this->admin->addStudent($externalId, $first, $last, $email, $degree, $year, $advisorID);
 
         if (!$added) {
+            $this->storeFormDataInSession($_POST, 'form_data_add_student');
             Notifications::error("Failed to add student.");
-            header('Location: ' . frontend_url('admin_dashboard.php?tab=students'));
+            header('Location: ' . frontend_url('admin_dashboard.php?tab=students&modal=addStudentModal'));
             exit();
         }
 
@@ -318,24 +337,27 @@ class AdminController {
         $email      = trim($_POST['email'] ?? '');
         $phone      = trim((string)($_POST['phone'] ?? ''));
         if (!$this->isValidPhone($phone)) {
-        $this->errors[] = "Phone number must contain 8 to 15 digits and only valid phone characters.";
-        Notifications::error("Invalid phone number. Use 8-15 digits (spaces, +, -, parentheses allowed).");
-        header('Location: ' . frontend_url('admin_dashboard.php?tab=advisors'));
-        exit();
+            $this->storeFormDataInSession($_POST, 'form_data_add_advisor');
+            $this->errors[] = "Phone number must contain 8 to 15 digits and only valid phone characters.";
+            Notifications::error("Invalid phone number. Use 8-15 digits (spaces, +, -, parentheses allowed).");
+            header('Location: ' . frontend_url('admin_dashboard.php?tab=advisors&modal=addAdvisorModal'));
+            exit();
         }
         $department = (int)trim($_POST['department'] ?? '');
 
         try {
             $added = $this->admin->addAdvisor($external_id, $first_name, $last_name, $email, $phone, $department);
         } catch (PDOException $e) {
+            $this->storeFormDataInSession($_POST, 'form_data_add_advisor');
             Notifications::error("Failed to add advisor.");
-            header('Location: ' . frontend_url('admin_dashboard.php?tab=advisors'));
+            header('Location: ' . frontend_url('admin_dashboard.php?tab=advisors&modal=addAdvisorModal'));
             exit();
         }
 
         if (!$added) {
+            $this->storeFormDataInSession($_POST, 'form_data_add_advisor');
             Notifications::error("Failed to add advisor.");
-            header('Location: ' . frontend_url('admin_dashboard.php?tab=advisors'));
+            header('Location: ' . frontend_url('admin_dashboard.php?tab=advisors&modal=addAdvisorModal'));
             exit();
         }
 
@@ -492,16 +514,19 @@ class AdminController {
         $email      = trim($_POST['email'] ?? '');
         $phone      = trim((string)($_POST['phone'] ?? ''));
         if (!$this->isValidPhone($phone)) {
-        $this->errors[] = "Phone number must contain 8 to 15 digits and only valid phone characters.";
-        Notifications::error("Invalid phone number.");
-        header('Location: ' . frontend_url('admin_dashboard.php?tab=advisors'));
-        exit();}
+            $this->storeFormDataInSession($_POST, 'form_data_edit_advisor');
+            $this->errors[] = "Phone number must contain 8 to 15 digits and only valid phone characters.";
+            Notifications::error("Invalid phone number.");
+            header('Location: ' . frontend_url('admin_dashboard.php?tab=advisors&modal=editAdvisorModal'));
+            exit();
+        }
         $department = (int)trim($_POST['department'] ?? '');
 
         $saved = $this->admin->editAdvisor($external_id, $first_name, $last_name, $email, $phone, $department);
         if (!$saved) {
+            $this->storeFormDataInSession($_POST, 'form_data_edit_advisor');
             Notifications::error("Failed to edit advisor.");
-            header('Location: ' . frontend_url('admin_dashboard.php?tab=advisors'));
+            header('Location: ' . frontend_url('admin_dashboard.php?tab=advisors&modal=editAdvisorModal'));
             exit();
         }
 
@@ -521,8 +546,9 @@ class AdminController {
         $degreeInput = $_POST['degree'] ?? ($_POST['Degree'] ?? null);
         $degree = (int)$degreeInput;
         if ($degree <= 0) {
+            $this->storeFormDataInSession($_POST, 'form_data_edit_student');
             Notifications::error("Please select a valid degree.");
-            header('Location: ' . frontend_url('admin_dashboard.php?tab=students'));
+            header('Location: ' . frontend_url('admin_dashboard.php?tab=students&modal=editStudentModal'));
             exit();
         }
 
@@ -532,8 +558,9 @@ class AdminController {
 
         $saved = $this->admin->editStudent($external_id, $first_name, $last_name, $email, $degree, $year, $advisorID);
         if (!$saved) {
+            $this->storeFormDataInSession($_POST, 'form_data_edit_student');
             Notifications::error("Failed to edit student.");
-            header('Location: ' . frontend_url('admin_dashboard.php?tab=students'));
+            header('Location: ' . frontend_url('admin_dashboard.php?tab=students&modal=editStudentModal'));
             exit();
         }
 
