@@ -155,7 +155,7 @@ $translations = [
   ],
   'el' => [
     'page_title' => 'Πύλη Ραντεβού Φοιτητή',
-    'welcome' => 'Καλώς ήρθες στο AdviCut, %s! 👋',
+    'welcome' => 'Καλώς ήρθατε στο AdviCut, %s! 👋',
     'notifications' => 'Ειδοποιήσεις',
     'notifications_subtitle' => 'Ενημερώσεις σχετικές με ραντεβού',
     'no_notifications' => 'Δεν υπάρχουν ειδοποιήσεις ακόμη.',

@@ -149,7 +149,7 @@ $translations = [
   ],
   'el' => [
     'page_title' => 'Αναφορές Super User',
-    'welcome' => 'Καλώς ήρθες στο AdviCut, %s! 👋',
+    'welcome' => 'Καλώς ήρθατε στο AdviCut, %s! 👋',
     'appointment_reports' => 'Αναφορές Ραντεβού',
     'superuser_reports_pdf' => 'PDF Αναφορών Super User',
     'manual' => 'Οδηγός',
