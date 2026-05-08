@@ -283,11 +283,18 @@ class StudentClass{
     public function getAppointmentHistory(int $studentUserId): array
     {
         try {
-            $sql = "SELECT ar.Request_ID, ar.Student_ID, ar.Advisor_ID, u.Last_Name AS Advisor_Last_Name, ar.Appointment_Date, ar.Student_Reason, ar.Advisor_Reason, ar.Status, ar.Created_At
+            $sql = "SELECT ar.Request_ID, ar.Student_ID, ar.Advisor_ID, u.Last_Name AS Advisor_Last_Name, ar.Appointment_Date, ar.Student_Reason, ar.Advisor_Reason, ar.Status,
+                           CASE
+                               WHEN ap.Status = 'Completed' THEN 'Attended'
+                               WHEN ap.Status = 'Cancelled' THEN 'No Show'
+                               ELSE 'Pending'
+                           END AS Student_Attendance,
+                           ar.Created_At
                     FROM appointment_requests ar
                     LEFT JOIN users u ON ar.Advisor_ID = u.User_ID
+                    LEFT JOIN appointments ap ON ap.Request_ID = ar.Request_ID
                     WHERE ar.Student_ID = ?
-                      AND LOWER(TRIM(Status)) <> 'pending'
+                      AND LOWER(TRIM(ar.Status)) <> 'pending'
                     ORDER BY Created_At DESC";
 
             $stmt = $this->conn->prepare($sql);

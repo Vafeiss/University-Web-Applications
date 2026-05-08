@@ -120,15 +120,19 @@ private function isLoginThrottled(string $email): bool {
         }
     ));
 
-    $_SESSION['login_throttle'][$key] = [
-        'attempts' => $attempts,
-        'locked_until' => 0,
-    ];
+    if (count($attempts) === 0) {
+        unset($_SESSION['login_throttle'][$key]);
+    } else {
+        $_SESSION['login_throttle'][$key] = [
+            'attempts' => $attempts,
+            'locked_until' => 0,
+        ];
+    }
 
     return false;
 }
 
-private function recordFailedLoginAttempt(string $email): void {
+private function recordFailedLoginAttempt(string $email): bool {
     $config = $this->getLoginThrottleConfig();
     $key = $this->getLoginThrottleBucketKey($email);
     $now = time();
@@ -156,6 +160,8 @@ private function recordFailedLoginAttempt(string $email): void {
         'attempts' => $attempts,
         'locked_until' => $lockedUntil,
     ];
+
+    return $lockedUntil > $now;
 }
 
 private function clearLoginThrottle(string $email): void {
@@ -211,16 +217,18 @@ public function __construct() {
             $row = $stmt1->fetch(PDO::FETCH_ASSOC);
 
             if ($row === false) { //error handling if email not found go back to index
-                $this->recordFailedLoginAttempt($email);
-                $this->redirectTo('frontend/index.php?error=invalid');
+                if ($this->recordFailedLoginAttempt($email)) {
+                    $this->redirectTo('/frontend/index.php?error=throttled');
+                }
+                $this->redirectTo('/frontend/index.php?error=invalid');
             }
 
             //error handling if password wrong go back to index
-            $passwordVerified = password_verify($password, (string)$row["Password"]);
-
-            if (!$passwordVerified) {
-                $this->recordFailedLoginAttempt($email);
-                $this->redirectTo('frontend/index.php?error=invalid');
+            if (!password_verify($password, (string)$row["Password"])) {
+                if ($this->recordFailedLoginAttempt($email)) {
+                    $this->redirectTo('/frontend/index.php?error=throttled');
+                }
+                $this->redirectTo('/frontend/index.php?error=invalid');
             }
 
             $this->clearLoginThrottle($email);

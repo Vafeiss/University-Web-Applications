@@ -33,11 +33,7 @@ $router->post('/student/message/thread', ['StudentController','getMessageThread'
 $router->post('/student/message/send', ['StudentController','sendMessage']);
 $router->post('/student/message/read', ['StudentController','markMessagesRead']);
 
-/*
-|--------------------------------------------------------------------------
-| Appointments Routes
-|--------------------------------------------------------------------------
-*/
+//Appointments Routes
 $router->get('/student/book-appointment', ['AppointmentController','studentBookAppointment']);
 $router->post('/student/book-appointment', ['AppointmentController','studentBookAppointment']);
 

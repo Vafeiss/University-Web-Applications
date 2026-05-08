@@ -70,7 +70,7 @@ class AppointmentControllerAction
         $studentAttendance = trim((string)($_POST['student_attendance'] ?? $_GET['student_attendance'] ?? ''));
         $advisorId = isset($_SESSION['UserID']) && is_numeric($_SESSION['UserID']) ? (int)$_SESSION['UserID'] : 2;
 
-        if ($appointmentAction === 'mark_attendance' && $appointmentId <= 0) {
+        if ($appointmentAction === 'mark_attendance' && $appointmentId <= 0 && $requestId <= 0) {
             Notifications::error("Invalid appointment ID.");
             $this->redirectToAdvisorRequests();
         }
@@ -92,24 +92,32 @@ class AppointmentControllerAction
 
                 $ok = $this->appointmentApproval->markAttendance($appointmentId, $advisorId, $studentAttendance);
 
+                if (!$ok && $requestId > 0) {
+                    $ok = $this->appointmentApproval->markAttendanceByRequest($requestId, $advisorId, $studentAttendance);
+                }
+
                 if (!$ok) {
-                    Notifications::error("Attendance can only be marked on the appointment day for scheduled appointments.");
+                    Notifications::error("Failed to mark attendance for this appointment.");
                     $this->redirectToAdvisorRequests();
                 }
 
                 try {
-                    $appointmentContextSql = "SELECT Student_ID, Request_ID FROM appointments WHERE Appointment_ID = :appointment_id AND Advisor_ID = :advisor_id
+                    $appointmentContextSql = "SELECT Student_ID, Request_ID, Appointment_ID FROM appointments
+                    WHERE Advisor_ID = :advisor_id
+                      AND (Appointment_ID = :appointment_id OR Request_ID = :request_id)
                     LIMIT 1";
 
                     $appointmentContextStmt = $pdo->prepare($appointmentContextSql);
                     $appointmentContextStmt->execute([
                         'appointment_id' => $appointmentId,
+                        'request_id' => $requestId,
                         'advisor_id' => $advisorId
                     ]);
 
                     $appointmentContext = $appointmentContextStmt->fetch(PDO::FETCH_ASSOC);
                     $studentId = (int)($appointmentContext['Student_ID'] ?? 0);
                     $relatedRequestId = isset($appointmentContext['Request_ID']) ? (int)$appointmentContext['Request_ID'] : null;
+                    $relatedAppointmentId = isset($appointmentContext['Appointment_ID']) ? (int)$appointmentContext['Appointment_ID'] : $appointmentId;
 
                     if ($studentId > 0) {
                         $notificationSql = "INSERT INTO notifications
@@ -125,7 +133,7 @@ class AppointmentControllerAction
                             'title' => $studentAttendance === 'Attended' ? 'Attendance Confirmed' : 'Attendance Marked as No Show',
                             'message' => $studentAttendance === 'Attended' ? 'Your attendance was marked as attended by your advisor.' : 'Your advisor marked your attendance as no show.',
                             'related_request_id' => $relatedRequestId,
-                            'related_appointment_id' => $appointmentId,
+                            'related_appointment_id' => $relatedAppointmentId,
                             'is_read' => 0
                         ]);
                     }

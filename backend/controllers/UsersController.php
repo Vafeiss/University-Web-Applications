@@ -6,8 +6,9 @@
   06-Mar-2026 v0.1
   Inputs: Depends on the functions but POST/GET requests
   Outputs: Redirections to the main dashboard
-  Files in Uses: UsersClass.php , routes.php , router.php , dispatcher.php*/
-
+  Files in Uses: UsersClass.php , routes.php , router.php , dispatcher.php
+  */
+  
 declare(strict_types=1);
 require_once __DIR__ . '/../modules/UsersClass.php';
 require_once __DIR__ . '/../modules/NotificationsClass.php';

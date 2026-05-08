@@ -44,9 +44,7 @@ $pdo = ConnectToDatabase();
 $user = new Users();
 $user->Check_Session('Student');
 
-/*
-Helper function for redirecting back to student dashboard
-*/
+//Helper function for redirecting back to student dashboard
 function redirectToStudentDashboard(string $section = 'book'): void
 {
     header('Location: ' . frontend_url('StudentAppointmentDashboard.php?section=' . urlencode($section)));
@@ -96,11 +94,7 @@ if (mb_strlen($reason, 'UTF-8') > 2000) {
 }
 
 try {
-    /*
-    ------------------------------------------------------------
-    FETCH STUDENT ADVISOR
-    ------------------------------------------------------------
-    */
+    //FETCH STUDENT ADVISOR
     $advisorSql = "SELECT advisor.User_ID AS Advisor_User_ID
                    FROM users student
                    INNER JOIN student_advisors sa ON sa.Student_ID = student.External_ID

@@ -37,7 +37,7 @@ if ($loginError === 'invalid' || $loginError === 'invalid1') {
 } elseif ($loginError === 'forbidden') {
     Notifications::error('You do not have permission to access that page.');
 } elseif ($loginError === 'throttled') {
-    Notifications::error('Too many login attempts. Please try again later.');
+    Notifications::error('Too many failed login attempts. Please wait 15 minutes and try again.');
 }
 ?>
 

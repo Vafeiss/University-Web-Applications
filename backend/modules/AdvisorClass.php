@@ -240,15 +240,23 @@ class AdvisorClass
     public function getScheduledAppointmentsWithPendingAttendance(int $advisorUserId): array
     {
         try {
-            $sql = "SELECT a.Appointment_ID,a.Request_ID, a.Student_ID, s.External_ID AS Student_External_ID, a.Advisor_ID,
-                           a.OfficeHour_ID, a.Appointment_Date, a.Start_Time, a.End_Time, a.Student_Attendance, a.Status,
-                           a.Created_At
-                    FROM appointments a
-                    INNER JOIN users s ON s.User_ID = a.Student_ID
-                    WHERE a.Advisor_ID = ?
-                      AND a.Status = 'Scheduled'
-                      AND COALESCE(a.Student_Attendance, 'Pending') = 'Pending'
-                    ORDER BY a.Appointment_Date DESC, a.Start_Time DESC";
+            $sql = "SELECT ap.Appointment_ID AS Appointment_ID, ar.Request_ID, ar.Student_ID, s.External_ID AS Student_External_ID, ar.Advisor_ID,
+                           ar.OfficeHour_ID, ar.Appointment_Date, COALESCE(oh.Start_Time, aas.Start_Time) AS Start_Time, COALESCE(oh.End_Time, aas.End_Time) AS End_Time,
+                           CASE
+                               WHEN ap.Status = 'Completed' THEN 'Attended'
+                               WHEN ap.Status = 'Cancelled' THEN 'No Show'
+                               ELSE 'Pending'
+                           END AS Student_Attendance,
+                           ar.Status,
+                           ar.Created_At
+                    FROM appointment_requests ar
+                    INNER JOIN users s ON s.User_ID = ar.Student_ID
+                    LEFT JOIN office_hours oh ON oh.OfficeHour_ID = ar.OfficeHour_ID
+                    LEFT JOIN advisor_additional_slots aas ON aas.AdditionalSlot_ID = ar.AdditionalSlot_ID
+                    LEFT JOIN appointments ap ON ap.Request_ID = ar.Request_ID
+                    WHERE ar.Advisor_ID = ?
+                      AND ar.Status = 'Approved'
+                    ORDER BY ar.Appointment_Date DESC, COALESCE(oh.Start_Time, aas.Start_Time) DESC";
 
             $stmt = $this->conn->prepare($sql);
             $stmt->execute([$advisorUserId]);
@@ -263,14 +271,24 @@ class AdvisorClass
     public function getAppointmentHistory(int $advisorUserId): array
     {
         try {
-            $sql = "SELECT 
-                        ar.Request_ID, COALESCE(s.External_ID, ar.Student_ID) AS Student_External_ID, ar.Status, ap.Student_Attendance,
-                        ar.Student_Reason, ar.Advisor_Reason, ar.Appointment_Date, ar.Created_At
+            $sql = "SELECT
+                        ar.Request_ID,
+                        COALESCE(s.External_ID, ar.Student_ID) AS Student_External_ID,
+                        ar.Status,
+                        CASE
+                            WHEN ap.Status = 'Completed' THEN 'Attended'
+                            WHEN ap.Status = 'Cancelled' THEN 'No Show'
+                            ELSE 'Pending'
+                        END AS Student_Attendance,
+                        ar.Student_Reason,
+                        ar.Advisor_Reason,
+                        ar.Appointment_Date,
+                        ar.Created_At
                     FROM appointment_requests ar
-                    LEFT JOIN users s ON s.User_ID = ar.Student_ID
                     LEFT JOIN appointments ap ON ap.Request_ID = ar.Request_ID
+                    LEFT JOIN users s ON s.User_ID = ar.Student_ID
                     WHERE ar.Advisor_ID = ?
-                      AND LOWER(TRIM(ar.Status)) IN ('approved', 'declined', 'cancelled')
+                      AND ar.Status IN ('Approved', 'Declined', 'Cancelled')
                     ORDER BY ar.Created_At DESC";
 
             $stmt = $this->conn->prepare($sql);
@@ -287,13 +305,23 @@ class AdvisorClass
     {
         try {
             $sql = "SELECT
-                        ar.Request_ID, ar.Appointment_Date, ar.Student_Reason, ar.Advisor_Reason, ar.Status,
-                        oh.Start_Time, oh.End_Time, u.First_name AS Student_First_Name, u.Last_Name AS Student_Last_Name
+                        ar.Request_ID, ap.Appointment_ID, ar.Student_ID, COALESCE(u.External_ID, ar.Student_ID) AS Student_External_ID,
+                        ar.Appointment_Date, ar.Student_Reason, ar.Advisor_Reason, ar.Status,
+                        CASE
+                            WHEN ap.Status = 'Completed' THEN 'Attended'
+                            WHEN ap.Status = 'Cancelled' THEN 'No Show'
+                            ELSE 'Pending'
+                        END AS Student_Attendance,
+                        COALESCE(ap.Start_Time, oh.Start_Time, aas.Start_Time) AS Start_Time,
+                        COALESCE(ap.End_Time, oh.End_Time, aas.End_Time) AS End_Time,
+                        u.First_name AS Student_First_Name, u.Last_Name AS Student_Last_Name
                     FROM appointment_requests ar
                     LEFT JOIN office_hours oh ON ar.OfficeHour_ID = oh.OfficeHour_ID
+                    LEFT JOIN advisor_additional_slots aas ON aas.AdditionalSlot_ID = ar.AdditionalSlot_ID
+                    LEFT JOIN appointments ap ON ap.Request_ID = ar.Request_ID
                     LEFT JOIN users u ON ar.Student_ID = u.User_ID
                     WHERE ar.Advisor_ID = ?
-                    ORDER BY ar.Appointment_Date ASC, oh.Start_Time ASC";
+                    ORDER BY ar.Appointment_Date ASC, COALESCE(ap.Start_Time, oh.Start_Time, aas.Start_Time) ASC";
 
             $stmt = $this->conn->prepare($sql);
             $stmt->execute([$advisorUserId]);

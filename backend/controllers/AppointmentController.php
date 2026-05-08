@@ -71,13 +71,7 @@ class AppointmentController
     }
 }
 
-/*
-|--------------------------------------------------------------------------
-| DIRECT REQUEST COMPATIBILITY WRAPPER
-|--------------------------------------------------------------------------
-| Keep legacy direct access working by delegating approve/decline handling
-| to the main AppointmentControllerAction controller.
-*/
+//DIRECT REQUEST COMPATIBILITY WRAPPER
 if (realpath($_SERVER['SCRIPT_FILENAME'] ?? '') !== __FILE__) {
     return;
 }

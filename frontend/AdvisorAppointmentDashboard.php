@@ -591,6 +591,10 @@ try {
 
     foreach ($calendarRows as $row) {
         $status = (string)($row['Status'] ?? 'Pending');
+        $attendance = trim((string)($row['Student_Attendance'] ?? ''));
+        if ($attendance === '') {
+            $attendance = 'Pending';
+        }
         $studentFullName = trim(
             (string)($row['Student_First_Name'] ?? '') . ' ' .
             (string)($row['Student_Last_Name'] ?? '')
@@ -606,14 +610,18 @@ try {
 
         $advisorCalendarEvents[] = [
             'id' => (int)($row['Request_ID'] ?? 0),
-            'title' => $title . ' (' . $status . ')',
+            'title' => $title . ' (' . $status . ') - Attendance: ' . $attendance,
             'start' => (string)($row['Appointment_Date'] ?? ''),
             'backgroundColor' => $eventColor,
             'borderColor' => $eventColor,
             'extendedProps' => [
+                'request_id' => (string)($row['Request_ID'] ?? ''),
+                'appointment_id' => (string)($row['Appointment_ID'] ?? ''),
+                'student_id' => (string)($row['Student_External_ID'] ?? $row['Student_ID'] ?? ''),
                 'student' => $studentFullName,
                 'date' => (string)($row['Appointment_Date'] ?? ''),
                 'time' => (string)($row['Start_Time'] ?? '') . ' - ' . (string)($row['End_Time'] ?? ''),
+                'attendance' => $attendance,
                 'student_reason' => (string)($row['Student_Reason'] ?? ''),
                 'advisor_reason' => (string)($row['Advisor_Reason'] ?? ''),
                 'status' => $status
@@ -1050,11 +1058,11 @@ try {
                                 <td colspan="7" class="text-center text-muted"><?= htmlspecialchars($t('no_appointments_found')) ?></td>
                             </tr>
                         <?php else: ?>
-                            <?php $todayDate = date('Y-m-d'); ?>
                             <?php foreach ($appointments as $appointment): ?>
-                                <?php $canMarkAttendance = ((string)$appointment['Appointment_Date'] === $todayDate); ?>
+                                <?php $appointmentAttendance = trim((string)($appointment['Student_Attendance'] ?? 'Pending')); ?>
+                                <?php if ($appointmentAttendance === '') { $appointmentAttendance = 'Pending'; } ?>
                                 <tr>
-                                    <td><?= htmlspecialchars((string)$appointment['Appointment_ID']) ?></td>
+                                    <td><?= htmlspecialchars((string)($appointment['Appointment_ID'] ?? $appointment['Request_ID'])) ?></td>
                                     <td><?= htmlspecialchars((string)($appointment['Student_External_ID'] ?? $appointment['Student_ID'])) ?></td>
                                     <td><?= htmlspecialchars((string)$appointment['Appointment_Date']) ?></td>
                                     <td><?= htmlspecialchars(substr((string)$appointment['Start_Time'], 0, 5)) ?></td>
@@ -1071,7 +1079,11 @@ try {
                                         <?php endif; ?>
                                     </td>
                                     <td>
-                                        <?php if ($canMarkAttendance): ?>
+                                        <?php if ($appointmentAttendance === 'Attended'): ?>
+                                            <span class="badge bg-success"><?= htmlspecialchars($t('attended')) ?></span>
+                                        <?php elseif ($appointmentAttendance === 'No Show'): ?>
+                                            <span class="badge bg-danger"><?= htmlspecialchars($t('no_show')) ?></span>
+                                        <?php elseif ($appointmentAttendance === 'Pending'): ?>
                                             <form action="../backend/modules/dispatcher.php"
                                                   method="POST"
                                                   class="d-flex align-items-center gap-2"
@@ -1079,7 +1091,8 @@ try {
                                                 <input type="hidden" name="action" value="/appointment/action">
                                                 <input type="hidden" name="_csrf" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
                                                 <input type="hidden" name="appointment_action" value="mark_attendance">
-                                                <input type="hidden" name="appointment_id" value="<?= (int)$appointment['Appointment_ID'] ?>">
+                                                <input type="hidden" name="appointment_id" value="<?= (int)($appointment['Appointment_ID'] ?? 0) ?>">
+                                                <input type="hidden" name="request_id" value="<?= (int)$appointment['Request_ID'] ?>">
                                                 <input type="hidden" name="redirect_target" value="advisor_dashboard_appointments">
                                                 <select name="student_attendance" class="form-select form-select-sm" required>
                                                     <option value="Attended"><?= htmlspecialchars($t('attended')) ?></option>
@@ -1090,7 +1103,7 @@ try {
                                                 </button>
                                             </form>
                                         <?php else: ?>
-                                            <span class="text-muted small"><?= htmlspecialchars($t('attendance_available_on_day')) ?></span>
+                                            <span class="text-muted"><?= htmlspecialchars($appointmentAttendance) ?></span>
                                         <?php endif; ?>
                                     </td>
                                 </tr>
@@ -1160,7 +1173,7 @@ try {
                                         <?php elseif ($historyAttendance === 'No Show'): ?>
                                             <span class="badge bg-danger"><?= htmlspecialchars($t('no_show')) ?></span>
                                         <?php else: ?>
-                                            <span class="text-muted">-</span>
+                                            <span class="text-muted">Pending</span>
                                         <?php endif; ?>
                                     </td>
                                     <td>
@@ -1479,9 +1492,13 @@ try {
             </div>
             <div class="modal-body">
                 <p><strong><?= htmlspecialchars($t('student')) ?>:</strong> <span id="advisorCalendarModalStudent"></span></p>
+                <p><strong><?= htmlspecialchars($t('request_id')) ?>:</strong> <span id="advisorCalendarModalRequestId"></span></p>
+                <p><strong><?= htmlspecialchars($t('appointment_id')) ?>:</strong> <span id="advisorCalendarModalAppointmentId"></span></p>
+                <p><strong><?= htmlspecialchars($t('student_id')) ?>:</strong> <span id="advisorCalendarModalStudentId"></span></p>
                 <p><strong><?= htmlspecialchars($t('date')) ?>:</strong> <span id="advisorCalendarModalDate"></span></p>
                 <p><strong><?= htmlspecialchars($t('time')) ?>:</strong> <span id="advisorCalendarModalTime"></span></p>
                 <p><strong><?= htmlspecialchars($t('status')) ?>:</strong> <span id="advisorCalendarModalStatus"></span></p>
+                <p><strong><?= htmlspecialchars($t('attendance')) ?>:</strong> <span id="advisorCalendarModalAttendance"></span></p>
 
                 <div class="calendar-reason-group">
                     <div class="d-flex align-items-center justify-content-between gap-3">
@@ -1668,9 +1685,13 @@ function renderAdvisorCalendar() {
         eventClick: function (info) {
             const props = info.event.extendedProps || {};
             document.getElementById('advisorCalendarModalStudent').textContent = props.student || '-';
+            document.getElementById('advisorCalendarModalRequestId').textContent = props.request_id || '-';
+            document.getElementById('advisorCalendarModalAppointmentId').textContent = props.appointment_id || '-';
+            document.getElementById('advisorCalendarModalStudentId').textContent = props.student_id || '-';
             document.getElementById('advisorCalendarModalDate').textContent = props.date || '-';
             document.getElementById('advisorCalendarModalTime').textContent = props.time || '-';
             document.getElementById('advisorCalendarModalStatus').textContent = props.status || '-';
+            document.getElementById('advisorCalendarModalAttendance').textContent = props.attendance || 'Pending';
             setCalendarReason('advisorCalendarModalStudentReasonBtn', 'advisorCalendarModalStudentReasonWrap', 'advisorCalendarModalStudentReason', props.student_reason);
             setCalendarReason('advisorCalendarModalAdvisorReasonBtn', 'advisorCalendarModalAdvisorReasonWrap', 'advisorCalendarModalAdvisorReason', props.advisor_reason);
             resetCalendarReasonState('advisorCalendarModalStudentReasonWrap');
@@ -1883,6 +1904,33 @@ document.addEventListener("DOMContentLoaded", function () {
                 btn.getAttribute('data-reason-content')
             );
         });
+    });
+
+    document.querySelectorAll('form input[name="appointment_action"][value="mark_attendance"]').forEach(function (actionInput) {
+        const form = actionInput.closest('form');
+        if (!form) return;
+
+        const select = form.querySelector('select[name="student_attendance"]');
+        const appointmentInput = form.querySelector('input[name="appointment_id"]');
+        const requestInput = form.querySelector('input[name="request_id"]');
+        if (!select || !appointmentInput || !requestInput) return;
+
+        const storageId = appointmentInput.value !== '0' ? appointmentInput.value : requestInput.value;
+        const storageKey = 'advisor_attendance_request_' + storageId;
+        const savedAttendance = localStorage.getItem(storageKey);
+        if (savedAttendance !== null) {
+            select.value = savedAttendance;
+        }
+
+        select.addEventListener('change', function () {
+            localStorage.setItem(storageKey, select.value);
+        });
+
+        const nativeSubmit = form.submit.bind(form);
+        form.submit = function () {
+            localStorage.removeItem(storageKey);
+            nativeSubmit();
+        };
     });
 
     const params = new URLSearchParams(window.location.search);
