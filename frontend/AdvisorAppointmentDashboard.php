@@ -60,6 +60,10 @@
    20-Apr-2026 v3.6
    Added advisor dashboard display for additional one-off appointment slots
    Panteleimoni Alexandrou
+
+   11-May-2026 v3.7
+   Added open-date appointment request flow allowing advisors to schedule date and time before approval.
+   Panteleimoni Alexandrou
 */
 
 declare(strict_types=1);
@@ -188,6 +192,10 @@ $translations['en'] = array_merge($translations['en'], [
     'no_pending_requests_found' => 'No pending requests found',
     'pending' => 'Pending',
     'approve' => 'Approve',
+    'schedule_approve' => 'Schedule & Approve',
+    'open_date_request' => 'Open Date Request',
+    'schedule_open_request_title' => 'Schedule Open Date Request',
+    'appointment_date' => 'Appointment Date',
     'decline' => 'Decline',
     'office_hours_title' => 'Office Hours',
     'office_hours_subtitle' => 'Manage your fixed weekly appointment hours',
@@ -843,10 +851,11 @@ try {
                                 <?php
                                     $requestStudentReason = trim((string)($request['Student_Reason'] ?? ''));
                                     $requestAdvisorReason = trim((string)($request['Advisor_Reason'] ?? ''));
+                                    $isOpenRequest = (string)($request['Request_Type'] ?? 'Slot') === 'Open';
                                 ?>
                                 <tr class="request-row">
                                     <td><?= htmlspecialchars((string)($request['Student_External_ID'] ?? '-')) ?></td>
-                                    <td><?= htmlspecialchars((string)$request['Appointment_Date']) ?></td>
+                                    <td><?= htmlspecialchars($isOpenRequest ? $t('open_date_request') : (string)$request['Appointment_Date']) ?></td>
                                     <td>
                                         <?php if ($requestStudentReason !== ''): ?>
                                             <button type="button"
@@ -874,6 +883,15 @@ try {
                                     </td>
                                     <td>
                                         <div class="d-flex gap-2">
+                                            <?php if ($isOpenRequest): ?>
+                                            <button type="button"
+                                                    class="btn btn-success btn-sm open-schedule-modal-btn"
+                                                    data-request-id="<?= (int)$request['Request_ID'] ?>"
+                                                    data-bs-toggle="modal"
+                                                    data-bs-target="#scheduleOpenRequestModal">
+                                                <?= htmlspecialchars($t('schedule_approve')) ?>
+                                            </button>
+                                            <?php else: ?>
                                             <form action="../backend/modules/dispatcher.php" method="POST" class="mb-0">
                                                 <input type="hidden" name="action" value="/appointment/action">
                                                 <input type="hidden" name="_csrf" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
@@ -884,6 +902,7 @@ try {
                                                     <?= htmlspecialchars($t('approve')) ?>
                                                 </button>
                                             </form>
+                                            <?php endif; ?>
 
                                             <button type="button"
                                                     class="btn btn-danger btn-sm open-decline-modal-btn"
@@ -1540,6 +1559,49 @@ try {
     </div>
 </div>
 
+<div class="modal fade" id="scheduleOpenRequestModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-semibold"><?= htmlspecialchars($t('schedule_open_request_title')) ?></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+
+            <form action="../backend/modules/dispatcher.php" method="POST">
+                <div class="modal-body">
+                    <input type="hidden" name="action" value="/appointment/action">
+                    <input type="hidden" name="_csrf" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
+                    <input type="hidden" name="appointment_action" value="approve">
+                    <input type="hidden" name="request_id" id="scheduleOpenRequestId" value="">
+                    <input type="hidden" name="redirect_target" value="advisor_dashboard_requests">
+
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label class="form-label"><?= htmlspecialchars($t('appointment_date')) ?> <span class="text-danger">*</span></label>
+                            <input type="date" name="open_appointment_date" class="form-control" required>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label"><?= htmlspecialchars($t('start_time')) ?> <span class="text-danger">*</span></label>
+                            <input type="time" name="open_start_time" class="form-control" required>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label"><?= htmlspecialchars($t('end_time')) ?> <span class="text-danger">*</span></label>
+                            <input type="time" name="open_end_time" class="form-control" required>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-footer border-0 pt-0">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal"><?= htmlspecialchars($t('cancel')) ?></button>
+                    <button type="submit" class="btn btn-success">
+                        <?= htmlspecialchars($t('schedule_approve')) ?>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <div class="modal fade" id="declineRequestModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow">
@@ -2030,6 +2092,20 @@ document.addEventListener("DOMContentLoaded", function () {
             const input = document.getElementById('declineRequestId');
             if (input) {
                 input.value = requestId;
+            }
+        });
+    });
+
+    document.querySelectorAll('.open-schedule-modal-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            const requestId = this.getAttribute('data-request-id');
+            const input = document.getElementById('scheduleOpenRequestId');
+            const dateInput = document.querySelector('#scheduleOpenRequestModal input[name="open_appointment_date"]');
+            if (input) {
+                input.value = requestId;
+            }
+            if (dateInput) {
+                dateInput.min = new Date().toISOString().split('T')[0];
             }
         });
     });

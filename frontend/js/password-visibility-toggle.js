@@ -10,6 +10,8 @@
 
 function initPasswordToggle(customMappings = null) {
     const defaultMappings = {
+        // Login page
+        'toggleLoginPassword': 'password',
         // Change password page
         'toggleCurrentPassword': 'currentPassword',
         'toggleNewPassword': 'newPassword',

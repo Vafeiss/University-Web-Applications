@@ -4,6 +4,10 @@
    Paraskevas Vafeiadis
    28-Mar-2026 v0.1
    Files in Use: databaseconnect.php, CommunicationsClass.php
+
+   11-May-2026 v0.2
+   Added open-date appointment request flow allowing advisors to schedule date and time before approval.
+   Panteleimoni Alexandrou
 */
 
 declare(strict_types=1);
@@ -226,7 +230,7 @@ class StudentClass{
     {
         try {
             $sql = "SELECT ar.Request_ID,ar.Student_ID, ar.Advisor_ID,u.First_name AS Advisor_First_Name, u.Last_Name AS Advisor_Last_Name,
-                           ar.OfficeHour_ID, ar.Appointment_Date, ar.Student_Reason,ar.Advisor_Reason,ar.Status,ar.Created_At
+                           ar.OfficeHour_ID, ar.Appointment_Date, ar.Request_Type, ar.Student_Reason,ar.Advisor_Reason,ar.Status,ar.Created_At
                     FROM appointment_requests ar
                     LEFT JOIN users u ON ar.Advisor_ID = u.User_ID
                     WHERE ar.Student_ID = ?
@@ -311,13 +315,16 @@ class StudentClass{
     {
         try {
             $sql = "SELECT
-                        ar.Request_ID, ar.Appointment_Date,ar.Student_Reason, ar.Advisor_Reason,ar.Status, oh.Start_Time,
-                        oh.End_Time, u.First_name AS Advisor_First_Name, u.Last_Name AS Advisor_Last_Name
+                        ar.Request_ID, COALESCE(ap.Appointment_Date, ar.Appointment_Date) AS Appointment_Date,ar.Student_Reason, ar.Advisor_Reason,ar.Status,
+                        COALESCE(ap.Start_Time, oh.Start_Time) AS Start_Time, COALESCE(ap.End_Time, oh.End_Time) AS End_Time,
+                        u.First_name AS Advisor_First_Name, u.Last_Name AS Advisor_Last_Name
                     FROM appointment_requests ar
                     LEFT JOIN office_hours oh ON ar.OfficeHour_ID = oh.OfficeHour_ID
+                    LEFT JOIN appointments ap ON ap.Request_ID = ar.Request_ID
                     LEFT JOIN users u ON ar.Advisor_ID = u.User_ID
                     WHERE ar.Student_ID = ?
-                    ORDER BY ar.Appointment_Date ASC, oh.Start_Time ASC";
+                      AND COALESCE(ap.Appointment_Date, ar.Appointment_Date) IS NOT NULL
+                    ORDER BY COALESCE(ap.Appointment_Date, ar.Appointment_Date) ASC, COALESCE(ap.Start_Time, oh.Start_Time) ASC";
 
             $stmt = $this->conn->prepare($sql);
             $stmt->execute([$studentUserId]);

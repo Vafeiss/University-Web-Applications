@@ -9,6 +9,7 @@ SET time_zone = '+00:00';
 CREATE TABLE `departments` (
   `DepartmentID` int(11) NOT NULL AUTO_INCREMENT,
   `DepartmentName` varchar(100) NOT NULL,
+  `DepartmentAcronym` varchar(20) NOT NULL DEFAULT '',
   PRIMARY KEY (`DepartmentID`),
   UNIQUE KEY `uk_departments_name` (`DepartmentName`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
@@ -182,7 +183,8 @@ CREATE TABLE `appointment_requests` (
   `Advisor_ID` int(11) NOT NULL,
   `OfficeHour_ID` int(11) DEFAULT NULL,
   `AdditionalSlot_ID` int(11) DEFAULT NULL,
-  `Appointment_Date` date NOT NULL,
+  `Appointment_Date` date DEFAULT NULL,
+  `Request_Type` enum('Slot','Open') NOT NULL DEFAULT 'Slot',
   `Student_Reason` text NOT NULL,
   `Advisor_Reason` text DEFAULT NULL,
   `Status` enum('Pending','Approved','Declined','Cancelled') NOT NULL DEFAULT 'Pending',

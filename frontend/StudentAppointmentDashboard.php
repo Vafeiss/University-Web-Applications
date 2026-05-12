@@ -60,6 +60,14 @@
    20-Apr-2026 v3.0
    Updated student booking flow so recurring slots keep advisor-defined times and only require date selection, while additional slots remain fully fixed
    Panteleimoni Alexandrou
+
+   11-May-2026 v3.1
+   Formatted student-facing appointment dates as DD/MM/YYYY.
+   Panteleimoni Alexandrou
+
+   11-May-2026 v3.2
+   Added open-date appointment request flow allowing advisors to schedule date and time before approval.
+   Panteleimoni Alexandrou
 */
 
 declare(strict_types=1);
@@ -150,6 +158,9 @@ $translations = [
     'tab_communications' => 'Communications',
     'book_title' => 'Book Appointment',
     'book_subtitle' => 'Select an available advisor slot and request a meeting',
+    'open_date_request_title' => 'Request meeting without specific date/time',
+    'open_date_request_subtitle' => 'Send your reason and let your advisor choose the meeting date and time.',
+    'open_date_request_reason' => 'Reason for Meeting',
     'new_request' => 'New Request',
         'requests_title' => 'My Requests'
   ],
@@ -399,6 +410,16 @@ $translations['el'] = array_merge($translations['el'], [
 
 $t = static function (string $key) use ($translations, $lang): string {
   return $translations[$lang][$key] ?? $translations['en'][$key] ?? $key;
+};
+
+$formatStudentDisplayDate = static function (?string $date): string {
+  $date = trim((string)$date);
+  if ($date === '') {
+    return '-';
+  }
+
+  $parsed = DateTime::createFromFormat('Y-m-d', $date);
+  return $parsed instanceof DateTime ? $parsed->format('d/m/Y') : $date;
 };
 
 $buildCurrentUrl = static function (array $overrides = [], array $remove = []): string {
@@ -651,7 +672,7 @@ try {
       'borderColor' => $eventColor,
       'extendedProps' => [
         'advisor' => $advisorFullName,
-        'date' => (string)($row['Appointment_Date'] ?? ''),
+        'date' => $formatStudentDisplayDate((string)($row['Appointment_Date'] ?? '')),
         'time' => (string)($row['Start_Time'] ?? '') . ' - ' . (string)($row['End_Time'] ?? ''),
         'student_reason' => (string)($row['Student_Reason'] ?? ''),
         'advisor_reason' => (string)($row['Advisor_Reason'] ?? ''),
@@ -900,6 +921,25 @@ try {
 
       <div class="card border-0 shadow-sm mb-4">
         <div class="card-body">
+          <h6 class="fw-semibold mb-2"><?= htmlspecialchars($t('open_date_request_title')) ?></h6>
+          <p class="text-muted mb-3" style="font-size:.85rem;"><?= htmlspecialchars($t('open_date_request_subtitle')) ?></p>
+          <form action="../backend/controllers/StudentBookAppointment.php" method="POST">
+            <input type="hidden" name="student_id" value="<?= (int)$studentId ?>">
+            <input type="hidden" name="_csrf" value="<?= htmlspecialchars($csrfToken) ?>">
+            <input type="hidden" name="slot_source" value="open">
+            <div class="mb-3">
+              <label class="form-label"><?= htmlspecialchars($t('open_date_request_reason')) ?> <span class="text-danger">*</span></label>
+              <textarea name="reason" class="form-control" rows="3" placeholder="<?= htmlspecialchars($t('request_reason_placeholder')) ?>" required></textarea>
+            </div>
+            <button type="submit" class="btn btn-primary btn-sm">
+              <i class="bi bi-send me-1"></i> <?= htmlspecialchars($t('send_request')) ?>
+            </button>
+          </form>
+        </div>
+      </div>
+
+      <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body">
           <h6 class="fw-semibold mb-3"><?= htmlspecialchars($t('recurring_slots')) ?></h6>
           <div class="table-responsive">
             <table class="table table-sm table-hover align-middle mb-0">
@@ -969,7 +1009,7 @@ try {
                 <?php else: ?>
                   <?php foreach ($additionalSlots as $slot): ?>
                     <tr class="book-row">
-                      <td><?= htmlspecialchars((string)$slot['slot_date']) ?></td>
+                      <td><?= htmlspecialchars($formatStudentDisplayDate((string)$slot['slot_date'])) ?></td>
                       <td><?= htmlspecialchars(substr((string)$slot['start_time'], 0, 5)) ?></td>
                       <td><?= htmlspecialchars(substr((string)$slot['end_time'], 0, 5)) ?></td>
                       <td><span class="badge bg-info text-dark"><?= htmlspecialchars($t('additional')) ?></span></td>
@@ -1043,10 +1083,11 @@ try {
                   );
                   $studentReason = trim((string)($request['Student_Reason'] ?? ''));
                   $declineReason = trim((string)($request['Advisor_Reason'] ?? ''));
+                  $isOpenRequest = (string)($request['Request_Type'] ?? 'Slot') === 'Open';
                 ?>
                 <tr class="student-request-row">
                   <td><?= htmlspecialchars($requestAdvisorName !== '' ? $requestAdvisorName : $t('advisor')) ?></td>
-                  <td><?= htmlspecialchars((string)$request['Appointment_Date']) ?></td>
+                  <td><?= htmlspecialchars($isOpenRequest ? $t('open_date_request_title') : $formatStudentDisplayDate((string)$request['Appointment_Date'])) ?></td>
                   <td>
                     <?php if ($studentReason !== ''): ?>
                             <button type="button"
@@ -1119,7 +1160,7 @@ try {
               <?php foreach ($studentAppointments as $appointment): ?>
                 <tr>
                   <td><?= htmlspecialchars(trim((string)($appointment['Advisor_Last_Name'] ?? '')) !== '' ? (string)$appointment['Advisor_Last_Name'] : $t('advisor')) ?></td>
-                  <td><?= htmlspecialchars((string)$appointment['Appointment_Date']) ?></td>
+                  <td><?= htmlspecialchars($formatStudentDisplayDate((string)$appointment['Appointment_Date'])) ?></td>
                   <td><?= htmlspecialchars($appointment['Start_Time'] ? substr((string)$appointment['Start_Time'], 0, 5) : '-') ?></td>
                   <td><?= htmlspecialchars($appointment['End_Time'] ? substr((string)$appointment['End_Time'], 0, 5) : '-') ?></td>
                   <td>
@@ -1198,7 +1239,7 @@ try {
                     <?php endif; ?>
                   </td>
                   <td><?= htmlspecialchars(trim((string)($history['Student_Attendance'] ?? '')) !== '' ? (string)$history['Student_Attendance'] : 'Pending') ?></td>
-                  <td><?= htmlspecialchars((string)$history['Appointment_Date']) ?></td>
+                  <td><?= htmlspecialchars($formatStudentDisplayDate((string)$history['Appointment_Date'])) ?></td>
                   <td>
                     <?php if ($historyReason !== ''): ?>
                       <button type="button"
@@ -1480,6 +1521,12 @@ function openRequestReasonModal(titleText, reasonText) {
   titleEl.textContent = String(titleText ?? '').trim() || <?= json_encode($t('reason')) ?>;
   textEl.textContent = String(reasonText ?? '').trim() || '-';
   requestReasonModal.show();
+}
+
+function formatStudentDisplayDate(dateValue) {
+  const value = String(dateValue ?? '').trim();
+  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  return match ? `${match[3]}/${match[2]}/${match[1]}` : value;
 }
 
 const studentCalendarEvents = <?= json_encode($studentCalendarEvents, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
@@ -1799,6 +1846,7 @@ document.addEventListener("DOMContentLoaded", function () {
       const slotStartTime = btn.getAttribute('data-slot-start-time') || '';
       const slotEndTime = btn.getAttribute('data-slot-end-time') || '';
       const slotType = btn.getAttribute('data-slot-type') || '';
+      const slotDisplayDate = formatStudentDisplayDate(slotDate);
       const slotIdInput = document.getElementById('bookSlotId');
       const slotSourceInput = document.getElementById('bookSlotSource');
       const slotDateInput = document.getElementById('bookSlotDate');
@@ -1830,7 +1878,7 @@ document.addEventListener("DOMContentLoaded", function () {
       }
 
       if (slotSummary) {
-        slotSummary.textContent = [slotDay || slotDate || '', slotStartTime && slotEndTime ? (slotStartTime + ' - ' + slotEndTime) : '', slotType || '']
+        slotSummary.textContent = [slotDay || slotDisplayDate || '', slotStartTime && slotEndTime ? (slotStartTime + ' - ' + slotEndTime) : '', slotType || '']
           .filter(Boolean)
           .join(' | ');
       }
@@ -1840,7 +1888,7 @@ document.addEventListener("DOMContentLoaded", function () {
       }
 
       if (slotDateDisplay) {
-        slotDateDisplay.value = slotSource === 'additional' ? (slotDate || '') : '';
+        slotDateDisplay.value = slotSource === 'additional' ? (slotDisplayDate || '') : '';
       }
 
       if (slotTimeDisplay) {

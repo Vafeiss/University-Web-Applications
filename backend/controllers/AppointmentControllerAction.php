@@ -17,6 +17,10 @@ Panteleimoni Alexandrou
 Added support for approving additional appointment slots alongside recurring office hours
 Panteleimoni Alexandrou
 
+11-May-2026 v2.5
+Added open-date appointment request flow allowing advisors to schedule date and time before approval.
+Panteleimoni Alexandrou
+
 Inputs:
 - POST: appointment_action (approve/decline), request_id, decline_reason (optional)
 - GET: action, id (for testing)
@@ -149,6 +153,7 @@ class AppointmentControllerAction
             $requestContextSql = "SELECT ar.OfficeHour_ID,
                                          ar.AdditionalSlot_ID,
                                          ar.Appointment_Date,
+                                         ar.Request_Type,
                                          oh.Start_Time AS OfficeHour_Start_Time,
                                          oh.End_Time AS OfficeHour_End_Time,
                                          ads.Start_Time AS Additional_Start_Time,
@@ -174,8 +179,25 @@ class AppointmentControllerAction
 
             $officeHourId = isset($requestContext['OfficeHour_ID']) ? (int)$requestContext['OfficeHour_ID'] : 0;
             $additionalSlotId = isset($requestContext['AdditionalSlot_ID']) ? (int)$requestContext['AdditionalSlot_ID'] : 0;
+            $requestType = (string)($requestContext['Request_Type'] ?? 'Slot');
 
-            if ($officeHourId > 0) {
+            if ($requestType === 'Open') {
+                $openAppointmentDate = trim((string)($_POST['open_appointment_date'] ?? ''));
+                $openStartTime = trim((string)($_POST['open_start_time'] ?? ''));
+                $openEndTime = trim((string)($_POST['open_end_time'] ?? ''));
+
+                if ($openAppointmentDate === '' || $openStartTime === '' || $openEndTime === '') {
+                    Notifications::error("Date, start time and end time are required.");
+                    $this->redirectToAdvisorRequests();
+                }
+
+                if ($openStartTime >= $openEndTime) {
+                    Notifications::error("Start time must be before end time.");
+                    $this->redirectToAdvisorRequests();
+                }
+
+                $ok = $this->appointmentApproval->approveOpenAppointment($requestId, $advisorId, $openAppointmentDate, $openStartTime, $openEndTime);
+            } elseif ($officeHourId > 0) {
                 $conflictSql = "SELECT Appointment_ID
                     FROM appointments
                     WHERE Advisor_ID = :advisor_id
@@ -209,11 +231,14 @@ class AppointmentControllerAction
                 $this->redirectToAdvisorRequests();
             }
 
-            if ($conflictStmt->fetch(PDO::FETCH_ASSOC)) {
+            if ($requestType !== 'Open' && $conflictStmt->fetch(PDO::FETCH_ASSOC)) {
                 Notifications::error("An appointment already exists for this slot and date.");
                 $this->redirectToAdvisorRequests();
             }
-            $ok = $this->appointmentApproval->approveAppointment($requestId, $advisorId);
+
+            if ($requestType !== 'Open') {
+                $ok = $this->appointmentApproval->approveAppointment($requestId, $advisorId);
+            }
 
             if (!$ok) {
              Notifications::error("Failed to approve appointment.");

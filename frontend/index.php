@@ -12,6 +12,10 @@ Files in use: Bootstrap CSS from the web
 
 24-feb-2026: changed the where the form is sent to the backend to validate if the inputs are correct.
 Paraskevas Vafeiadis
+
+11-May-2026 v1.1
+Added show/hide password toggle to login form.
+Panteleimoni Alexandrou
 */
 
 declare(strict_types=1);
@@ -47,6 +51,7 @@ if ($loginError === 'invalid' || $loginError === 'invalid1') {
         <meta charset="UTF-8">
         <title>AdviCut Login Page</title>
         <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
         <link rel="stylesheet" href="css/auth_pages.css">
     </head>
 
@@ -65,12 +70,38 @@ if ($loginError === 'invalid' || $loginError === 'invalid1') {
             </div>
             <div class="mb-3">
                 <label for="password" class="form-label">Password</label>
-                <input type="password" class="form-control" id="password" name="password" required>
+                <div class="input-group">
+                    <input type="password" class="form-control" id="password" name="password" required>
+                    <button type="button" class="btn btn-outline-secondary" id="toggleLoginPassword" aria-label="Show password">
+                        <i class="bi bi-eye"></i>
+                    </button>
+                </div>
             </div>
             <button type="Submit" class="btn btn-primary w-100">Log-in</button>
                 <a href="forgot_password.php">Forgot your password?</a>
         </form>
         </div>
         </div>
+        <script>
+            document.addEventListener('DOMContentLoaded', function () {
+                const button = document.getElementById('toggleLoginPassword');
+                const input = document.getElementById('password');
+
+                if (!button || !input) {
+                    return;
+                }
+
+                button.addEventListener('click', function () {
+                    const isPassword = input.type === 'password';
+                    input.type = isPassword ? 'text' : 'password';
+
+                    const icon = button.querySelector('i');
+                    if (icon) {
+                        icon.classList.toggle('bi-eye', !isPassword);
+                        icon.classList.toggle('bi-eye-slash', isPassword);
+                    }
+                });
+            });
+        </script>
     </body>
 </html>

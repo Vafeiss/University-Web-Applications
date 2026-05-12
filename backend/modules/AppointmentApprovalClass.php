@@ -3,6 +3,10 @@
 20-Apr-2026 v1.1
 Added support for approving additional appointment slots alongside recurring office hours
 Panteleimoni Alexandrou
+
+11-May-2026 v1.2
+Added open-date appointment request flow allowing advisors to schedule date and time before approval.
+Panteleimoni Alexandrou
 */
 declare(strict_types=1);
 
@@ -187,6 +191,128 @@ class AppointmentApproval
                 $this->conn->rollBack();
             }
             error_log('AppointmentApproval::approveAppointment error: ' . $e->getMessage());
+            return false;
+        }
+    }
+
+    public function approveOpenAppointment(int $requestId, int $advisorId, string $appointmentDate, string $startTime, string $endTime): bool
+    {
+        $appointmentDate = trim($appointmentDate);
+        $startTime = trim($startTime);
+        $endTime = trim($endTime);
+
+        if (
+            !preg_match('/^\d{4}-\d{2}-\d{2}$/', $appointmentDate) ||
+            !preg_match('/^\d{2}:\d{2}$/', $startTime) ||
+            !preg_match('/^\d{2}:\d{2}$/', $endTime) ||
+            $startTime >= $endTime
+        ) {
+            return false;
+        }
+
+        $today = date('Y-m-d');
+        if ($appointmentDate < $today) {
+            return false;
+        }
+
+        if ($appointmentDate === $today && $endTime . ':00' <= date('H:i:s')) {
+            return false;
+        }
+
+        try {
+            $requestStmt = $this->conn->prepare(
+                "SELECT Request_ID, Student_ID, Advisor_ID
+                 FROM appointment_requests
+                 WHERE Request_ID = ?
+                   AND Advisor_ID = ?
+                   AND Status = 'Pending'
+                   AND Request_Type = 'Open'
+                 LIMIT 1"
+            );
+            $requestStmt->execute([$requestId, $advisorId]);
+            $request = $requestStmt->fetch(PDO::FETCH_ASSOC);
+
+            if ($request === false) {
+                return false;
+            }
+
+            $conflictStmt = $this->conn->prepare(
+                "SELECT Appointment_ID
+                 FROM appointments
+                 WHERE Advisor_ID = ?
+                   AND Appointment_Date = ?
+                   AND Status = 'Scheduled'
+                   AND ((Start_Time < ? AND End_Time > ?))
+                 LIMIT 1"
+            );
+            $conflictStmt->execute([
+                $advisorId,
+                $appointmentDate,
+                $endTime . ':00',
+                $startTime . ':00',
+            ]);
+
+            if ($conflictStmt->fetch(PDO::FETCH_ASSOC)) {
+                return false;
+            }
+
+            $this->conn->beginTransaction();
+
+            $updateStmt = $this->conn->prepare(
+                "UPDATE appointment_requests
+                 SET Status = 'Approved',
+                     Appointment_Date = ?,
+                     Updated_At = CURRENT_TIMESTAMP
+                 WHERE Request_ID = ?
+                   AND Advisor_ID = ?
+                   AND Status = 'Pending'
+                   AND Request_Type = 'Open'"
+            );
+            $updateStmt->execute([$appointmentDate, $requestId, $advisorId]);
+
+            if ($updateStmt->rowCount() <= 0) {
+                $this->conn->rollBack();
+                return false;
+            }
+
+            $insertStmt = $this->conn->prepare(
+                "INSERT INTO appointments
+                 (Request_ID, Student_ID, Advisor_ID, OfficeHour_ID, AdditionalSlot_ID, Appointment_Date, Start_Time, End_Time, Status)
+                 VALUES
+                 (?, ?, ?, NULL, NULL, ?, ?, ?, 'Scheduled')"
+            );
+            $insertStmt->execute([
+                $requestId,
+                (int)$request['Student_ID'],
+                (int)$request['Advisor_ID'],
+                $appointmentDate,
+                $startTime . ':00',
+                $endTime . ':00',
+            ]);
+
+            $appointmentId = (int)$this->conn->lastInsertId();
+
+            $historyStmt = $this->conn->prepare(
+                "INSERT INTO appointment_history
+                 (Request_ID, Appointment_ID, Student_ID, Advisor_ID, Action_Type, Action_Reason, Action_By)
+                 VALUES
+                 (?, ?, ?, ?, 'Approved', 'Open-date request scheduled by advisor.', ?)"
+            );
+            $historyStmt->execute([
+                $requestId,
+                $appointmentId,
+                (int)$request['Student_ID'],
+                (int)$request['Advisor_ID'],
+                $advisorId,
+            ]);
+
+            $this->conn->commit();
+            return true;
+        } catch (Throwable $e) {
+            if ($this->conn->inTransaction()) {
+                $this->conn->rollBack();
+            }
+            error_log('AppointmentApproval::approveOpenAppointment error: ' . $e->getMessage());
             return false;
         }
     }

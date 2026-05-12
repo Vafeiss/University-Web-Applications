@@ -45,6 +45,22 @@ Panteleimoni Alexandrou
 Fixed logout form CSRF submission so logout redirects correctly without dispatcher validation errors
 Panteleimoni Alexandrou
 
+10-May-2026 v1.1
+Implemented department-based degree filtering in the Students section so the Degree dropdown only displays degrees related to the selected Department.
+Panteleimoni Alexandrou
+
+10-May-2026 v1.2
+Implemented dynamic department-based degree dropdown filtering in the Students section.
+Panteleimoni Alexandrou
+
+10-May-2026 v1.3
+Fixed runtime issue in dynamic department-based degree filtering for the Students section.
+Panteleimoni Alexandrou
+
+10-May-2026 v1.4
+Implemented department acronym support and department-linked degree creation in admin management.
+Panteleimoni Alexandrou
+
 
 */
 
@@ -375,6 +391,21 @@ if (is_array($availableFilterDegrees)) {
     $degreeName = (string)($degree['DegreeName'] ?? '');
     if ($degreeID !== '' && $degreeName !== '') {
       $DegreeOptions[$degreeID] = $degreeName;
+    }
+  }
+}
+
+$AllDegreeOptions = [];
+if (is_array($degrees)) {
+  foreach ($degrees as $degree) {
+    $degreeID = (string)($degree['DegreeID'] ?? '');
+    $degreeName = (string)($degree['DegreeName'] ?? '');
+    $departmentID = (string)($degree['DepartmentID'] ?? '');
+    if ($degreeID !== '' && $degreeName !== '') {
+      $AllDegreeOptions[$degreeID] = [
+        'name' => $degreeName,
+        'department_id' => $departmentID,
+      ];
     }
   }
 }
@@ -791,10 +822,11 @@ $YearOptions = [
           <div class="col-sm-4 col-md-3 collapse <?= $selectedStudentsDegree > 0 ? 'show' : '' ?>" id="studentDegreeFilterWrap">
             <label for="studentDegreeFilter" class="form-label mb-1"><?= htmlspecialchars($t('filter_by_degree')) ?></label>
             <select class="form-select" id="studentDegreeFilter" name="Student_Degree" autocomplete="off">
-              <option value="0" <?= $selectedStudentsDegree === 0 ? 'selected' : '' ?>><?= htmlspecialchars($t('all_degrees')) ?></option>
-              <?php foreach ($DegreeOptions as $degreeValue => $degreeLabel): ?>
-              <option value="<?= htmlspecialchars($degreeValue) ?>" <?= (string)$selectedStudentsDegree === (string)$degreeValue ? 'selected' : '' ?>>
-                <?= htmlspecialchars($degreeLabel) ?>
+              <option value="" <?= $selectedStudentsDegree === 0 ? 'selected' : '' ?>><?= htmlspecialchars($t('all_degrees')) ?></option>
+              <?php foreach ($AllDegreeOptions as $degreeValue => $degreeData): ?>
+              <?php $degreeDepartment = (string)($degreeData['department_id'] ?? ''); ?>
+              <option value="<?= htmlspecialchars($degreeValue) ?>" data-department-id="<?= htmlspecialchars($degreeDepartment) ?>" <?= (string)$selectedStudentsDegree === (string)$degreeValue ? 'selected' : '' ?>>
+                <?= htmlspecialchars((string)($degreeData['name'] ?? '')) ?>
               </option>
               <?php endforeach; ?>
             </select>
@@ -1596,10 +1628,6 @@ $YearOptions = [
         <div class="modal-body">
           <input type="hidden" name="action" value="/degree/add">
           <div class="row g-3">
-            <div class="col-8">
-              <label class="form-label">Degree Name <span class="text-danger">*</span></label>
-              <input type="text" name="degree_name" class="form-control" placeholder="Computer Science" required>
-            </div>
             <div class="col-12">
               <label class="form-label">Department <span class="text-danger">*</span></label>
               <select name="department_id" class="form-select" required>
@@ -1610,6 +1638,10 @@ $YearOptions = [
                   </option>
                 <?php endforeach; ?>
               </select>
+            </div>
+            <div class="col-8">
+              <label class="form-label">Degree Name <span class="text-danger">*</span></label>
+              <input type="text" name="degree_name" class="form-control" placeholder="Computer Science" required>
             </div>
           </div>
         </div>
@@ -1642,6 +1674,10 @@ $YearOptions = [
             <div class="col-12">
               <label class="form-label">Department Name <span class="text-danger">*</span></label>
               <input type="text" name="department_name" class="form-control" placeholder="HMMHY" required>
+            </div>
+            <div class="col-12">
+              <label class="form-label">Department Acronym <span class="text-danger">*</span></label>
+              <input type="text" name="department_acronym" class="form-control" placeholder="HMMHY" required>
             </div>
           </div>
         </div>
@@ -1849,6 +1885,75 @@ $YearOptions = [
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  var departmentSelect = document.getElementById('studentDepartmentFilter');
+  var degreeSelect = document.getElementById('studentDegreeFilter');
+  if (!departmentSelect || !degreeSelect) return;
+
+  var allDegreeOptions = Array.prototype.map.call(degreeSelect.options, function (option) {
+    return option.cloneNode(true);
+  });
+  var allDepartmentOptions = Array.prototype.map.call(departmentSelect.options, function (option) {
+    return option.cloneNode(true);
+  });
+
+  function getSelectedDegreeDepartment() {
+    var selectedDegree = degreeSelect.value;
+    for (var i = 0; i < allDegreeOptions.length; i += 1) {
+      if (allDegreeOptions[i].value === selectedDegree) {
+        return allDegreeOptions[i].getAttribute('data-department-id') || '';
+      }
+    }
+    return '';
+  }
+
+  function renderStudentDegreeOptions(resetDegree) {
+    var selectedDepartment = departmentSelect.value || '';
+    var selectedDegree = resetDegree ? '' : degreeSelect.value;
+
+    degreeSelect.innerHTML = '';
+    allDegreeOptions.forEach(function (option) {
+      var optionDepartment = option.getAttribute('data-department-id') || '';
+      if (option.value === '' || selectedDepartment === '' || optionDepartment === selectedDepartment) {
+        degreeSelect.appendChild(option.cloneNode(true));
+      }
+    });
+
+    degreeSelect.value = selectedDegree;
+    if (degreeSelect.value !== selectedDegree) {
+      degreeSelect.value = '';
+    }
+  }
+
+  function renderStudentDepartmentOptions() {
+    var selectedDegreeDepartment = getSelectedDegreeDepartment();
+    var currentDepartment = departmentSelect.value || '';
+
+    departmentSelect.innerHTML = '';
+    allDepartmentOptions.forEach(function (option) {
+      if (selectedDegreeDepartment === '' || option.value === selectedDegreeDepartment) {
+        departmentSelect.appendChild(option.cloneNode(true));
+      }
+    });
+
+    departmentSelect.value = selectedDegreeDepartment !== '' ? selectedDegreeDepartment : currentDepartment;
+    if (departmentSelect.value !== (selectedDegreeDepartment !== '' ? selectedDegreeDepartment : currentDepartment)) {
+      departmentSelect.value = '';
+    }
+  }
+
+  renderStudentDegreeOptions(false);
+  renderStudentDepartmentOptions();
+  departmentSelect.addEventListener('change', function () {
+    renderStudentDegreeOptions(true);
+    renderStudentDepartmentOptions();
+  });
+  degreeSelect.addEventListener('change', function () {
+    renderStudentDepartmentOptions();
+  });
+});
+</script>
 <script>
 
 // Form data and modal to reopen after error

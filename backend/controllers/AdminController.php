@@ -31,6 +31,10 @@
   25-Mar-2026 v0.7
   Added add/edit/delete department functionality and routes as well as error handling
   Paraskevas Vafeiadis
+
+  10-May-2026 v0.8
+  Implemented department acronym support and department-linked degree creation in admin management.
+  Panteleimoni Alexandrou
 */
 
 declare(strict_types=1);
@@ -635,15 +639,16 @@ class AdminController {
         $this->requireMutationRequest(frontend_url('admin_dashboard.php?tab='));
 
         $departmentName = trim((string)($_POST['department_name'] ?? ''));
+        $departmentAcronym = trim((string)($_POST['department_acronym'] ?? ''));
 
-        if ($departmentName === '') {
-            Notifications::error("Department name cannot be empty.");
+        if ($departmentName === '' || $departmentAcronym === '') {
+            Notifications::error("Department name and acronym cannot be empty.");
             header('Location: ' . frontend_url('admin_dashboard.php?tab=degrees'));
             exit();
         }
 
         try {
-            $added = $this->admin->addDepartment($departmentName);
+            $added = $this->admin->addDepartment($departmentName, $departmentAcronym);
             if (!$added) {
                 Notifications::error("Failed to add department.");
                 header('Location: ' . frontend_url('admin_dashboard.php?tab=degrees'));

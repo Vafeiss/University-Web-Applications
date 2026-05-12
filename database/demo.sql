@@ -1,8 +1,8 @@
 
 
-INSERT INTO `departments` (`DepartmentID`, `DepartmentName`) VALUES
-(1, 'HMMHY'),
-(6, 'Marketing');
+INSERT INTO `departments` (`DepartmentID`, `DepartmentName`, `DepartmentAcronym`) VALUES
+(1, 'HMMHY', 'HMMHY'),
+(6, 'Marketing', 'MKT');
 
 INSERT INTO `degree` (`DegreeID`, `DepartmentID`, `DegreeName`) VALUES
 (1, 1, 'Computer Engineer & Informatics'),
@@ -107,13 +107,13 @@ INSERT INTO `advisor_additional_slots`
 (3, 80, '2026-04-24', '09:00:00', '09:30:00', 1, '2026-04-12 10:00:00', '2026-04-12 10:00:00');
 
 INSERT INTO `appointment_requests`
-(`Request_ID`, `Student_ID`, `Advisor_ID`, `OfficeHour_ID`, `AdditionalSlot_ID`, `Appointment_Date`, `Student_Reason`, `Advisor_Reason`, `Status`, `Created_At`, `Updated_At`) VALUES
-(1, 42, 3, 1, NULL, '2026-04-21', 'Student1 would like to discuss academic progress.', NULL, 'Pending', '2026-04-10 09:00:00', '2026-04-10 09:00:00'),
-(2, 76, 3, NULL, 1, '2026-04-22', 'Student7 requested an additional slot for urgent guidance.', 'Approved for the additional slot.', 'Approved', '2026-04-10 09:30:00', '2026-04-10 10:00:00'),
-(3, 55, 43, 3, NULL, '2026-04-22', 'Student2 would like advice on module selection.', 'Please use the regular office hours next week.', 'Declined', '2026-04-11 11:30:00', '2026-04-11 12:00:00'),
-(4, 74, 44, NULL, 2, '2026-04-23', 'Student5 requested a one-off appointment.', 'Approved for the requested slot.', 'Approved', '2026-04-12 08:45:00', '2026-04-12 09:10:00'),
-(5, 79, 60, 6, NULL, '2026-04-23', 'Student10 requested to discuss internship options.', 'Cancelled by the student.', 'Cancelled', '2026-04-12 10:00:00', '2026-04-12 10:30:00'),
-(6, 67, 80, NULL, 3, '2026-04-24', 'Student3 requested advice about degree planning.', 'Approved for the marketing advisor slot.', 'Approved', '2026-04-13 14:00:00', '2026-04-13 14:20:00');
+(`Request_ID`, `Student_ID`, `Advisor_ID`, `OfficeHour_ID`, `AdditionalSlot_ID`, `Appointment_Date`, `Request_Type`, `Student_Reason`, `Advisor_Reason`, `Status`, `Created_At`, `Updated_At`) VALUES
+(1, 42, 3, 1, NULL, '2026-04-21', 'Slot', 'Student1 would like to discuss academic progress.', NULL, 'Pending', '2026-04-10 09:00:00', '2026-04-10 09:00:00'),
+(2, 76, 3, NULL, 1, '2026-04-22', 'Slot', 'Student7 requested an additional slot for urgent guidance.', 'Approved for the additional slot.', 'Approved', '2026-04-10 09:30:00', '2026-04-10 10:00:00'),
+(3, 55, 43, 3, NULL, '2026-04-22', 'Slot', 'Student2 would like advice on module selection.', 'Please use the regular office hours next week.', 'Declined', '2026-04-11 11:30:00', '2026-04-11 12:00:00'),
+(4, 74, 44, NULL, 2, '2026-04-23', 'Slot', 'Student5 requested a one-off appointment.', 'Approved for the requested slot.', 'Approved', '2026-04-12 08:45:00', '2026-04-12 09:10:00'),
+(5, 79, 60, 6, NULL, '2026-04-23', 'Slot', 'Student10 requested to discuss internship options.', 'Cancelled by the student.', 'Cancelled', '2026-04-12 10:00:00', '2026-04-12 10:30:00'),
+(6, 67, 80, NULL, 3, '2026-04-24', 'Slot', 'Student3 requested advice about degree planning.', 'Approved for the marketing advisor slot.', 'Approved', '2026-04-13 14:00:00', '2026-04-13 14:20:00');
 
 INSERT INTO `appointments`
 (`Appointment_ID`, `Request_ID`, `Student_ID`, `Advisor_ID`, `OfficeHour_ID`, `AdditionalSlot_ID`, `Appointment_Date`, `Start_Time`, `End_Time`, `Status`, `Created_At`, `Updated_At`) VALUES

@@ -6,6 +6,10 @@ Paraskevas Vafeiadis
 27-Mar-2026 v0.1
 Files in use: databaseconnect.php, CommunicationsClass.php
 
+11-May-2026 v0.2
+Added open-date appointment request flow allowing advisors to schedule date and time before approval.
+Panteleimoni Alexandrou
+
 */
 
 declare(strict_types=1);
@@ -219,7 +223,7 @@ class AdvisorClass
     {
         try {
             $sql = "SELECT ar.Request_ID, ar.Student_ID, COALESCE(s.External_ID, ar.Student_ID) AS Student_External_ID,
-                           ar.Advisor_ID,ar.OfficeHour_ID, ar.Appointment_Date, ar.Student_Reason, ar.Advisor_Reason,
+                           ar.Advisor_ID,ar.OfficeHour_ID, ar.Appointment_Date, ar.Request_Type, ar.Student_Reason, ar.Advisor_Reason,
                            ar.Status, ar.Created_At
                     FROM appointment_requests ar
                     INNER JOIN users s ON s.User_ID = ar.Student_ID
@@ -241,7 +245,8 @@ class AdvisorClass
     {
         try {
             $sql = "SELECT ap.Appointment_ID AS Appointment_ID, ar.Request_ID, ar.Student_ID, s.External_ID AS Student_External_ID, ar.Advisor_ID,
-                           ar.OfficeHour_ID, ar.Appointment_Date, COALESCE(oh.Start_Time, aas.Start_Time) AS Start_Time, COALESCE(oh.End_Time, aas.End_Time) AS End_Time,
+                           ar.OfficeHour_ID, COALESCE(ap.Appointment_Date, ar.Appointment_Date) AS Appointment_Date,
+                           COALESCE(ap.Start_Time, oh.Start_Time, aas.Start_Time) AS Start_Time, COALESCE(ap.End_Time, oh.End_Time, aas.End_Time) AS End_Time,
                            CASE
                                WHEN ap.Status = 'Completed' THEN 'Attended'
                                WHEN ap.Status = 'Cancelled' THEN 'No Show'
@@ -256,7 +261,7 @@ class AdvisorClass
                     LEFT JOIN appointments ap ON ap.Request_ID = ar.Request_ID
                     WHERE ar.Advisor_ID = ?
                       AND ar.Status = 'Approved'
-                    ORDER BY ar.Appointment_Date DESC, COALESCE(oh.Start_Time, aas.Start_Time) DESC";
+                    ORDER BY COALESCE(ap.Appointment_Date, ar.Appointment_Date) DESC, COALESCE(ap.Start_Time, oh.Start_Time, aas.Start_Time) DESC";
 
             $stmt = $this->conn->prepare($sql);
             $stmt->execute([$advisorUserId]);
@@ -282,7 +287,7 @@ class AdvisorClass
                         END AS Student_Attendance,
                         ar.Student_Reason,
                         ar.Advisor_Reason,
-                        ar.Appointment_Date,
+                        COALESCE(ap.Appointment_Date, ar.Appointment_Date) AS Appointment_Date,
                         ar.Created_At
                     FROM appointment_requests ar
                     LEFT JOIN appointments ap ON ap.Request_ID = ar.Request_ID
@@ -306,7 +311,7 @@ class AdvisorClass
         try {
             $sql = "SELECT
                         ar.Request_ID, ap.Appointment_ID, ar.Student_ID, COALESCE(u.External_ID, ar.Student_ID) AS Student_External_ID,
-                        ar.Appointment_Date, ar.Student_Reason, ar.Advisor_Reason, ar.Status,
+                        COALESCE(ap.Appointment_Date, ar.Appointment_Date) AS Appointment_Date, ar.Student_Reason, ar.Advisor_Reason, ar.Status,
                         CASE
                             WHEN ap.Status = 'Completed' THEN 'Attended'
                             WHEN ap.Status = 'Cancelled' THEN 'No Show'
@@ -321,7 +326,8 @@ class AdvisorClass
                     LEFT JOIN appointments ap ON ap.Request_ID = ar.Request_ID
                     LEFT JOIN users u ON ar.Student_ID = u.User_ID
                     WHERE ar.Advisor_ID = ?
-                    ORDER BY ar.Appointment_Date ASC, COALESCE(ap.Start_Time, oh.Start_Time, aas.Start_Time) ASC";
+                      AND COALESCE(ap.Appointment_Date, ar.Appointment_Date) IS NOT NULL
+                    ORDER BY COALESCE(ap.Appointment_Date, ar.Appointment_Date) ASC, COALESCE(ap.Start_Time, oh.Start_Time, aas.Start_Time) ASC";
 
             $stmt = $this->conn->prepare($sql);
             $stmt->execute([$advisorUserId]);

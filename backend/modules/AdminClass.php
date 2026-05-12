@@ -8,6 +8,10 @@
   Outputs: Various outputs for the functions about degrees and departments
   Error Messages : if connection fails throw exception with message
   Files in use: AdminStudentClass.php, AdminAdvisorCLass.php, AdminSuperUserClass.php, Admin_dashboard.php
+
+  10-May-2026 v1.2
+  Implemented department acronym support and department-linked degree creation in admin management.
+  Panteleimoni Alexandrou
   
 */
 
@@ -150,16 +154,17 @@ class Admin extends Users
 
     
     //add a department to the database with the information provided by the admin
-    public function addDepartment(string $departmentName): bool
+    public function addDepartment(string $departmentName, string $departmentAcronym = ''): bool
     {
-        if ($departmentName === '') {
+        if ($departmentName === '' || $departmentAcronym === '') {
             return false;
         }
 
         try {
             $DepartmentName = ucfirst(strtolower($departmentName));
-            $stmt = $this->conn->prepare('INSERT INTO departments (DepartmentName) VALUES (?)');
-            $stmt->execute([$DepartmentName]);
+            $DepartmentAcronym = strtoupper(trim($departmentAcronym));
+            $stmt = $this->conn->prepare('INSERT INTO departments (DepartmentName, DepartmentAcronym) VALUES (?, ?)');
+            $stmt->execute([$DepartmentName, $DepartmentAcronym]);
             if ($stmt->rowCount() === 0) {
                 return false;
             }

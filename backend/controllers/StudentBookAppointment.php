@@ -28,6 +28,10 @@
    20-Apr-2026 v1.6
    Updated recurring booking to keep advisor-defined times fixed while requiring only date selection, and kept additional slots fully fixed
    Panteleimoni Alexandrou
+
+   11-May-2026 v1.7
+   Added open-date appointment request flow allowing advisors to schedule date and time before approval.
+   Panteleimoni Alexandrou
 */
 
 declare(strict_types=1);
@@ -78,7 +82,12 @@ $appointmentDate = trim((string)($_POST['appointment_date'] ?? ''));
 $reason = isset($_POST['reason']) ? trim((string)$_POST['reason']) : '';
 
 // Validate basic input
-if ($studentId <= 0 || $slotId <= 0 || $reason === '' || !in_array($slotSource, ['recurring', 'additional'], true)) {
+if ($studentId <= 0 || $reason === '' || !in_array($slotSource, ['recurring', 'additional', 'open'], true)) {
+    Notifications::error("All booking fields are required.");
+    redirectToStudentDashboard('book');
+}
+
+if ($slotSource !== 'open' && $slotId <= 0) {
     Notifications::error("All booking fields are required.");
     redirectToStudentDashboard('book');
 }
@@ -120,6 +129,39 @@ try {
     $today = date('Y-m-d');
 
     $inserted = false;
+
+    if ($slotSource === 'open') {
+        $duplicateOpenSql = "SELECT Request_ID
+                             FROM appointment_requests
+                             WHERE Student_ID = :student_id
+                               AND Advisor_ID = :advisor_id
+                               AND Request_Type = 'Open'
+                               AND LOWER(TRIM(Status)) = 'pending'
+                             LIMIT 1";
+
+        $duplicateOpenStmt = $pdo->prepare($duplicateOpenSql);
+        $duplicateOpenStmt->execute([
+            'student_id' => $studentId,
+            'advisor_id' => $advisorId
+        ]);
+
+        if ($duplicateOpenStmt->fetch(PDO::FETCH_ASSOC)) {
+            Notifications::error("You already have a pending open-date appointment request.");
+            redirectToStudentDashboard('requests');
+        }
+
+        $insertSql = "INSERT INTO appointment_requests
+                      (Student_ID, Advisor_ID, OfficeHour_ID, AdditionalSlot_ID, Appointment_Date, Request_Type, Student_Reason, Advisor_Reason, Status)
+                      VALUES
+                      (:student_id, :advisor_id, NULL, NULL, NULL, 'Open', :student_reason, NULL, 'Pending')";
+
+        $insertStmt = $pdo->prepare($insertSql);
+        $inserted = $insertStmt->execute([
+            'student_id' => $studentId,
+            'advisor_id' => $advisorId,
+            'student_reason' => $reason
+        ]);
+    }
 
     if ($slotSource === 'recurring') {
         if ($appointmentDate === '') {
@@ -201,9 +243,9 @@ try {
         }
 
         $insertSql = "INSERT INTO appointment_requests
-                      (Student_ID, Advisor_ID, OfficeHour_ID, AdditionalSlot_ID, Appointment_Date, Student_Reason, Advisor_Reason, Status)
+                      (Student_ID, Advisor_ID, OfficeHour_ID, AdditionalSlot_ID, Appointment_Date, Request_Type, Student_Reason, Advisor_Reason, Status)
                       VALUES
-                      (:student_id, :advisor_id, :office_hour_id, NULL, :appointment_date, :student_reason, NULL, 'Pending')";
+                      (:student_id, :advisor_id, :office_hour_id, NULL, :appointment_date, 'Slot', :student_reason, NULL, 'Pending')";
 
         $insertStmt = $pdo->prepare($insertSql);
         $inserted = $insertStmt->execute([
@@ -309,9 +351,9 @@ try {
         }
 
         $insertSql = "INSERT INTO appointment_requests
-                      (Student_ID, Advisor_ID, OfficeHour_ID, AdditionalSlot_ID, Appointment_Date, Student_Reason, Advisor_Reason, Status)
+                      (Student_ID, Advisor_ID, OfficeHour_ID, AdditionalSlot_ID, Appointment_Date, Request_Type, Student_Reason, Advisor_Reason, Status)
                       VALUES
-                      (:student_id, :advisor_id, NULL, :additional_slot_id, :appointment_date, :student_reason, NULL, 'Pending')";
+                      (:student_id, :advisor_id, NULL, :additional_slot_id, :appointment_date, 'Slot', :student_reason, NULL, 'Pending')";
 
         $insertStmt = $pdo->prepare($insertSql);
         $inserted = $insertStmt->execute([
