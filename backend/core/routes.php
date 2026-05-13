@@ -56,3 +56,5 @@ $router->get('/advisor/office-hours', ['AppointmentController','advisorOfficeHou
 $router->post('/advisor/office-hours', ['AppointmentController','advisorOfficeHours']);
 
 $router->post('/appointment/action', ['AppointmentControllerAction','handle']);
+
+$router->get('/manual', ['ManualController','download']);

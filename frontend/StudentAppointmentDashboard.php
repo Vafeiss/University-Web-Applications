@@ -191,6 +191,9 @@ $translations = [
     'tab_communications' => 'Επικοινωνίες',
     'book_title' => 'Κράτηση Ραντεβού',
     'book_subtitle' => 'Επιλέξτε διαθέσιμη ώρα συμβούλου και ζητήστε συνάντηση',
+    'open_date_request_title' => 'Αίτημα συνάντησης χωρίς συγκεκριμένη ημερομηνία/ώρα',
+    'open_date_request_subtitle' => 'Στείλτε τον λόγο σας και αφήστε τον σύμβουλό σας να ορίσει την ημερομηνία και την ώρα της συνάντησης.',
+    'open_date_request_reason' => 'Λόγος συνάντησης',
     'new_request' => 'Νέο Αίτημα',
     'requests_title' => 'Τα Αιτήματά Μου'
   ]
@@ -265,7 +268,7 @@ $translations['en'] = array_merge($translations['en'], [
 ]);
 
 $translations['el'] = array_merge($translations['el'], [
-  'welcome' => 'Καλώς ήρθες στο AdviCut, %s! 👋',
+  'welcome' => 'Καλώς ήρθατε στο AdviCut, %s! 👋',
   'requests_subtitle' => 'Δείτε όλα τα εκκρεμή αιτήματα ραντεβού σας',
   'search_requests' => 'Αναζήτηση αιτημάτων...',
   'advisor' => 'Σύμβουλος',
@@ -406,6 +409,14 @@ $translations['el'] = array_merge($translations['el'], [
   'choose_date' => 'Επιλογή Ημερομηνίας',
   'no_recurring_slots_loaded' => 'Δεν έχουν φορτωθεί επαναλαμβανόμενα slots ακόμη',
   'no_additional_slots_loaded' => 'Δεν βρέθηκαν επιπλέον slots'
+]);
+
+$translations['en'] = array_merge($translations['en'], [
+  'Student Manual' => 'Student Manual',
+]);
+
+$translations['el'] = array_merge($translations['el'], [
+  'Student Manual' => 'Πλήρες Εγχειρίδιο Φοιτητή',
 ]);
 
 $t = static function (string $key) use ($translations, $lang): string {
@@ -827,13 +838,15 @@ try {
       </div>
       <div class="modal-body pt-2">
         <ol class="mb-0 ps-3">
-          <li><?= htmlspecialchars($t('manual_item_1')) ?></li>
-          <li><?= htmlspecialchars($t('manual_item_2')) ?></li>
-          <li><?= htmlspecialchars($t('manual_item_3')) ?></li>
-          <li><?= htmlspecialchars($t('manual_item_4')) ?></li>
-          <li><?= htmlspecialchars($t('manual_item_5')) ?></li>
+          <li><a href="#" class="manual-link" data-tab="book"><?= htmlspecialchars($t('manual_item_1')) ?></a></li>
+          <li><a href="#" class="manual-link" data-tab="requests"><?= htmlspecialchars($t('manual_item_2')) ?></a></li>
+          <li><a href="#" class="manual-link" data-tab="appointments"><?= htmlspecialchars($t('manual_item_3')) ?></a></li>
+          <li><a href="#" class="manual-link" data-tab="history"><?= htmlspecialchars($t('manual_item_4')) ?></a></li>
+          <li><a href="#" class="manual-link" data-tab="communications"><?= htmlspecialchars($t('manual_item_5')) ?></a></li>
           <li><?= htmlspecialchars($t('manual_item_6')) ?></li>
           <li><?= htmlspecialchars($t('manual_item_7')) ?></li>
+          <li>For more information, open the full manual: <a href="../backend/modules/dispatcher.php?action=/manual&role=Student" target="_blank" rel="noopener noreferrer"><?= htmlspecialchars($t('Student Manual')) ?></a></li>
+
         </ol>
       </div>
       <div class="modal-footer border-0 pt-0">
@@ -919,22 +932,29 @@ try {
         </div>
       <?php endif; ?>
 
-      <div class="card border-0 shadow-sm mb-4">
-        <div class="card-body">
-          <h6 class="fw-semibold mb-2"><?= htmlspecialchars($t('open_date_request_title')) ?></h6>
-          <p class="text-muted mb-3" style="font-size:.85rem;"><?= htmlspecialchars($t('open_date_request_subtitle')) ?></p>
-          <form action="../backend/controllers/StudentBookAppointment.php" method="POST">
-            <input type="hidden" name="student_id" value="<?= (int)$studentId ?>">
-            <input type="hidden" name="_csrf" value="<?= htmlspecialchars($csrfToken) ?>">
-            <input type="hidden" name="slot_source" value="open">
-            <div class="mb-3">
-              <label class="form-label"><?= htmlspecialchars($t('open_date_request_reason')) ?> <span class="text-danger">*</span></label>
-              <textarea name="reason" class="form-control" rows="3" placeholder="<?= htmlspecialchars($t('request_reason_placeholder')) ?>" required></textarea>
+      <div class="mb-4">
+        <button class="btn btn-outline-primary btn-sm mb-3" type="button" data-bs-toggle="collapse" data-bs-target="#openDateRequestCollapse" aria-expanded="false" aria-controls="openDateRequestCollapse">
+          <i class="bi bi-plus-circle me-1"></i> <?= htmlspecialchars($t('open_date_request_title')) ?>
+        </button>
+        <div class="collapse" id="openDateRequestCollapse">
+          <div class="card border-0 shadow-sm">
+            <div class="card-body">
+              <h6 class="fw-semibold mb-2"><?= htmlspecialchars($t('open_date_request_title')) ?></h6>
+              <p class="text-muted mb-3" style="font-size:.85rem;"><?= htmlspecialchars($t('open_date_request_subtitle')) ?></p>
+              <form action="../backend/controllers/StudentBookAppointment.php" method="POST">
+                <input type="hidden" name="student_id" value="<?= (int)$studentId ?>">
+                <input type="hidden" name="_csrf" value="<?= htmlspecialchars($csrfToken) ?>">
+                <input type="hidden" name="slot_source" value="open">
+                <div class="mb-3">
+                  <label class="form-label"><?= htmlspecialchars($t('open_date_request_reason')) ?> <span class="text-danger">*</span></label>
+                  <textarea name="reason" class="form-control" rows="3" placeholder="<?= htmlspecialchars($t('request_reason_placeholder')) ?>" required></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary btn-sm">
+                  <i class="bi bi-send me-1"></i> <?= htmlspecialchars($t('send_request')) ?>
+                </button>
+              </form>
             </div>
-            <button type="submit" class="btn btn-primary btn-sm">
-              <i class="bi bi-send me-1"></i> <?= htmlspecialchars($t('send_request')) ?>
-            </button>
-          </form>
+          </div>
         </div>
       </div>
 
@@ -1928,6 +1948,36 @@ document.addEventListener("DOMContentLoaded", function () {
         }
       }
     });
+  });
+});
+
+//link nav
+document.querySelectorAll('.manual-link').forEach(link => {
+  link.addEventListener('click', function(e) {
+    e.preventDefault();
+    
+    //get the modal instance and close it
+    const modalElement = document.getElementById('manualInstructionsModal');
+    const modalInstance = bootstrap.Modal.getInstance(modalElement) || new bootstrap.Modal(modalElement);
+    modalInstance.hide();
+    
+    //check if this is an external link
+    if (this.dataset.external) {
+      window.location.href = this.dataset.external;
+      return;
+    }
+    
+    //get the tab to navigate to
+    const tab = this.dataset.tab;
+    if (!tab) return;
+    
+    //click the corresponding tab button to navigate
+    setTimeout(() => {
+      const tabBtn = document.querySelector(`.tab-btn[data-section="${tab}"]`);
+      if (tabBtn) {
+        tabBtn.click();
+      }
+    }, 300); //wait for modal close animation
   });
 });
 </script>

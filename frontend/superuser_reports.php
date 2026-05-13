@@ -145,7 +145,8 @@ $translations = [
     'last_name' => 'Last Name',
     'email' => 'Email',
     'no_students_found' => 'No students found for the selected filters.',
-    'unassigned' => 'Unassigned'
+    'unassigned' => 'Unassigned',
+    'Superuser Manual' => 'Superuser Manual'
   ],
   'el' => [
     'page_title' => 'Αναφορές Super User',
@@ -191,7 +192,8 @@ $translations = [
     'last_name' => 'Επώνυμο',
     'email' => 'Email',
     'no_students_found' => 'Δεν βρέθηκαν φοιτητές για τα επιλεγμένα φίλτρα.',
-    'unassigned' => 'Μη ανατεθειμένος'
+    'unassigned' => 'Μη ανατεθειμένος',
+    'Superuser Manual' => 'Πλήρες Εγχειρίδιο SuperUser'
   ]
 ];
 
@@ -325,6 +327,7 @@ $advisorCounts = $reports->getAdvisorStudentCounts(
   </div>
 </header>
 
+<!-- Manual Instructions Modal -->
 <div class="modal fade" id="manualInstructionsModal" tabindex="-1" aria-labelledby="manualInstructionsModalLabel" aria-hidden="true">
   <div class="modal-dialog modal-lg modal-dialog-centered">
     <div class="modal-content border-0 shadow">
@@ -336,9 +339,10 @@ $advisorCounts = $reports->getAdvisorStudentCounts(
       </div>
       <div class="modal-body pt-2">
         <ol class="mb-0 ps-3">
-          <li><?= htmlspecialchars($t('manual_item_1')) ?></li>
-          <li><?= htmlspecialchars($t('manual_item_2')) ?></li>
+          <li><a href="#" class="manual-link" data-tab="statistics"><?= htmlspecialchars($t('manual_item_1')) ?></a></li>
+          <li><a href="#" class="manual-link" data-tab="students"><?= htmlspecialchars($t('manual_item_2')) ?></a></li>
           <li><?= htmlspecialchars($t('manual_item_3')) ?></li>
+          <li>For more information, open the full manual: <a href="../backend/modules/dispatcher.php?action=/manual&role=SuperUser" target="_blank" rel="noopener noreferrer"><?= htmlspecialchars($t('Superuser Manual')) ?></a></li>
         </ol>
       </div>
       <div class="modal-footer border-0 pt-0">
@@ -643,6 +647,38 @@ $advisorCounts = $reports->getAdvisorStudentCounts(
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script src="js/superuser-reports.js"></script>
+
+<script>
+//link nav
+document.querySelectorAll('.manual-link').forEach(link => {
+  link.addEventListener('click', function(e) {
+    e.preventDefault();
+    
+    //get the modal instance and close it
+    const modalElement = document.getElementById('manualInstructionsModal');
+    const modalInstance = bootstrap.Modal.getInstance(modalElement) || new bootstrap.Modal(modalElement);
+    modalInstance.hide();
+    
+    //check if this is an external link
+    if (this.dataset.external) {
+      window.location.href = this.dataset.external;
+      return;
+    }
+    
+    //get the tab to navigate to
+    const tab = this.dataset.tab;
+    if (!tab) return;
+    
+    //click the corresponding tab button to navigate
+    setTimeout(() => {
+      const tabBtn = document.querySelector(`.tab-btn[data-section="${tab}"]`);
+      if (tabBtn) {
+        tabBtn.click();
+      }
+    }, 300); //wait for modal close animation
+  });
+});
+</script>
 
 </body>
 </html>

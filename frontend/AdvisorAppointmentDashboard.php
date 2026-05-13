@@ -141,6 +141,8 @@ $translations = [
         'manual_item_2' => 'Manage your weekly slots in Office Hours.',
         'manual_item_3' => 'Check appointment details in Appointments and History.',
         'manual_item_4' => 'Use Communications to message and see assigned students.',
+        'manual_item_5' => 'View your appointment History.',
+        'manual_item_6' => 'View your Students.',
         'close' => 'Close',
         'tab_calendar' => 'Calendar',
         'tab_requests' => 'Requests',
@@ -167,6 +169,8 @@ $translations = [
         'manual_item_2' => 'Διαχειριστείτε τις εβδομαδιαίες ώρες γραφείου σας.',
         'manual_item_3' => 'Δείτε λεπτομέρειες ραντεβού στις ενότητες Ραντεβού και Ιστορικό.',
         'manual_item_4' => 'Χρησιμοποιήστε τις Επικοινωνίες για μηνύματα και προβολή φοιτητών.',
+        'manual_item_5' => 'Δείτε το ιστορικό ραντεβού σας.',
+        'manual_item_6' => 'Δείτε τους φοιτητές σας.',
         'close' => 'Κλείσιμο',
         'tab_calendar' => 'Ημερολόγιο',
         'tab_requests' => 'Αιτήματα',
@@ -289,7 +293,7 @@ $translations['en'] = array_merge($translations['en'], [
 ]);
 
 $translations['el'] = array_merge($translations['el'], [
-    'welcome' => 'Καλώς ήρθες στο AdviCut, %s! 👋',
+    'welcome' => 'Καλώς ήρθατε στο AdviCut, %s! 👋',
     'search_requests' => 'Αναζήτηση αιτημάτων...',
     'student_id' => 'Κωδικός Φοιτητή',
     'date' => 'Ημερομηνία',
@@ -454,6 +458,14 @@ $translations['el'] = array_merge($translations['el'], [
     'type' => 'Τύπος',
     'additional' => 'Επιπλέον',
     'no_additional_slots_found' => 'Δεν βρέθηκαν επιπλέον slots.'
+]);
+
+$translations['en'] = array_merge($translations['en'], [
+    'Advisor Manual' => 'Advisor Manual',
+]);
+
+$translations['el'] = array_merge($translations['el'], [
+    'Advisor Manual' => 'Πλήρες Εγχειρίδιο Συμβούλου',
 ]);
 
 $t = static function (string $key) use ($translations, $lang): string {
@@ -756,7 +768,7 @@ try {
         </div>
     </div>
 </header>
-
+<!-- Manual Instructions Modal -->
 <div class="modal fade" id="manualInstructionsModal" tabindex="-1" aria-labelledby="manualInstructionsModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content border-0 shadow">
@@ -768,10 +780,15 @@ try {
             </div>
             <div class="modal-body pt-2">
                 <ol class="mb-0 ps-3">
-                    <li><?= htmlspecialchars($t('manual_item_1')) ?></li>
-                    <li><?= htmlspecialchars($t('manual_item_2')) ?></li>
-                    <li><?= htmlspecialchars($t('manual_item_3')) ?></li>
-                    <li><?= htmlspecialchars($t('manual_item_4')) ?></li>
+                    <li><a href="#" class="manual-link" data-tab="requests"><?= htmlspecialchars($t('manual_item_1')) ?></a></li>
+                    <li><a href="#" class="manual-link" data-tab="officehours"><?= htmlspecialchars($t('manual_item_2')) ?></a></li>
+                    <li><a href="#" class="manual-link" data-tab="appointments"><?= htmlspecialchars($t('manual_item_3')) ?></a></li>
+                    <li><a href="#" class="manual-link" data-tab="communications"><?= htmlspecialchars($t('manual_item_4')) ?></a></li>
+                    <li><a href="#" class="manual-link" data-tab="history"><?= htmlspecialchars($t('manual_item_5')) ?></a></li>
+                    <li><a href="#" class="manual-link" data-tab="mystudents"><?= htmlspecialchars($t('manual_item_6')) ?></a></li>
+
+                    <li>For more information, open the full manual: <a href="../backend/modules/dispatcher.php?action=/manual&role=Advisor" target="_blank" rel="noopener noreferrer"><?= htmlspecialchars($t('Advisor Manual')) ?></a></li>
+
                 </ol>
             </div>
             <div class="modal-footer border-0 pt-0">
@@ -2121,6 +2138,61 @@ document.addEventListener("DOMContentLoaded", function () {
         renderAdvisorCalendar();
     }
 });
+
+//link nav
+document.querySelectorAll('.manual-link').forEach(link => {
+  link.addEventListener('click', function(e) {
+    e.preventDefault();
+    
+    //get the modal instance and close it
+    const modalElement = document.getElementById('manualInstructionsModal');
+    const modalInstance = bootstrap.Modal.getInstance(modalElement) || new bootstrap.Modal(modalElement);
+    modalInstance.hide();
+    
+    //check if this is an external link
+    if (this.dataset.external) {
+      window.location.href = this.dataset.external;
+      return;
+    }
+    
+    //getet the tab to navigate to
+    const tab = this.dataset.tab;
+    if (!tab) return;
+    
+    //click the corresponding tab button to navigate
+    setTimeout(() => {
+      const tabBtn = document.querySelector(`.tab-btn[data-section="${tab}"]`);
+      if (tabBtn) {
+        tabBtn.click();
+      }
+    }, 300); //wait for modal close animation
+  });
+});
+
+</script>
+
+<style>
+/* Style for manual links */
+.manual-link {
+  color: #4f46e5;
+  text-decoration: none;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.manual-link:hover {
+  color: #4338ca;
+  text-decoration: underline;
+}
+
+.manual-link:active {
+  color: #3730a3;
+}
+
+ol .manual-link {
+  display: inline;
+}
+</style>
 </script>
 
 </body>

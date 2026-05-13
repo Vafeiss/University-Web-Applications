@@ -16,6 +16,7 @@ require_once __DIR__ . '/../controllers/AppointmentController.php';
 require_once __DIR__ . '/../controllers/AppointmentControllerAction.php';
 require_once __DIR__ . '/../controllers/AdvisorController.php';
 require_once __DIR__ . '/../controllers/StudentController.php';
+require_once __DIR__ . '/../controllers/ManualController.php';
 require_once __DIR__ . '/Csrf.php';
 
 if ((string)($_GET['route_diag'] ?? '') === '1') {
@@ -33,6 +34,14 @@ if ((string)($_GET['route_diag'] ?? '') === '1') {
 }
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    // Handle GET requests with action parameter (e.g., for manual downloads)
+    if (isset($_GET['action']) && is_string($_GET['action'])) {
+        $router = new Router();
+        require_once __DIR__ . '/../core/routes.php';
+        $router->resolve();
+        exit();
+    }
+    
     header('Location: ' . frontend_url('index.php'));
     exit();
 }

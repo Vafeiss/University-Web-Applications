@@ -204,6 +204,7 @@ $translations = [
     'manual_item_6' => 'Use Appointment Reports to view additional statistics and export to CSV or PDF.',
     'manual_item_7' => 'Create new departments and degrees using the Degrees tab (to delete one, you must have 0 associated records).',
     'manual_item_8' => 'For any issues or questions, contact the system administrator.',
+    'Admin Manual' => 'Admin Manual',
     'tab_advisors' => 'Advisors',
     'tab_students' => 'Students',
     'tab_admins' => 'Admins',
@@ -338,6 +339,11 @@ $translations = [
     'year_n' => 'Έτος %d'
   ]
 ];
+
+$translations['el'] = $translations['el'] ?? [];
+$translations['el'] = array_merge($translations['el'], [
+  'Admin Manual' => 'Πλήρες Εγχειρίδιο Διαχειριστή',
+]);
 
 $t = static function (string $key) use ($translations, $lang): string {
   return $translations[$lang][$key] ?? $translations['en'][$key] ?? $key;
@@ -596,14 +602,15 @@ $YearOptions = [
       <div class="modal-body pt-2">
         <p class="mb-2"><?= htmlspecialchars($t('manual_intro')) ?></p>
         <ol class="mb-0 ps-3">
-          <li><?= htmlspecialchars($t('manual_item_1')) ?></li>
-          <li><?= htmlspecialchars($t('manual_item_2')) ?></li>
-          <li><?= htmlspecialchars($t('manual_item_3')) ?></li>
-          <li><?= htmlspecialchars($t('manual_item_4')) ?></li>
-          <li><?= htmlspecialchars($t('manual_item_5')) ?></li>
-          <li><?= htmlspecialchars($t('manual_item_6')) ?></li>
-          <li><?= htmlspecialchars($t('manual_item_7')) ?></li>
+          <li><a href="#" class="manual-link" data-tab="advisors"><?= htmlspecialchars($t('manual_item_1')) ?></a></li>
+          <li><a href="#" class="manual-link" data-tab="students"><?= htmlspecialchars($t('manual_item_2')) ?></a></li>
+          <li><a href="#" class="manual-link" data-tab="students"><?= htmlspecialchars($t('manual_item_3')) ?></a></li>
+          <li><a href="#" class="manual-link" data-tab="assignstudents"><?= htmlspecialchars($t('manual_item_4')) ?></a></li>
+          <li><a href="#" class="manual-link" data-tab="assignstudents"><?= htmlspecialchars($t('manual_item_5')) ?></a></li>
+          <li><a href="#" class="manual-link" data-external="admin_appointment_reports.php"><?= htmlspecialchars($t('manual_item_6')) ?></a></li>
+          <li><a href="#" class="manual-link" data-tab="degrees"><?= htmlspecialchars($t('manual_item_7')) ?></a></li>
           <li><?= htmlspecialchars($t('manual_item_8')) ?></li>
+          <li>For more information, open the full manual: <a href="../backend/modules/dispatcher.php?action=/manual&role=Admin" target="_blank" rel="noopener noreferrer"><?= htmlspecialchars($t('Admin Manual')) ?></a></li>
         </ol>
       </div>
       <div class="modal-footer border-0 pt-0">
@@ -2564,7 +2571,60 @@ if (departmentSearchInput) {
   });
 })();
 
+//link nav
+document.querySelectorAll('.manual-link').forEach(link => {
+  link.addEventListener('click', function(e) {
+    e.preventDefault();
+    
+    //get the modal instance and close it
+    const modalElement = document.getElementById('manualInstructionsModal');
+    const modalInstance = bootstrap.Modal.getInstance(modalElement) || new bootstrap.Modal(modalElement);
+    modalInstance.hide();
+    
+    //check if this is an external link
+    if (this.dataset.external) {
+      window.location.href = this.dataset.external;
+      return;
+    }
+    
+    //getet the tab to navigate to
+    const tab = this.dataset.tab;
+    if (!tab) return;
+    
+    //click the corresponding tab button to navigate
+    setTimeout(() => {
+      const tabBtn = document.querySelector(`.tab-btn[data-section="${tab}"]`);
+      if (tabBtn) {
+        tabBtn.click();
+      }
+    }, 300); //wait for modal close animation
+  });
+});
+
 </script>
+
+<style>
+/* Style for manual links */
+.manual-link {
+  color: #4f46e5;
+  text-decoration: none;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.manual-link:hover {
+  color: #4338ca;
+  text-decoration: underline;
+}
+
+.manual-link:active {
+  color: #3730a3;
+}
+
+ol .manual-link {
+  display: inline;
+}
+</style>
 
 </body>
 </html>

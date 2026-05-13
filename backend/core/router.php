@@ -31,6 +31,14 @@ class Router {
             }
         }
 
+        // Support GET requests with action parameter (e.g., for manual downloads)
+        if ($method === "GET" && isset($_GET['action']) && is_string($_GET['action'])) {
+            $action = trim($_GET['action']);
+            if ($action !== '') {
+                $uri = '/' . ltrim($action, '/');
+            }
+        }
+
         if(isset($this->routes[$method][$uri])){
 
             $handler = $this->routes[$method][$uri];
