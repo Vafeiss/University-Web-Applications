@@ -10,6 +10,7 @@ class Csrf
 {
     private const SESSION_KEY = 'csrf_token';
 
+    //start session if not already started, return true if session active
     private static function startSessionIfPossible(): bool
     {
         if (session_status() !== PHP_SESSION_NONE) {
@@ -25,6 +26,7 @@ class Csrf
         return session_status() === PHP_SESSION_ACTIVE;
     }
 
+    //create token if not exists and return it into the session
     public static function ensureToken(): string
     {
         if (!self::startSessionIfPossible()) {
@@ -38,6 +40,7 @@ class Csrf
         return (string)$_SESSION[self::SESSION_KEY];
     }
 
+    //validate the token from the request 
     public static function validateRequestToken(): bool
     {
         if (!self::startSessionIfPossible()) {
@@ -58,6 +61,7 @@ class Csrf
         return $postedToken !== '' && hash_equals($sessionToken, $postedToken);
     }
 
+    //reject the request if token validation fails, return json response if expectsJson is true
     public static function reject(bool $expectsJson): void
     {
         http_response_code(403);

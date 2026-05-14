@@ -666,7 +666,7 @@ try {
 <body>
 
 <?php Notifications::createNotification(); ?>
-
+<!-- Top Navigation Bar -->
 <header class="top-navbar">
     <img src="../documents/tepaklogo.png" alt="Logo" class="logo">
 
@@ -829,6 +829,7 @@ try {
 </div>
 
 <main class="container-fluid py-4 px-4" style="max-width: 1100px;">
+    <!-- requests tab -->
     <div class="section-panel <?= $activeSection === 'requests' ? 'active' : '' ?>" id="section-requests">
         <div class="section-card">
             <div class="d-flex align-items-center justify-content-between mb-4">
@@ -940,6 +941,7 @@ try {
         </div>
     </div>
 
+    <!-- officehours tab -->
     <div class="section-panel <?= $activeSection === 'officehours' ? 'active' : '' ?>" id="section-officehours">
         <div class="section-card">
             <div class="d-flex align-items-center justify-content-between mb-4">
@@ -1060,6 +1062,7 @@ try {
         </div>
     </div>
 
+    <!-- appointments tab -->
     <div class="section-panel <?= $activeSection === 'appointments' ? 'active' : '' ?>" id="section-appointments">
         <div class="section-card">
             <div class="d-flex align-items-center justify-content-between mb-4">
@@ -1151,6 +1154,7 @@ try {
         </div>
     </div>
 
+    <!-- history tab -->
     <div class="section-panel <?= $activeSection === 'history' ? 'active' : '' ?>" id="section-history">
         <div class="section-card">
             <div class="d-flex align-items-center justify-content-between mb-4">
@@ -1246,6 +1250,7 @@ try {
         </div>
     </div>
 
+    <!-- my students tab -->
     <div class="section-panel <?= $activeSection === 'mystudents' ? 'active' : '' ?>" id="section-mystudents">
         <div class="section-card">
             <div class="d-flex align-items-center justify-content-between mb-4">
@@ -1323,7 +1328,7 @@ try {
             </div>
         </div>
     </div>
-
+    <!-- communications tab -->
     <div class="section-panel <?= $activeSection === 'communications' ? 'active' : '' ?>" id="section-communications">
         <div class="section-card">
             <div class="d-flex align-items-center justify-content-between mb-4">
@@ -1407,6 +1412,7 @@ try {
         </div>
     </div>
 
+    <!-- calendar tab -->
     <div class="section-panel <?= $activeSection === 'calendar' ? 'active' : '' ?>" id="section-calendar">
         <div class="section-card">
             <div class="d-flex align-items-center justify-content-between mb-4">

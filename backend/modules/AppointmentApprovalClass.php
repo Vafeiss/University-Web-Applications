@@ -195,6 +195,7 @@ class AppointmentApproval
         }
     }
 
+    
     public function approveOpenAppointment(int $requestId, int $advisorId, string $appointmentDate, string $startTime, string $endTime): bool
     {
         $appointmentDate = trim($appointmentDate);
