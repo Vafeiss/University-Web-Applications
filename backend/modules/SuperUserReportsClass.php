@@ -24,7 +24,7 @@ class SuperUserReportsClass
     public function getDepartments(): array
     {
         try {
-            $sql = "SELECT DepartmentID, DepartmentName FROM departments ORDER BY DepartmentName ASC";
+            $sql = "SELECT DepartmentID, DepartmentName, DepartmentAcronym FROM departments ORDER BY DepartmentName ASC";
             $stmt = $this->conn->prepare($sql);
             $stmt->execute();
             return $stmt->fetchAll();
@@ -161,6 +161,7 @@ class SuperUserReportsClass
                     s.Year,
                     deg.DegreeName,
                     d.DepartmentName,
+                    d.DepartmentAcronym AS DepartmentAcronym,
                     sa.Advisor_ID
                 FROM users u
                 INNER JOIN students s ON u.User_ID = s.User_ID

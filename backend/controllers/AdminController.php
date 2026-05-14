@@ -56,6 +56,7 @@ class AdminController {
         $this->admin->Check_Session('Admin');
     }
 
+    //normalize year input across the php
     private function normalizeYear(string $yearInput): string
     {
         $value = strtolower(trim($yearInput));
@@ -98,6 +99,7 @@ class AdminController {
         return array_keys($ids);
     }
 
+    //validate phone number input for advisors
     private function isValidPhone(string $phone): bool
     {
         if ($phone === '') {
@@ -114,6 +116,7 @@ class AdminController {
         return $digitsLength >= 8 && $digitsLength <= 15;
     }
 
+    //require a POST request with a valid CSRF token 
     private function requireMutationRequest(string $redirectUrl): void
     {
         if (str_ends_with($redirectUrl, '?tab=')) {
@@ -132,6 +135,7 @@ class AdminController {
         }
     }
 
+    
     private function inferAdminTab(): string
     {
         $action = trim((string)($_POST['action'] ?? ''));
@@ -140,6 +144,7 @@ class AdminController {
             return 'advisors';
         }
 
+        //map action to admin dashboard tab
         $map = [
             '/student/add' => 'students',
             '/student/importcsv' => 'students',
@@ -163,6 +168,7 @@ class AdminController {
         return $map[$action] ?? 'advisors';
     }
 
+    //save from data on session incase error in form
     private function storeFormDataInSession(array $formData, string $sessionKey): void
     {
         if (session_status() === PHP_SESSION_NONE) {
@@ -171,6 +177,7 @@ class AdminController {
         $_SESSION[$sessionKey] = $formData;
     }
 
+    //get form data from session and clear it
     private function getFormDataFromSession(string $sessionKey): array
     {
         if (session_status() === PHP_SESSION_NONE) {
@@ -181,6 +188,7 @@ class AdminController {
         return $data;
     }
 
+    //get post request from the frontend and call the function from adminclass
     public function addStudent()
     {
         $this->requireMutationRequest(frontend_url('admin_dashboard.php?tab='));
@@ -218,6 +226,7 @@ class AdminController {
         exit();
     }
 
+    //get the post request from the frontend and call the function from admin class 
     public function importStudentsCSV()
     {
         $this->requireMutationRequest(frontend_url('admin_dashboard.php?tab='));
@@ -485,6 +494,7 @@ class AdminController {
         exit();
     }
 
+    //get the post request from the frontend and call the function from adminclass
     public function randomAssignment()
     {
         $this->requireMutationRequest(frontend_url('admin_dashboard.php?tab='));
@@ -509,6 +519,7 @@ class AdminController {
         exit();
     }
 
+    //get the post request from the frontend and call the function from adminclass
     public function editAdvisor(){
         $this->requireMutationRequest(frontend_url('admin_dashboard.php?tab='));
 
@@ -539,6 +550,7 @@ class AdminController {
         exit();
     }
 
+    //get the post request from the frontend and call the function from adminclass
     public function editStudent(){
         $this->requireMutationRequest(frontend_url('admin_dashboard.php?tab='));
 
@@ -573,6 +585,7 @@ class AdminController {
         exit();
     }
 
+    //get the post request from the frontend and call the function from adminclass
     public function editDegreeController(){
         $this->requireMutationRequest(frontend_url('admin_dashboard.php?tab='));
 
@@ -605,6 +618,7 @@ class AdminController {
     
     }
 
+    //get the post request from the frontend and call the function from adminclass
     public function addDegreeController(){
         $this->requireMutationRequest(frontend_url('admin_dashboard.php?tab='));
 
@@ -635,6 +649,7 @@ class AdminController {
         }
     }
 
+    //get the post request from the frontend and call the function from adminclass
     public function addDepartmentController(){
         $this->requireMutationRequest(frontend_url('admin_dashboard.php?tab='));
 
@@ -666,6 +681,7 @@ class AdminController {
         }
     }
 
+    //get the post request from the frontend and call the function from adminclass
     public function deleteDegreeController(){
         $this->requireMutationRequest(frontend_url('admin_dashboard.php?tab='));
 
@@ -702,6 +718,7 @@ class AdminController {
         }
     }
 
+    //get the post request from the frontend and call the function from adminclass
     public function deleteDepartmentController(){
         $this->requireMutationRequest(frontend_url('admin_dashboard.php?tab='));
 
@@ -740,20 +757,22 @@ class AdminController {
         }
     }
 
+    //get the post request from the frontend and call the function from adminclass
     public function editDepartmentController(){
         $this->requireMutationRequest(frontend_url('admin_dashboard.php?tab='));
 
         $departmentId = (int)($_POST['department_id'] ?? 0);
         $departmentName = trim((string)($_POST['department_name'] ?? ''));
+        $departmentAcronym = trim((string)($_POST['department_acronym'] ?? ''));
 
-        if ($departmentName === '' || $departmentId <= 0) {
+        if ($departmentName === '' || $departmentAcronym === '' || $departmentId <= 0) {
             Notifications::error("Invalid department data.");
             header('Location: ' . frontend_url('admin_dashboard.php?tab=degrees'));
             exit();
         }
 
         try{
-        $saved = $this->admin->editDepartment($departmentId, $departmentName);
+        $saved = $this->admin->editDepartment($departmentId, $departmentName, $departmentAcronym);
         if (!$saved) {
             Notifications::error("Failed to edit department.");
             header('Location: ' . frontend_url('admin_dashboard.php?tab=degrees'));

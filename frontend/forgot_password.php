@@ -18,6 +18,7 @@ $message = '';
 
 $isError = false;
 
+//check for post request and handle forgot password logic
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!Csrf::validateRequestToken()) {
         $message = 'Request validation failed.';

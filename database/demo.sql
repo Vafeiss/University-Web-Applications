@@ -1,12 +1,11 @@
 
-
 INSERT INTO `departments` (`DepartmentID`, `DepartmentName`, `DepartmentAcronym`) VALUES
-(1, 'HMMHY', 'HMMHY'),
-(6, 'Marketing', 'MKT');
+(1, 'Ηλεκτρολογοι Μηχανικοί και Μηχανικοί Υλεκτρονικών Υπολογιστών', 'HMMHY'),
+(2, 'Marketing', 'MKT');
 
 INSERT INTO `degree` (`DegreeID`, `DepartmentID`, `DegreeName`) VALUES
 (1, 1, 'Computer Engineer & Informatics'),
-(2, 6, 'Marketing');
+(2, 2, 'Marketing');
 
 INSERT INTO `users` (`User_ID`, `External_ID`, `Uni_Email`, `Password`, `Role`, `First_name`, `Last_Name`, `Phone`) VALUES
 (1, 1, 'admin1@cut.ac.cy', '$2y$10$46bh2IXiYsStGwDSNr5zoernaZ7.ZYjHJqJeMtF4SXPlHRCvgzKoe', 'Admin', 'Admin1', 'Admin1', ''),
@@ -34,7 +33,7 @@ INSERT INTO `advisordepartment` (`User_ID`, `DepartmentID`) VALUES
 (43, 1),
 (44, 1),
 (60, 1),
-(80, 6);
+(80, 2);
 
 INSERT INTO `students` (`User_ID`, `year`) VALUES
 (42, 4),
@@ -151,7 +150,7 @@ INSERT INTO `promotion_log` (`id`, `promotion_year`, `executed_at`) VALUES
 (1, 2026, '2026-03-26 20:48:38');
 
 -- Optional: sync next AUTO_INCREMENT values after explicit inserts
-ALTER TABLE `departments` AUTO_INCREMENT = 7;
+ALTER TABLE `departments` AUTO_INCREMENT = 3;
 ALTER TABLE `degree` AUTO_INCREMENT = 3;
 ALTER TABLE `users` AUTO_INCREMENT = 83;
 ALTER TABLE `conversations` AUTO_INCREMENT = 4;

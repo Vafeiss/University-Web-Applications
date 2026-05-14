@@ -281,23 +281,17 @@ class Admin extends Users
     }
 
     //edit department information in the database according with the information provided by the admin
-    public function editDepartment(int $departmentId, string $departmentName)
+    public function editDepartment(int $departmentId, string $departmentName, string $departmentAcronym = ''): bool
     {
-        if ($departmentId < 0 || $departmentName === '') {
+        if ($departmentId <= 0 || $departmentName === '' || $departmentAcronym === '') {
             return false;
         }
 
         try {
-            $this->conn->beginTransaction();
-            $stmt2 = $this->conn->prepare('UPDATE departments SET DepartmentName = ? WHERE DepartmentID = ?');
-            $stmt2->execute([ucfirst(strtolower($departmentName)), $departmentId]);
-
-            $this->conn->commit();
-            return true;
+            $stmt = $this->conn->prepare('UPDATE departments SET DepartmentName = ?, DepartmentAcronym = ? WHERE DepartmentID = ?');
+            $stmt->execute([ucfirst(strtolower($departmentName)), strtoupper(trim($departmentAcronym)), $departmentId]);
+            return $stmt->rowCount() >= 0;
         } catch (Exception $e) {
-            if ($this->conn->inTransaction()) {
-                $this->conn->rollBack();
-            }
             return false;
         }
     }

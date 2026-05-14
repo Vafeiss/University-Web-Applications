@@ -65,7 +65,7 @@ class AdminStudentClass
 
         return $password;
     }
-
+    //accepts id or name and returns the corresponding degree ID or 0 if not found or invalid input
     private function resolveDegreeId(string $degreeInput): int
     {
         $value = trim($degreeInput);
@@ -100,7 +100,7 @@ class AdminStudentClass
             }
         }
 
-        $query = 'SELECT users.User_ID AS Student_ID, users.External_ID AS StuExternal_ID, users.First_name, users.Last_Name, users.Uni_Email AS Email, sd.DegreeID AS Degree_ID, students.Year, degree.DegreeName AS Degree, sa.Advisor_ID, departments.DepartmentName AS Department
+        $query = 'SELECT users.User_ID AS Student_ID, users.External_ID AS StuExternal_ID, users.First_name, users.Last_Name, users.Uni_Email AS Email, sd.DegreeID AS Degree_ID, students.Year, degree.DegreeName AS Degree, sa.Advisor_ID, departments.DepartmentName AS Department, departments.DepartmentAcronym AS DepartmentAcronym
             FROM users
             JOIN studentdegree sd ON users.User_ID = sd.User_ID
             JOIN degree ON sd.DegreeID = degree.DegreeID
@@ -143,7 +143,7 @@ class AdminStudentClass
         }
 
         $stmt = $this->conn->prepare(
-            'SELECT users.User_ID AS Student_ID, users.External_ID AS StuExternal_ID, users.First_name, users.Last_Name, users.Uni_Email AS Email, sd.DegreeID AS Degree_ID, students.Year, degree.DegreeName AS Degree, sa.Advisor_ID
+            'SELECT users.User_ID AS Student_ID, users.External_ID AS StuExternal_ID, users.First_name, users.Last_Name, users.Uni_Email AS Email, sd.DegreeID AS Degree_ID, students.Year, degree.DegreeName AS Degree, sa.Advisor_ID, departments.DepartmentName AS Department, departments.DepartmentAcronym AS DepartmentAcronym
             FROM users
             JOIN studentdegree sd ON users.User_ID = sd.User_ID
             JOIN degree ON sd.DegreeID = degree.DegreeID
@@ -163,7 +163,7 @@ class AdminStudentClass
     public function getStudentsByDegree(int $degree)
     {
         $stmt = $this->conn->prepare(
-            'SELECT users.User_ID AS Student_ID, users.External_ID AS StuExternal_ID, users.First_name, users.Last_Name, users.Uni_Email AS Email, sd.DegreeID AS Degree_ID, students.Year, degree.DegreeName AS Degree, sa.Advisor_ID
+            'SELECT users.User_ID AS Student_ID, users.External_ID AS StuExternal_ID, users.First_name, users.Last_Name, users.Uni_Email AS Email, sd.DegreeID AS Degree_ID, students.Year, degree.DegreeName AS Degree, sa.Advisor_ID, departments.DepartmentName AS Department, departments.DepartmentAcronym AS DepartmentAcronym
             FROM users
             JOIN studentdegree sd ON users.User_ID = sd.User_ID
             JOIN degree ON sd.DegreeID = degree.DegreeID
@@ -182,7 +182,7 @@ class AdminStudentClass
     //get students information for the admin dashboard
     public function getStudents()
     {
-        return $this->conn->query("SELECT users.User_ID AS Student_ID, users.External_ID AS StuExternal_ID, users.First_name, users.Last_Name, users.Uni_Email AS Email, sd.DegreeID AS Degree_ID, students.Year, degree.DegreeName AS Degree, sa.Advisor_ID, departments.DepartmentName AS Department, departments.DepartmentID AS Department_ID FROM users JOIN studentdegree sd ON users.User_ID = sd.User_ID JOIN degree ON sd.DegreeID = degree.DegreeID JOIN departments ON degree.DepartmentID = departments.DepartmentID LEFT JOIN student_advisors sa ON sa.Student_ID = users.External_ID LEFT JOIN students ON users.User_ID = students.User_ID WHERE users.Role = 'Student' ORDER BY students.Year ASC");
+        return $this->conn->query("SELECT users.User_ID AS Student_ID, users.External_ID AS StuExternal_ID, users.First_name, users.Last_Name, users.Uni_Email AS Email, sd.DegreeID AS Degree_ID, students.Year, degree.DegreeName AS Degree, sa.Advisor_ID, departments.DepartmentName AS Department, departments.DepartmentAcronym AS DepartmentAcronym, departments.DepartmentID AS Department_ID FROM users JOIN studentdegree sd ON users.User_ID = sd.User_ID JOIN degree ON sd.DegreeID = degree.DegreeID JOIN departments ON degree.DepartmentID = departments.DepartmentID LEFT JOIN student_advisors sa ON sa.Student_ID = users.External_ID LEFT JOIN students ON users.User_ID = students.User_ID WHERE users.Role = 'Student' ORDER BY students.Year ASC");
     }
 
     //add students to the database with the information provided by the admin
@@ -477,7 +477,7 @@ class AdminStudentClass
             if (!$yearStmt->execute([(int)$normalizedYear, $userId])) {
                 throw new RuntimeException('Failed to update student year.');
             }
-
+            //handle advisor assignment if an advisor ID is provided, otherwise remove any existing advisor link for the student
             if ($advisorID !== null && $advisorID > 0) {
                 $advisorCheck = $this->conn->prepare('SELECT External_ID FROM users WHERE External_ID = ? AND Role = "Advisor" LIMIT 1');
                 $advisorCheck->execute([$advisorID]);

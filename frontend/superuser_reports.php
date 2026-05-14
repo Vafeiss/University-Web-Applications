@@ -233,7 +233,7 @@ $statsDepartmentName = $t('all_departments');
 if ($statsDepartment > 0) {
   foreach ($departments as $department) {
     if ((int)$department['DepartmentID'] === $statsDepartment) {
-      $statsDepartmentName = (string)$department['DepartmentName'];
+      $statsDepartmentName = (string)$department['DepartmentAcronym'];
       break;
     }
   }
@@ -342,7 +342,7 @@ $advisorCounts = $reports->getAdvisorStudentCounts(
           <li><a href="#" class="manual-link" data-tab="statistics"><?= htmlspecialchars($t('manual_item_1')) ?></a></li>
           <li><a href="#" class="manual-link" data-tab="students"><?= htmlspecialchars($t('manual_item_2')) ?></a></li>
           <li><?= htmlspecialchars($t('manual_item_3')) ?></li>
-          <li>For more information, open the full manual: <a href="../backend/modules/dispatcher.php?action=/manual&role=SuperUser" target="_blank" rel="noopener noreferrer"><?= htmlspecialchars($t('Superuser Manual')) ?></a></li>
+          <li>For more information, download the full manual: <a href="../backend/modules/dispatcher.php?action=/manual&role=SuperUser" download="AdviCut_Manual_SUPERUSER.pdf"><?= htmlspecialchars($t('Superuser Manual')) ?></a></li>
         </ol>
       </div>
       <div class="modal-footer border-0 pt-0">
@@ -403,10 +403,10 @@ $advisorCounts = $reports->getAdvisorStudentCounts(
             <label class="form-label"><?= htmlspecialchars($t('department')) ?></label>
             <select name="stats_department_id" class="form-select">
               <option value="0"><?= htmlspecialchars($t('all_departments')) ?></option>
-              <?php foreach ($departments as $department): ?>
-                <option value="<?= htmlspecialchars((string)$department['DepartmentID']) ?>"
-                  <?= $statsDepartment === (int)$department['DepartmentID'] ? 'selected' : '' ?>>
-                  <?= htmlspecialchars($department['DepartmentName']) ?>
+                <?php foreach ($departments as $department): ?>
+                  <option value="<?= htmlspecialchars((string)$department['DepartmentID']) ?>"
+                    <?= $statsDepartment === (int)$department['DepartmentID'] ? 'selected' : '' ?>>
+                    <?= htmlspecialchars($department['DepartmentAcronym']) ?>
                 </option>
               <?php endforeach; ?>
             </select>
@@ -564,7 +564,7 @@ $advisorCounts = $reports->getAdvisorStudentCounts(
               <?php foreach ($departments as $department): ?>
                 <option value="<?= htmlspecialchars((string)$department['DepartmentID']) ?>"
                   <?= $selectedDepartment === (int)$department['DepartmentID'] ? 'selected' : '' ?>>
-                  <?= htmlspecialchars($department['DepartmentName']) ?>
+                  <?= htmlspecialchars($department['DepartmentAcronym']) ?>
                 </option>
               <?php endforeach; ?>
             </select>
@@ -601,7 +601,7 @@ $advisorCounts = $reports->getAdvisorStudentCounts(
 
     <div class="section-card">
       <h5 class="fw-semibold mb-3"><?= htmlspecialchars($t('filtered_students')) ?></h5>
-      <div class="table-responsive">
+      <div class="table-responsive student-list-scroll">
         <table class="table table-sm table-hover align-middle mb-0">
           <thead class="table-light">
             <tr>
@@ -623,7 +623,7 @@ $advisorCounts = $reports->getAdvisorStudentCounts(
                   <td><?= htmlspecialchars($student['First_name'] ?? '') ?></td>
                   <td><?= htmlspecialchars($student['Last_Name'] ?? '') ?></td>
                   <td><?= htmlspecialchars($student['Uni_Email'] ?? '') ?></td>
-                  <td><?= htmlspecialchars($student['DepartmentName'] ?? '') ?></td>
+                  <td><?= htmlspecialchars($student['DepartmentAcronym'] ?? '') ?></td>
                   <td><?= htmlspecialchars($student['DegreeName'] ?? '') ?></td>
                   <td><?= htmlspecialchars((string)($student['Year'] ?? '')) ?></td>
                   <td><?= htmlspecialchars((string)($student['Advisor_ID'] ?? $t('unassigned'))) ?></td>

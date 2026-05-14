@@ -4,6 +4,7 @@ class Router {
 
     private $routes = [];
 
+    
     public function post($path, $handler){
         $this->routes["POST"][$path] = $handler;
     }
@@ -39,6 +40,7 @@ class Router {
             }
         }
 
+        //create controller obj and call function
         if(isset($this->routes[$method][$uri])){
 
             $handler = $this->routes[$method][$uri];

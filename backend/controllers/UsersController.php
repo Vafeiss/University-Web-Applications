@@ -175,6 +175,7 @@ class UsersController {
         return true;
     }
 
+
     private function safeFrontendRedirect(string $target): string
     {
         $target = trim($target);

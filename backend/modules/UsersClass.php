@@ -83,6 +83,7 @@ private function dashboardPathForRole(string $role): ?string {
     return null;
 }
 
+//lgoin throttling function to prevent brute force
 private function getLoginThrottleConfig(): array {
     return [
         'max_attempts' => 5,
@@ -91,12 +92,14 @@ private function getLoginThrottleConfig(): array {
     ];
 }
 
+//based on ip and email create throllte key store it in session
 private function getLoginThrottleBucketKey(string $email): string {
     $normalizedEmail = strtolower(trim($email));
     $clientIp = trim((string)($_SERVER['REMOTE_ADDR'] ?? 'unknown'));
     return hash('sha256', $normalizedEmail . '|' . $clientIp);
 }
 
+//check if the user is throttled 
 private function isLoginThrottled(string $email): bool {
     $config = $this->getLoginThrottleConfig();
     $key = $this->getLoginThrottleBucketKey($email);
@@ -132,6 +135,7 @@ private function isLoginThrottled(string $email): bool {
     return false;
 }
 
+//if throttled record then record failed attempt check if user should be locked and return true if locked
 private function recordFailedLoginAttempt(string $email): bool {
     $config = $this->getLoginThrottleConfig();
     $key = $this->getLoginThrottleBucketKey($email);
@@ -164,6 +168,7 @@ private function recordFailedLoginAttempt(string $email): bool {
     return $lockedUntil > $now;
 }
 
+//clear the login throttle after success
 private function clearLoginThrottle(string $email): void {
     if (!isset($_SESSION['login_throttle']) || !is_array($_SESSION['login_throttle'])) {
         return;
@@ -254,6 +259,7 @@ public function Log_out() {
     $this->redirectTo('frontend/index.php');
 }
 
+//method to check if the user has a valid session
 public function Check_Session(?string $requiredRole = null) {
     // UserID is the primary key for an authenticated session.
     if (!isset($_SESSION['UserID'])) {
@@ -275,7 +281,7 @@ public function Check_Session(?string $requiredRole = null) {
             $this->redirectTo('frontend/index.php?error=unauthorized');
         }
 
-        // Keep session values aligned with DB to avoid unnecessary logouts on refresh.
+        //keep session values aligned with DB to avoid unnecessary logouts on refresh.
         $_SESSION['email'] = $result3['Uni_Email'];
         $_SESSION['role'] = $result3['Role'];
 

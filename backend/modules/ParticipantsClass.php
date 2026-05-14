@@ -53,6 +53,7 @@ class Participants_Processing
         return $map;
     }
 
+    //assignment of students to advisors
     public function Assign_Students_Advisors(): array
     {
         $stmt = $this->conn->prepare('SELECT Student_ID, Advisor_ID FROM student_advisors');
@@ -77,6 +78,7 @@ class Participants_Processing
         return $map;
     }
 
+    //replace students of an advisor with other students
     public function Replace_Advisor_Students(int $advisorId, array $studentIds): bool
     {
         if ($advisorId <= 0) {
@@ -113,6 +115,7 @@ class Participants_Processing
         }
     }
     
+    //random assignment function that pairs students and advisors in a RR fashion
     public function RandomAssignment(): bool
     {
         $this->conn->beginTransaction();
@@ -151,11 +154,15 @@ class Participants_Processing
             shuffle($students);
             shuffle($advisors);
 
-            $pairCount = min(count($students), count($advisors));
+            $advisorCount = count($advisors);
             $insertStmt = $this->conn->prepare('INSERT INTO student_advisors (Student_ID, Advisor_ID) VALUES (?, ?) ON DUPLICATE KEY UPDATE Advisor_ID = VALUES(Advisor_ID)');
 
-            for ($i = 0; $i < $pairCount; $i++) {
-                $insertStmt->execute([$students[$i], $advisors[$i]]);
+            // Assign every student to an advisor using round-robin so all students get assigned
+            $studentCount = count($students);
+            for ($i = 0; $i < $studentCount; $i++) {
+                $studentId = $students[$i];
+                $advisorId = $advisors[$i % $advisorCount];
+                $insertStmt->execute([$studentId, $advisorId]);
             }
 
             $this->conn->commit();

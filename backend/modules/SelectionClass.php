@@ -19,7 +19,7 @@ function __construct() {
 }
 
 function getDegrees(?int $department_id = null) {
-    $sql = "SELECT degree.DegreeID, degree.DegreeName, degree.DepartmentID, departments.DepartmentName, departments.DepartmentName AS Department_Name FROM degree JOIN departments ON degree.DepartmentID = departments.DepartmentID";
+    $sql = "SELECT degree.DegreeID, degree.DegreeName, degree.DepartmentID, departments.DepartmentName, departments.DepartmentAcronym, departments.DepartmentName AS Department_Name FROM degree JOIN departments ON degree.DepartmentID = departments.DepartmentID";
     $params = [];
 
     if ($department_id !== null && $department_id > 0) {
@@ -38,7 +38,7 @@ function getDegrees(?int $department_id = null) {
     }
 
 function getDepartment() {
-    $sql = "SELECT DepartmentID, DepartmentName FROM departments ORDER BY DepartmentName ASC";
+    $sql = "SELECT DepartmentID, DepartmentName, DepartmentAcronym FROM departments ORDER BY DepartmentName ASC";
     $stmt = $this->conn->prepare($sql);
     $stmt->execute();
     $departments = $stmt ? $stmt->fetchAll(PDO::FETCH_ASSOC) : [];

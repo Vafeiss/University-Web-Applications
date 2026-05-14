@@ -1,10 +1,13 @@
 <?php
+/** This file contains the app configuration for the url and the timezone to not change everything else just this  */
+
 declare(strict_types=1);
 
 require_once __DIR__ . '/../modules/Env.php';
 
 Env::loadFromProjectRoot();
 
+//set timezone and base url
 if (!defined('APP_TIMEZONE')) {
     $configuredTimezone = trim((string)(getenv('APP_TIMEZONE') ?: 'asia/nicosia'));
     $timezoneAliasMap = [

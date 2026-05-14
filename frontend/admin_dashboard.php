@@ -359,6 +359,7 @@ $promotion->promoteStudents();
 
 //get result sets
 $selectedAdvisorsDepartment = (int)($_GET['Advisor_Department'] ?? 0);
+
 //get students information for filtering
 $selectedStudentsYear =  trim((string)($_GET['student_year'] ?? ''));
 $selectedStudentsDegree = (int)($_GET['Student_Degree'] ?? 0);
@@ -374,22 +375,24 @@ $selectionClass = new SelectionClass();
 $departments = $selectionClass->getDepartment();
 $degrees = $selectionClass->getDegrees();
 
-
+//build options arrays for filters and forms
 $DepartmentOptions = [];
 if (is_array($departments)) {
   foreach ($departments as $department) {
     $departmentID = (string)($department['DepartmentID'] ?? '');
-    $departmentName = (string)($department['DepartmentName'] ?? '');
-    if ($departmentID !== '' && $departmentName !== '') {
-      $DepartmentOptions[$departmentID] = $departmentName;
+    $departmentAcronym = (string)($department['DepartmentAcronym'] ?? '');
+    $departmentLabel = $departmentAcronym !== '' ? $departmentAcronym : (string)($department['DepartmentName'] ?? '');
+    if ($departmentID !== '' && $departmentLabel !== '') {
+      $DepartmentOptions[$departmentID] = $departmentLabel;
     }
   }
 }
-
+//only show degrees related to the selected department in the students tab filter
 $availableFilterDegrees = $selectedStudentsDepartment > 0
   ? $selectionClass->getDegrees($selectedStudentsDepartment)
   : $degrees;
 
+//degree options for filtering
 $DegreeOptions = [];
 if (is_array($availableFilterDegrees)) {
   foreach ($availableFilterDegrees as $degree) {
@@ -401,6 +404,7 @@ if (is_array($availableFilterDegrees)) {
   }
 }
 
+//All degrees options for forms
 $AllDegreeOptions = [];
 if (is_array($degrees)) {
   foreach ($degrees as $degree) {
@@ -416,10 +420,12 @@ if (is_array($degrees)) {
   }
 }
 
+//validate selected filter values
 if ($selectedAdvisorsDepartment > 0 && !isset($DepartmentOptions[(string)$selectedAdvisorsDepartment])) {
   $selectedAdvisorsDepartment = 0;
 }
 
+//filter advisors by department if a department is selected
 $advisors = resultFetchAllAssoc($user->getAdvisors());
 if ($selectedAdvisorsDepartment > 0) {
   $advisors = array_values(array_filter(
@@ -430,10 +436,12 @@ if ($selectedAdvisorsDepartment > 0) {
   ));
 }
 
+//validate student filters 
 if ($selectedStudentsDegree > 0 && !isset($DegreeOptions[(string)$selectedStudentsDegree])) {
   $selectedStudentsDegree = 0;
 }
 
+//filter students by selected filters
 $hasStudentFilters = $selectedStudentsYear !== '' || $selectedStudentsDepartment > 0 || $selectedStudentsDegree > 0;
 if ($hasStudentFilters) {
   $students = $user->getStudentsByFilters($selectedStudentsYear, $selectedStudentsDepartment, $selectedStudentsDegree);
@@ -452,6 +460,7 @@ $availableAssignFilterDegrees = $selectedAssignDepartment > 0
   ? $selectionClass->getDegrees($selectedAssignDepartment)
   : $degrees;
 
+//filter degree options in the assignment tab based on the selected department
 $AssignDegreeOptions = [];
 if (is_array($availableAssignFilterDegrees)) {
   foreach ($availableAssignFilterDegrees as $degree) {
@@ -463,10 +472,12 @@ if (is_array($availableAssignFilterDegrees)) {
   }
 }
 
+//validate assign-students filters
 if ($selectedAssignDegree > 0 && !isset($AssignDegreeOptions[(string)$selectedAssignDegree])) {
   $selectedAssignDegree = 0;
 }
 
+//filter students for assignment based on selected filters
 $hasAssignStudentFilters = $selectedAssignYear !== '' || $selectedAssignDepartment > 0 || $selectedAssignDegree > 0;
 if ($hasAssignStudentFilters) {
   $assignStudentsResult = $user->getStudentsByFilters($selectedAssignYear, $selectedAssignDepartment, $selectedAssignDegree);
@@ -477,9 +488,11 @@ if ($hasAssignStudentFilters) {
   $assignStudentsResult = $user->getStudents();
 }
 
+//fetch advisors and students for the assignment tab
 $assignAdvisors  = resultFetchAllAssoc($assignAdvisorsResult);
 $assignStudents  = resultFetchAllAssoc($assignStudentsResult);
 
+//apply department filter to advisors in the assignment tab if a department is selected
 if ($selectedAssignDepartment > 0) {
   $assignAdvisors = array_values(array_filter(
     $assignAdvisors,
@@ -495,6 +508,7 @@ $allStudents = resultFetchAllAssoc($user->getStudents());
 $superusersArr = $user->getSuperUsers();
 $allSuperusers = resultFetchAllAssoc($superusersArr);
 
+//fetch assignment data and build mapping of student assignments for statistics and assignment tab
 $participants = new Participants_Processing();
 $assignmentMap = $participants->Get_Student_Advisor();
 $studentAssignmentMap = $participants->Assign_Students_Advisors();
@@ -610,7 +624,7 @@ $YearOptions = [
           <li><a href="#" class="manual-link" data-external="admin_appointment_reports.php"><?= htmlspecialchars($t('manual_item_6')) ?></a></li>
           <li><a href="#" class="manual-link" data-tab="degrees"><?= htmlspecialchars($t('manual_item_7')) ?></a></li>
           <li><?= htmlspecialchars($t('manual_item_8')) ?></li>
-          <li>For more information, open the full manual: <a href="../backend/modules/dispatcher.php?action=/manual&role=Admin" target="_blank" rel="noopener noreferrer"><?= htmlspecialchars($t('Admin Manual')) ?></a></li>
+          <li>For more information, download the full manual: <a href="../backend/modules/dispatcher.php?action=/manual&role=Admin" download="AdviCut_Manual_ADMIN.pdf"><?= htmlspecialchars($t('Admin Manual')) ?></a></li>
         </ol>
       </div>
       <div class="modal-footer border-0 pt-0">
@@ -735,7 +749,7 @@ $YearOptions = [
                   <td><?= htmlspecialchars($advisor['Last_Name']) ?></td>
                   <td><?= htmlspecialchars($advisor['Advisor_ID']) ?></td>
                   <td><?= htmlspecialchars($advisor['Email']) ?></td>
-                  <td><?= htmlspecialchars($advisor['Department']) ?></td>
+                  <td><?= htmlspecialchars((string)($advisor['DepartmentAcronym'] ?? '') ?: (string)($advisor['Department'] ?? '')) ?></td>
                   <td><?= htmlspecialchars($advisor['Phone'] ?? '') ?></td>
                 </tr>
                 <?php endforeach; ?>
@@ -884,7 +898,7 @@ $YearOptions = [
                 <td><?= htmlspecialchars($student['Last_Name']) ?></td>
                 <td><?= htmlspecialchars($student['StuExternal_ID']) ?></td>
                 <td><?= htmlspecialchars($student['Email']) ?></td>
-                <td><?= htmlspecialchars($student['Department'] ?? '') ?></td>
+                <td><?= htmlspecialchars((string)($student['DepartmentAcronym'] ?? '') ?: (string)($student['Department'] ?? '')) ?></td>
                 <td><?= htmlspecialchars($student['Degree']) ?></td>
                 <td><?= 'Year ' . htmlspecialchars($student['Year'] ?? '') ?></td>
                 <td><?= htmlspecialchars($student['Advisor_ID'] ?? $t('unassigned')) ?></td>
@@ -1677,6 +1691,7 @@ $YearOptions = [
       <form action="../backend/modules/dispatcher.php" method="POST">
         <div class="modal-body">
           <input type="hidden" name="action" value="/department/add">
+          <input type="hidden" name="_csrf" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
           <div class="row g-3">
             <div class="col-12">
               <label class="form-label">Department Name <span class="text-danger">*</span></label>
@@ -1724,7 +1739,7 @@ $YearOptions = [
                 <div class="fw-semibold" style="font-size:.95rem"><?= htmlspecialchars($degree['DegreeName']) ?></div>
                 <div class="text-muted" style="font-size:.78rem">
                   <i class="bi bi-building" style="font-size:.7rem"></i>
-                  <?= htmlspecialchars($degree['Department_Name'] ?? '') ?>
+                  <?= htmlspecialchars($degree['DepartmentAcronym'] ?? '') ?>
                 </div>
               </div>
               <div class="d-flex align-items-center gap-2 flex-shrink-0">
@@ -1759,7 +1774,7 @@ $YearOptions = [
                     <select name="department_id" class="form-select form-select-sm" required>
                     <?php foreach ($departments as $dep): ?>
                       <option value="<?= $dep['DepartmentID'] ?>"<?= $dep['DepartmentID'] == $degree['DepartmentID'] ? 'selected' : '' ?>>
-                      <?= htmlspecialchars($dep['DepartmentName']) ?></option>
+                      <?= htmlspecialchars((string)($dep['DepartmentAcronym'] ?? '') ?: (string)($dep['DepartmentName'] ?? '')) ?></option>
                     <?php endforeach; ?>
                 </select>
                   </div>
@@ -1836,12 +1851,18 @@ $YearOptions = [
             <div class="deg-inline-form" id="deptForm-<?= htmlspecialchars($department['DepartmentID']) ?>">
               <form action="../backend/modules/dispatcher.php" method="POST">
                 <input type="hidden" name="action" value="/department/edit">
+                <input type="hidden" name="_csrf" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
                 <input type="hidden" name="department_id" value="<?= htmlspecialchars($department['DepartmentID']) ?>">
                 <div class="row g-2">
                   <div class="col-12">
                     <label class="form-label mb-1" style="font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:#6b7280">Department Name *</label>
                     <input type="text" name="department_name" class="form-control form-control-sm"
                           value="<?= htmlspecialchars($department['DepartmentName']) ?>" required>
+                  </div>
+                  <div class="col-12">
+                    <label class="form-label mb-1" style="font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:#6b7280">Department Acronym *</label>
+                    <input type="text" name="department_acronym" class="form-control form-control-sm"
+                          value="<?= htmlspecialchars($department['DepartmentAcronym'] ?? '') ?>" required placeholder="e.g. CS">
                   </div>
                   <div class="col-12 d-flex gap-2 justify-content-end mt-1">
                     <button type="button" class="btn btn-sm btn-light" onclick="deptToggleEdit('<?= htmlspecialchars($department['DepartmentID']) ?>')">Cancel</button>
@@ -1893,11 +1914,13 @@ $YearOptions = [
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script>
+//student filter interdependencies
 document.addEventListener('DOMContentLoaded', function () {
   var departmentSelect = document.getElementById('studentDepartmentFilter');
   var degreeSelect = document.getElementById('studentDegreeFilter');
   if (!departmentSelect || !degreeSelect) return;
 
+  //clone all options for reseting latter
   var allDegreeOptions = Array.prototype.map.call(degreeSelect.options, function (option) {
     return option.cloneNode(true);
   });
@@ -1905,6 +1928,7 @@ document.addEventListener('DOMContentLoaded', function () {
     return option.cloneNode(true);
   });
 
+  //helper to get the department of the currently selected degree
   function getSelectedDegreeDepartment() {
     var selectedDegree = degreeSelect.value;
     for (var i = 0; i < allDegreeOptions.length; i += 1) {
@@ -1915,6 +1939,7 @@ document.addEventListener('DOMContentLoaded', function () {
     return '';
   }
 
+  //based on department selection, reset degree if it doesn't belong to the department and hide non matching degrees
   function renderStudentDegreeOptions(resetDegree) {
     var selectedDepartment = departmentSelect.value || '';
     var selectedDegree = resetDegree ? '' : degreeSelect.value;
@@ -1933,6 +1958,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   }
 
+  //based on degree selection, set department to the one of the degree and hide non matching departments
   function renderStudentDepartmentOptions() {
     var selectedDegreeDepartment = getSelectedDegreeDepartment();
     var currentDepartment = departmentSelect.value || '';
@@ -1968,7 +1994,7 @@ window.formDataToRestore = <?= $formDataJson ?>;
 window.modalToOpen = <?= $modalToOpen ? json_encode($modalToOpen) : 'null' ?>;
 
 const CSRF_TOKEN = <?= json_encode($csrfToken) ?>;
-
+//automaticly inject CSRF token into all dispatcher forms if not already present
 function injectCsrfTokenIntoDispatcherForms() {
   document.querySelectorAll('form[action*="dispatcher.php"][method="POST"]').forEach(function (form) {
     if (form.querySelector('input[name="_csrf"]')) {
@@ -2000,7 +2026,7 @@ function getConfirmButtonClass(confirmType) {
       return 'btn-danger';
   }
 }
-
+//open the confirm modals
 function openAdminConfirmModal(message, options = {}) {
   const modalElement = document.getElementById('adminConfirmModal');
   const messageElement = document.getElementById('adminConfirmMessage');
@@ -2029,6 +2055,7 @@ function openAdminConfirmModal(message, options = {}) {
   adminConfirmModalInstance.show();
 }
 
+//simple toast message function for showing success/error messages on the page without using alert()
 function showPageMessage(message, type = 'success') {
   const existing = document.getElementById('pageMessageToast');
   if (existing) {
@@ -2048,6 +2075,7 @@ function showPageMessage(message, type = 'success') {
     box.remove();
   }, 3000);
 }
+
 
 document.addEventListener('DOMContentLoaded', function () {
   injectCsrfTokenIntoDispatcherForms();
@@ -2466,6 +2494,7 @@ if (departmentSearchInput) {
     );
   }
  
+  //builds the legend based on the counts and total students
   function buildLegend(counts, total) {
     if (!legend) return;
     legend.innerHTML = '';
@@ -2499,6 +2528,7 @@ if (departmentSearchInput) {
     });
   }
  
+  //reders the chart based on the selected year
   function renderChart(year) {
     const counts = getCounts(year);
     const total  = counts.reduce((s, v) => s + v, 0);
@@ -2556,7 +2586,7 @@ if (departmentSearchInput) {
   // Init
   renderChart(0);
  
-  // Year filter buttons
+  //year filter buttons
   buttons.forEach(btn => {
     btn.addEventListener('click', function () {
       buttons.forEach(b => {
@@ -2571,7 +2601,7 @@ if (departmentSearchInput) {
   });
 })();
 
-//link nav
+//link nav for manual instructions modal
 document.querySelectorAll('.manual-link').forEach(link => {
   link.addEventListener('click', function(e) {
     e.preventDefault();

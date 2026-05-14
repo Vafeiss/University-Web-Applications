@@ -64,3 +64,9 @@ body {
     max-width: 360px;
     margin: 0 auto;
 }
+
+.student-list-scroll {
+    max-height: calc(100vh - 430px);
+    overflow-y: auto;
+    scrollbar-gutter: stable;
+}

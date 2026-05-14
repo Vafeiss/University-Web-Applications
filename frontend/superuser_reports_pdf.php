@@ -134,7 +134,7 @@ $advisorCounts = $reports->getAdvisorStudentCounts(
                         <td class="name-cell">
                             <?= htmlspecialchars(trim(($student['First_name'] ?? '') . ' ' . ($student['Last_Name'] ?? ''))) ?>
                         </td>
-                        <td><?= htmlspecialchars($student['DepartmentName'] ?? '') ?></td>
+                        <td><?= htmlspecialchars($student['DepartmentAcronym'] ?? '') ?></td>
                         <td><?= htmlspecialchars($student['DegreeName'] ?? '') ?></td>
                         <td><?= htmlspecialchars((string)($student['Year'] ?? '')) ?></td>
                         <td><?= htmlspecialchars((string)($student['Advisor_ID'] ?? 'Unassigned')) ?></td>

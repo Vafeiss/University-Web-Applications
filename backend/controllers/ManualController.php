@@ -45,10 +45,10 @@ class ManualController
 
         //map role to manual filename
         $manualFiles = [
-            'Admin' => 'manuals/Advicut_Manual_ADMIN.pdf',
-            'Advisor' => 'manuals/Advicut_Manual_ADVISOR.pdf',
-            'Student' => 'manuals/Advicut_Manual_STUDENT.pdf',
-            'SuperUser' => 'manuals/Advicut_Manual_SUPERUSER.pdf',
+            'Admin' => 'manuals/AdviCut_Manual_ADMIN.pdf',
+            'Advisor' => 'manuals/AdviCut_Manual_ADVISOR.pdf',
+            'Student' => 'manuals/AdviCut_Manual_STUDENT.pdf',
+            'SuperUser' => 'manuals/AdviCut_Manual_SUPERUSER.pdf',
         ];
 
         $file = $manualFiles[$requiredRole] ?? null;

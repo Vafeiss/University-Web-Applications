@@ -19,6 +19,7 @@ require_once __DIR__ . '/../controllers/StudentController.php';
 require_once __DIR__ . '/../controllers/ManualController.php';
 require_once __DIR__ . '/Csrf.php';
 
+//route verification endpoint for diagnostics
 if ((string)($_GET['route_diag'] ?? '') === '1') {
     $diagRouter = new Router();
     require __DIR__ . '/../core/routes.php';
@@ -46,14 +47,17 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     exit();
 }
 
+    //handle post requests with action parameter
 $action = trim((string)($_POST['action'] ?? ''));
 $resolvedPath = $action !== ''
 	? '/' . ltrim($action, '/')
 	: (string)parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH);
 
+    //determine if the request expects JSON
 $expectsJson = str_starts_with($resolvedPath, '/message/')
 	|| str_starts_with($resolvedPath, '/student/message/');
 
+    //validate CSRF token for all POST requests
 if (!Csrf::validateRequestToken()) {
 	Csrf::reject($expectsJson);
 }

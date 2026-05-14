@@ -70,7 +70,7 @@ class AdminAdvisorClass
     //get advisors info for the admin dashboard 
     public function getAdvisors()
     {
-        return $this->conn->query("SELECT users.User_ID, users.External_ID AS Advisor_ID, users.First_name, users.Last_Name, users.Uni_Email AS Email, departments.DepartmentID AS DepartmentID, departments.DepartmentName AS Department, users.Phone FROM users LEFT JOIN advisordepartment ON users.User_ID = advisordepartment.User_ID LEFT JOIN departments ON advisordepartment.DepartmentID = departments.DepartmentID WHERE users.Role = 'Advisor'");
+        return $this->conn->query("SELECT users.User_ID, users.External_ID AS Advisor_ID, users.First_name, users.Last_Name, users.Uni_Email AS Email, departments.DepartmentID AS DepartmentID, departments.DepartmentName AS Department, departments.DepartmentAcronym AS DepartmentAcronym, users.Phone FROM users LEFT JOIN advisordepartment ON users.User_ID = advisordepartment.User_ID LEFT JOIN departments ON advisordepartment.DepartmentID = departments.DepartmentID WHERE users.Role = 'Advisor'");
     }
 
     //add an advisor to the database with the information provided by the admin

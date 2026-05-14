@@ -845,7 +845,7 @@ try {
           <li><a href="#" class="manual-link" data-tab="communications"><?= htmlspecialchars($t('manual_item_5')) ?></a></li>
           <li><?= htmlspecialchars($t('manual_item_6')) ?></li>
           <li><?= htmlspecialchars($t('manual_item_7')) ?></li>
-          <li>For more information, open the full manual: <a href="../backend/modules/dispatcher.php?action=/manual&role=Student" target="_blank" rel="noopener noreferrer"><?= htmlspecialchars($t('Student Manual')) ?></a></li>
+          <li>For more information, download the full manual: <a href="../backend/modules/dispatcher.php?action=/manual&role=Student" download="AdviCut_Manual_STUDENT.pdf"><?= htmlspecialchars($t('Student Manual')) ?></a></li>
 
         </ol>
       </div>

@@ -57,4 +57,5 @@ $router->post('/advisor/office-hours', ['AppointmentController','advisorOfficeHo
 
 $router->post('/appointment/action', ['AppointmentControllerAction','handle']);
 
+//manual download route
 $router->get('/manual', ['ManualController','download']);
