@@ -261,7 +261,8 @@ $translations = [
     'confirm_continue' => 'Are you sure you want to continue?',
     'cancel' => 'Cancel',
     'confirm' => 'Confirm',
-    'year_n' => 'Year %d'
+    'year_n' => 'Year %d',
+    'select_all' => 'Select All',
   ],
   'el' => [
     'page_title' => 'Πύλη Διαχειριστή',
@@ -336,7 +337,8 @@ $translations = [
     'confirm_continue' => 'Είστε σίγουροι ότι θέλετε να συνεχίσετε;',
     'cancel' => 'Ακύρωση',
     'confirm' => 'Επιβεβαίωση',
-    'year_n' => 'Έτος %d'
+    'year_n' => 'Έτος %d',
+    'select_all' => 'Επιλογή Όλων',
   ]
 ];
 
@@ -735,7 +737,7 @@ $YearOptions = [
                 <?php foreach ($advisors as $advisor): ?>
                 <tr class="advisor-row" data-department-id="<?= htmlspecialchars((string)($advisor['DepartmentID'] ?? '')) ?>">
                   <td>
-                    <input class="form-check-input mt-0"
+                    <input class="form-check-input mt-0 advisor-checkbox"
                           type="checkbox"
                           name="advisor_id[]"
                           value="<?= htmlspecialchars($advisor['Advisor_ID']) ?>"
@@ -765,6 +767,10 @@ $YearOptions = [
 
           <button type="button" class="btn btn-primary btn-sm" id="editAdvisorBtn">
             <i class="bi bi-pencil-square me-1"></i> <?= htmlspecialchars($t('edit_selected')) ?>
+          </button>
+
+          <button type="button" class="btn btn-outline-secondary btn-sm" id="selectAllAdvisors">
+            <i class="bi bi-check-lg me-1"></i> <?= htmlspecialchars($t('select_all')) ?>
           </button>
         </div>
 
@@ -880,8 +886,8 @@ $YearOptions = [
             <tbody>
               <?php while (($student = resultFetchAssoc($students)) !== null): ?>
               <tr class="student-row">
-                <td>
-                  <input class="form-check-input mt-0"
+                  <td>
+                  <input class="form-check-input mt-0 student-checkbox"
                     type="checkbox"
                     name="student_ID[]"
                     value="<?= htmlspecialchars($student['Student_ID']) ?>"
@@ -916,6 +922,10 @@ $YearOptions = [
           <button type="button" class="btn btn-primary btn-sm" id="editStudentBtn">
             <i class="bi bi-pencil-square me-1"></i> <?= htmlspecialchars($t('edit_selected')) ?>
           </button>
+
+          <button type="button" class="btn btn-outline-secondary btn-sm" id="selectAllStudents">
+            <i class="bi bi-check-lg me-1"></i> <?= htmlspecialchars($t('select_all')) ?>
+          </button>
         </div>
 
       </form>
@@ -948,7 +958,7 @@ $YearOptions = [
             $initials = strtoupper(substr($superuser['Email'], 0, 1));
           ?>
           <div class="list-item superuser-row">
-            <input class="form-check-input mt-0 flex-shrink-0"
+                 <input class="form-check-input mt-0 flex-shrink-0 superuser-checkbox"
                    type="checkbox"
                    name="User_ID[]"
                    value="<?= htmlspecialchars($superuser['User_ID']) ?>">
@@ -963,6 +973,10 @@ $YearOptions = [
         <div class="d-flex gap-2 mt-3 pt-3 border-top">
           <button type="submit" class="btn btn-danger btn-sm">
             <i class="bi bi-trash me-1"></i> <?= htmlspecialchars($t('delete_selected')) ?>
+          </button>
+
+          <button type="button" class="btn btn-outline-secondary btn-sm" id="selectAllSuperusers">
+            <i class="bi bi-check-lg me-1"></i> <?= htmlspecialchars($t('select_all')) ?>
           </button>
         </div>
 
@@ -979,10 +993,7 @@ $YearOptions = [
           <h5 class="mb-0 fw-semibold"><?= htmlspecialchars($t('assign_students_to_advisors')) ?></h5>
           <p class="text-muted mb-0" style="font-size:.85rem;"><?= htmlspecialchars($t('assign_subtitle')) ?></p>
         </div>
-        <form action="../backend/modules/dispatcher.php" method="POST" class="mb-0 js-confirm-form"
-              data-confirm-message="<?= htmlspecialchars($t('run_random_assignment_confirm')) ?>"
-              data-confirm-label="<?= htmlspecialchars($t('run_assignment')) ?>"
-              data-confirm-type="primary">
+        <form id="randomAssignmentForm" action="../backend/modules/dispatcher.php" method="POST" class="mb-0">
           <input type="hidden" name="action" value="/advisor/students/random">
           <button type="submit" class="btn btn-primary btn-sm">
             <i class="bi bi-person-plus me-1"></i> <?= htmlspecialchars($t('random_assignment')) ?>
@@ -1304,6 +1315,30 @@ $YearOptions = [
 
 </main>
 
+<!-- CSV import overlay -->
+<div id="csvImportOverlay" class="csv-import-overlay" aria-live="polite" aria-busy="true" hidden>
+  <div class="csv-import-overlay-content">
+    <div class="spinner-border text-light csv-import-overlay-spinner" role="status" aria-hidden="true"></div>
+    <div class="csv-import-overlay-text">Importing CSV...</div>
+  </div>
+</div>
+
+<!-- form submit overlay -->
+<div id="formSubmitOverlay" class="form-submit-overlay" aria-live="polite" aria-busy="true" hidden>
+  <div class="form-submit-overlay-content">
+    <div class="spinner-border text-light form-submit-overlay-spinner" role="status" aria-hidden="true"></div>
+    <div class="form-submit-overlay-text">Saving changes...</div>
+  </div>
+</div>
+
+<!-- assignment overlay -->
+<div id="assignOverlay" class="assign-overlay" aria-live="polite" aria-busy="true" hidden>
+  <div class="assign-overlay-content">
+    <div class="spinner-border text-light assign-overlay-spinner" role="status" aria-hidden="true"></div>
+    <div class="assign-overlay-text">Assigning students...</div>
+  </div>
+</div>
+
 <!-- add advisors tab -->
 <div class="modal fade" id="addAdvisorModal" tabindex="-1">
   <div class="modal-dialog modal-dialog-centered">
@@ -1312,7 +1347,7 @@ $YearOptions = [
         <h5 class="modal-title fw-semibold">Add New Advisor</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
-      <form action="../backend/modules/dispatcher.php" method="POST">
+      <form action="../backend/modules/dispatcher.php" method="POST" id="addAdvisorForm">
         <div class="modal-body">
           <input type="hidden" name="action" value="/advisor/add">
           <div class="row g-3">
@@ -1369,7 +1404,7 @@ $YearOptions = [
         <h5 class="modal-title fw-semibold">Edit Advisor</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
-      <form action="../backend/modules/dispatcher.php" method="POST">
+      <form action="../backend/modules/dispatcher.php" method="POST" id="addStudentForm">
         <div class="modal-body">
           <input type="hidden" name="action" value="/advisor/edit">
           <div class="row g-3">
@@ -1427,7 +1462,7 @@ $YearOptions = [
         <h5 class="modal-title fw-semibold">Edit Student</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
-      <form action="../backend/modules/dispatcher.php" method="POST">
+      <form action="../backend/modules/dispatcher.php" method="POST" id="addSuperUserForm">
         <div class="modal-body">
           <input type="hidden" name="action" value="/student/edit">
           <div class="row g-3">
@@ -1577,7 +1612,7 @@ $YearOptions = [
         <h5 class="modal-title fw-semibold">Import Students from CSV</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
-      <form action="../backend/modules/dispatcher.php" method="POST" enctype="multipart/form-data">
+      <form action="../backend/modules/dispatcher.php" method="POST" enctype="multipart/form-data" id="importStudentsCsvForm">
         <div class="modal-body">
           <input type="hidden" name="action" value="/student/import">
           <div class="row g-3">
@@ -2012,6 +2047,29 @@ function injectCsrfTokenIntoDispatcherForms() {
 let pendingConfirmForm = null;
 let pendingConfirmCallback = null;
 let adminConfirmModalInstance = null;
+let pendingAssignmentOverlay = false;
+
+function setOverlayVisible(overlayId, visible) {
+  const overlay = document.getElementById(overlayId);
+  if (!overlay) {
+    return;
+  }
+
+  overlay.hidden = !visible;
+  overlay.style.display = visible ? 'flex' : 'none';
+}
+
+function setAssignmentOverlayVisible(visible) {
+  setOverlayVisible('assignOverlay', visible);
+}
+
+function setCsvImportOverlayVisible(visible) {
+  setOverlayVisible('csvImportOverlay', visible);
+}
+
+function setFormSubmitOverlayVisible(visible) {
+  setOverlayVisible('formSubmitOverlay', visible);
+}
 
 function getConfirmButtonClass(confirmType) {
   switch (confirmType) {
@@ -2115,11 +2173,14 @@ document.addEventListener('DOMContentLoaded', function () {
       pendingConfirmForm = null;
       pendingConfirmCallback = null;
 
-      if (adminConfirmModalInstance) {
-        adminConfirmModalInstance.hide();
-      }
-
       if (formToSubmit) {
+        pendingAssignmentOverlay = true;
+        setAssignmentOverlayVisible(true);
+
+        if (adminConfirmModalInstance) {
+          adminConfirmModalInstance.hide();
+        }
+
         formToSubmit.dataset.skipConfirm = 'true';
         formToSubmit.submit();
         return;
@@ -2135,11 +2196,86 @@ document.addEventListener('DOMContentLoaded', function () {
     modalElement.addEventListener('hidden.bs.modal', function () {
       pendingConfirmForm = null;
       pendingConfirmCallback = null;
+
+      if (!pendingAssignmentOverlay) {
+        setAssignmentOverlayVisible(false);
+      } else {
+        // keep it visible while the confirmed assignment request is submitting
+        pendingAssignmentOverlay = false;
+      }
     });
+  }
+
+  const randomAssignmentForm = document.getElementById('randomAssignmentForm');
+  if (randomAssignmentForm) {
+    randomAssignmentForm.addEventListener('submit', function (e) {
+      e.preventDefault();
+      setAssignmentOverlayVisible(true);
+      randomAssignmentForm.submit();
+    });
+  }
+
+  const importStudentsCsvForm = document.getElementById('importStudentsCsvForm');
+  if (importStudentsCsvForm) {
+    importStudentsCsvForm.addEventListener('submit', function (e) {
+      // prevent re-entrancy: allow one automatic re-submit to proceed
+      if (importStudentsCsvForm.dataset.submitting === '1') {
+        // already marked for submitting; allow native submit to continue
+        return;
+      }
+
+      e.preventDefault();
+      setCsvImportOverlayVisible(true);
+      importStudentsCsvForm.dataset.submitting = '1';
+
+      window.requestAnimationFrame(function () {
+        if (typeof importStudentsCsvForm.requestSubmit === 'function') {
+          importStudentsCsvForm.requestSubmit();
+        } else {
+          // fallback: submit() (will bypass submit handlers)
+          importStudentsCsvForm.submit();
+        }
+      });
+    });
+
+    function wireBufferedSubmitForm(formId) {
+      const form = document.getElementById(formId);
+      if (!form) {
+        return;
+      }
+
+      form.addEventListener('submit', function (e) {
+        if (form.dataset.submitting === '1') {
+          return;
+        }
+
+        e.preventDefault();
+        setFormSubmitOverlayVisible(true);
+        form.dataset.submitting = '1';
+
+        window.requestAnimationFrame(function () {
+          if (typeof form.requestSubmit === 'function') {
+            form.requestSubmit();
+          } else {
+            form.submit();
+          }
+        });
+      });
+    }
+
+    wireBufferedSubmitForm('addAdvisorForm');
+    wireBufferedSubmitForm('addStudentForm');
+    wireBufferedSubmitForm('addSuperUserForm');
   }
 
   document.querySelectorAll('.js-confirm-form').forEach(function (form) {
     form.addEventListener('submit', function (e) {
+      const isRandomAssignment = !!form.querySelector('input[name="action"][value="/advisor/students/random"]');
+
+      if (isRandomAssignment) {
+        setAssignmentOverlayVisible(true);
+      }
+
       if (form.dataset.skipConfirm === 'true') {
         delete form.dataset.skipConfirm;
         return;
@@ -2175,6 +2311,7 @@ document.addEventListener('DOMContentLoaded', function () {
     tokenInput.value = CSRF_TOKEN;
     form.appendChild(tokenInput);
   }, true);
+  
 });
 //script to maintain active tab on page reload and handle tab switching with URL
 document.addEventListener("DOMContentLoaded", () => {
@@ -2396,19 +2533,54 @@ document.addEventListener("DOMContentLoaded", function () {
 document.addEventListener("DOMContentLoaded", function () {
   const assignFilter = document.getElementById("assignFilterSection");
 
-  if (!assignFilter) return;
+  if (assignFilter) {
+    if (localStorage.getItem("assignFiltersOpen") === "true") {
+      assignFilter.classList.add("show");
+    }
 
-  if (localStorage.getItem("assignFiltersOpen") === "true") {
-    assignFilter.classList.add("show");
+    assignFilter.addEventListener("shown.bs.collapse", function () {
+      localStorage.setItem("assignFiltersOpen", "true");
+    });
+
+    assignFilter.addEventListener("hidden.bs.collapse", function () {
+      localStorage.setItem("assignFiltersOpen", "false");
+    });
   }
 
-  assignFilter.addEventListener("shown.bs.collapse", function () {
-    localStorage.setItem("assignFiltersOpen", "true");
-  });
+  // Generic toggle function: toggles all checkboxes matching selector.
+  function toggleSelectAll(selector) {
+    const all = Array.from(document.querySelectorAll(selector));
+    // consider only visible checkboxes (respect filters/search hiding)
+    const visible = all.filter(function (el) {
+      return !!(el.offsetWidth || el.offsetHeight || el.getClientRects().length);
+    });
+    if (visible.length === 0) return;
+    const allChecked = visible.every(cb => cb.checked);
+    visible.forEach(cb => cb.checked = !allChecked);
+  }
 
-  assignFilter.addEventListener("hidden.bs.collapse", function () {
-    localStorage.setItem("assignFiltersOpen", "false");
-  });
+  // Wire the advisors select-all button
+  const selectAllAdvisorsBtn = document.getElementById('selectAllAdvisors');
+  if (selectAllAdvisorsBtn) {
+    selectAllAdvisorsBtn.addEventListener('click', function () {
+      toggleSelectAll('#advisorList input.form-check-input.advisor-checkbox');
+    });
+  }
+
+  // Wire the students select-all button
+  const selectAllStudentsBtn = document.getElementById('selectAllStudents');
+  if (selectAllStudentsBtn) {
+    selectAllStudentsBtn.addEventListener('click', function () {
+      toggleSelectAll('#studentList input.form-check-input.student-checkbox');
+    });
+  }
+
+  const selectAllSuperusersBtn = document.getElementById('selectAllSuperusers');
+  if (selectAllSuperusersBtn) {
+    selectAllSuperusersBtn.addEventListener('click', function () {
+      toggleSelectAll('#superuserList input.form-check-input.superuser-checkbox');
+    });
+  }
 });
 
 
@@ -2653,6 +2825,126 @@ document.querySelectorAll('.manual-link').forEach(link => {
 
 ol .manual-link {
   display: inline;
+}
+
+.assign-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  background: rgba(17, 24, 39, 0.45);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+}
+
+.assign-overlay-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.9rem;
+  padding: 1.25rem 1.5rem;
+  border-radius: 16px;
+  background: rgba(17, 24, 39, 0.82);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.28);
+}
+
+.assign-overlay-spinner {
+  width: 3rem;
+  height: 3rem;
+  border-width: 0.35rem;
+  flex-shrink: 0;
+}
+
+.assign-overlay-text {
+  color: #ffffff;
+  font-size: 0.98rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.csv-import-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  background: rgba(17, 24, 39, 0.45);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+}
+
+.csv-import-overlay-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.9rem;
+  padding: 1.25rem 1.5rem;
+  border-radius: 16px;
+  background: rgba(17, 24, 39, 0.82);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.28);
+}
+
+.csv-import-overlay-spinner {
+  width: 3rem;
+  height: 3rem;
+  border-width: 0.35rem;
+  flex-shrink: 0;
+}
+
+.csv-import-overlay-text {
+  color: #ffffff;
+  font-size: 0.98rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.form-submit-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  background: rgba(17, 24, 39, 0.45);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+}
+
+.form-submit-overlay-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.9rem;
+  padding: 1.25rem 1.5rem;
+  border-radius: 16px;
+  background: rgba(17, 24, 39, 0.82);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.28);
+}
+
+.form-submit-overlay-spinner {
+  width: 3rem;
+  height: 3rem;
+  border-width: 0.35rem;
+  flex-shrink: 0;
+}
+
+.form-submit-overlay-text {
+  color: #ffffff;
+  font-size: 0.98rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+@keyframes assignSpin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 </style>
 

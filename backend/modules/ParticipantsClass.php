@@ -118,57 +118,77 @@ class Participants_Processing
     //random assignment function that pairs students and advisors in a RR fashion
     public function RandomAssignment(): bool
     {
+        // Scope assignment per department: group students and advisors by department,
+        // then run round-robin within each department.
         $this->conn->beginTransaction();
 
         try {
+            // Prepare statements
             $studentStmt = $this->conn->prepare(
-                "SELECT u.External_ID FROM users u LEFT JOIN student_advisors sa ON sa.Student_ID = u.External_ID WHERE u.Role = 'Student'
-                   AND u.External_ID IS NOT NULL AND sa.Student_ID IS NULL ORDER BY u.External_ID ASC"
+                "SELECT u.External_ID FROM users u
+                  JOIN studentdegree sd ON u.User_ID = sd.User_ID
+                  JOIN degree d ON sd.DegreeID = d.DegreeID
+                  LEFT JOIN student_advisors sa ON sa.Student_ID = u.External_ID
+                  WHERE u.Role = 'Student' AND u.External_ID IS NOT NULL AND sa.Student_ID IS NULL AND d.DepartmentID = :dept
+                  ORDER BY u.External_ID ASC"
             );
-            $studentStmt->execute();
-            $students = array_map(
-                static fn (array $row): int => (int)($row['External_ID'] ?? 0),
-                $studentStmt->fetchAll(PDO::FETCH_ASSOC)
-            );
-            $students = array_values(array_filter($students, static fn (int $studentId): bool => $studentId > 0));
 
             $advisorStmt = $this->conn->prepare(
-                "SELECT External_ID FROM users WHERE Role = 'Advisor' AND External_ID IS NOT NULL ORDER BY External_ID ASC"
+                "SELECT u.External_ID FROM users u
+                  JOIN advisordepartment ad ON u.User_ID = ad.User_ID
+                  WHERE u.Role = 'Advisor' AND u.External_ID IS NOT NULL AND ad.DepartmentID = :dept
+                  ORDER BY u.External_ID ASC"
             );
-            $advisorStmt->execute();
-            $advisors = array_map(
-                static fn (array $row): int => (int)($row['External_ID'] ?? 0),
-                $advisorStmt->fetchAll(PDO::FETCH_ASSOC)
-            );
-            $advisors = array_values(array_filter($advisors, static fn (int $advisorId): bool => $advisorId > 0));
 
-            if (empty($advisors)) {
-                throw new PDOException('Missing advisors for random assignment');
-            }
-
-            if (empty($students)) {
-                $this->conn->commit();
-                return true;
-            }
-
-            shuffle($students);
-            shuffle($advisors);
-
-            $advisorCount = count($advisors);
             $insertStmt = $this->conn->prepare('INSERT INTO student_advisors (Student_ID, Advisor_ID) VALUES (?, ?) ON DUPLICATE KEY UPDATE Advisor_ID = VALUES(Advisor_ID)');
 
-            // Assign every student to an advisor using round-robin so all students get assigned
-            $studentCount = count($students);
-            for ($i = 0; $i < $studentCount; $i++) {
-                $studentId = $students[$i];
-                $advisorId = $advisors[$i % $advisorCount];
-                $insertStmt->execute([$studentId, $advisorId]);
+            // Get list of departments to consider (departments table)
+            $deptRows = $this->conn->query('SELECT DepartmentID FROM departments')->fetchAll(PDO::FETCH_ASSOC);
+            $departmentIds = array_map(static fn(array $r) => (int)($r['DepartmentID'] ?? 0), $deptRows);
+            $departmentIds = array_values(array_filter($departmentIds, static fn(int $d): bool => $d > 0));
+
+            foreach ($departmentIds as $deptId) {
+                // fetch unassigned students in this department
+                $studentStmt->bindValue(':dept', $deptId, PDO::PARAM_INT);
+                $studentStmt->execute();
+                $students = array_map(static fn(array $row): int => (int)($row['External_ID'] ?? 0), $studentStmt->fetchAll(PDO::FETCH_ASSOC));
+                $students = array_values(array_filter($students, static fn(int $id): bool => $id > 0));
+
+                // fetch advisors in this department
+                $advisorStmt->bindValue(':dept', $deptId, PDO::PARAM_INT);
+                $advisorStmt->execute();
+                $advisors = array_map(static fn(array $row): int => (int)($row['External_ID'] ?? 0), $advisorStmt->fetchAll(PDO::FETCH_ASSOC));
+                $advisors = array_values(array_filter($advisors, static fn(int $id): bool => $id > 0));
+
+                if (empty($students)) {
+                    // nothing to do for this department
+                    continue;
+                }
+
+                if (empty($advisors)) {
+                    // Log warning and skip department
+                    error_log(sprintf('RandomAssignment: Department %d has %d students but no advisors — skipping', $deptId, count($students)));
+                    continue;
+                }
+
+                // Shuffle and round-robin assign within department
+                shuffle($students);
+                shuffle($advisors);
+                $advisorCount = count($advisors);
+                $studentCount = count($students);
+
+                for ($i = 0; $i < $studentCount; $i++) {
+                    $studentId = $students[$i];
+                    $advisorId = $advisors[$i % $advisorCount];
+                    $insertStmt->execute([$studentId, $advisorId]);
+                }
             }
 
             $this->conn->commit();
             return true;
         } catch (PDOException $e) {
             $this->conn->rollBack();
+            error_log('RandomAssignment failed: ' . $e->getMessage());
             return false;
         }
     }
