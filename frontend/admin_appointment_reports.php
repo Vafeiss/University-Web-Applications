@@ -263,7 +263,6 @@ $advisorAppointmentCounts = $appointmentReports->getAdvisorAppointmentCounts();
             <table class="table table-sm table-hover align-middle mb-0">
                 <thead class="table-light">
                     <tr>
-                        <th><?= htmlspecialchars($t('advisor_id')) ?></th>
                         <th><?= htmlspecialchars($t('advisor_name')) ?></th>
                         <th><?= htmlspecialchars($t('total_requests')) ?></th>
                         <th><?= htmlspecialchars($t('pending')) ?></th>
@@ -275,7 +274,6 @@ $advisorAppointmentCounts = $appointmentReports->getAdvisorAppointmentCounts();
                     <?php if (!empty($advisorAppointmentCounts)): ?>
                         <?php foreach ($advisorAppointmentCounts as $advisor): ?>
                             <tr>
-                                <td><?= htmlspecialchars((string)($advisor['Advisor_ID'] ?? '')) ?></td>
                                 <td>
                                     <?= htmlspecialchars(trim(($advisor['First_name'] ?? '') . ' ' . ($advisor['Last_Name'] ?? ''))) ?>
                                 </td>

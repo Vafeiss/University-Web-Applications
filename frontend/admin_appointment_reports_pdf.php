@@ -77,7 +77,6 @@ $advisorAppointmentCounts = $appointmentReports->getAdvisorAppointmentCounts();
     <table>
         <thead>
             <tr>
-                <th style="width: 12%;">Advisor ID</th>
                 <th class="name-cell" style="width: 28%;">Advisor Name</th>
                 <th style="width: 15%;">Total</th>
                 <th style="width: 15%;">Pending</th>
@@ -89,7 +88,6 @@ $advisorAppointmentCounts = $appointmentReports->getAdvisorAppointmentCounts();
             <?php if (!empty($advisorAppointmentCounts)): ?>
                 <?php foreach ($advisorAppointmentCounts as $advisor): ?>
                     <tr>
-                        <td><?= htmlspecialchars((string)($advisor['Advisor_ID'] ?? '')) ?></td>
                         <td class="name-cell">
                             <?= htmlspecialchars(trim(($advisor['First_name'] ?? '') . ' ' . ($advisor['Last_Name'] ?? ''))) ?>
                         </td>

@@ -53,7 +53,7 @@ class SuperUserReportsClass
         }
     }
 
-    public function getSummary(?int $departmentId = null, ?int $degreeId = null, ?int $year = null): array
+    public function getSummary(?int $departmentId = null, ?int $degreeId = null, ?int $year = null, ?string $advisorId = null): array
     {
         $summary = [
             'total_students' => 0,
@@ -81,6 +81,11 @@ class SuperUserReportsClass
                 $studentParams[':year'] = $year;
             }
 
+            if ($advisorId !== null && $advisorId !== '') {
+                $studentWhere[] = "sa.Advisor_ID = :advisor_id";
+                $studentParams[':advisor_id'] = $advisorId;
+            }
+
             $studentWhereSql = implode(' AND ', $studentWhere);
 
             $sqlStudents = "
@@ -90,6 +95,7 @@ class SuperUserReportsClass
                 INNER JOIN studentdegree sd ON u.User_ID = sd.User_ID
                 INNER JOIN degree deg ON sd.DegreeID = deg.DegreeID
                 INNER JOIN departments d ON deg.DepartmentID = d.DepartmentID
+                " . ($advisorId !== null && $advisorId !== '' ? "INNER JOIN student_advisors sa ON sa.Student_ID = u.External_ID" : "LEFT JOIN student_advisors sa ON sa.Student_ID = u.External_ID") . "
                 WHERE $studentWhereSql
             ";
             $stmtStudents = $this->conn->prepare($sqlStudents);
@@ -129,7 +135,7 @@ class SuperUserReportsClass
         return $summary;
     }
 
-    public function getFilteredStudents(?int $departmentId = null, ?int $degreeId = null, ?int $year = null): array
+    public function getFilteredStudents(?int $departmentId = null, ?int $degreeId = null, ?int $year = null, ?string $advisorId = null): array
     {
         try {
             $where = ["u.Role = 'Student'"];
@@ -148,6 +154,11 @@ class SuperUserReportsClass
             if ($year !== null && $year > 0) {
                 $where[] = "s.Year = :year";
                 $params[':year'] = $year;
+            }
+
+            if ($advisorId !== null && $advisorId !== '') {
+                $where[] = "sa.Advisor_ID = :advisor_id";
+                $params[':advisor_id'] = $advisorId;
             }
 
             $whereSql = implode(' AND ', $where);
@@ -185,7 +196,7 @@ class SuperUserReportsClass
         }
     }
 
-    public function getAdvisorStudentCounts(?int $departmentId = null, ?int $degreeId = null, ?int $year = null): array
+    public function getAdvisorStudentCounts(?int $departmentId = null, ?int $degreeId = null, ?int $year = null, ?string $advisorId = null): array
     {
         try {
             $extraConditions = [];
@@ -204,6 +215,11 @@ class SuperUserReportsClass
             if ($year !== null && $year > 0) {
                 $extraConditions[] = "s.Year = :year";
                 $params[':year'] = $year;
+            }
+
+            if ($advisorId !== null && $advisorId !== '') {
+                $extraConditions[] = "a.External_ID = :advisor_id";
+                $params[':advisor_id'] = $advisorId;
             }
 
             $filterSql = '';

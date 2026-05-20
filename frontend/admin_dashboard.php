@@ -188,6 +188,7 @@ $langButtonLabel = $lang === 'en' ? 'EN / EL' : 'EL / EN';
 
 $translations = [
   'en' => [
+    'advisor_name' => 'Advisor Name',
     'page_title' => 'Administrator Portal',
     'welcome' => 'Welcome to AdviCut, %s! 👋',
     'appointment_reports' => 'Appointment Reports',
@@ -265,6 +266,7 @@ $translations = [
     'select_all' => 'Select All',
   ],
   'el' => [
+    'advisor_name' => 'Όνομα Συμβούλου',
     'page_title' => 'Πύλη Διαχειριστή',
     'welcome' => 'Καλώς ήρθατε στο AdviCut, %s! 👋',
     'appointment_reports' => 'Αναφορές Ραντεβού',
@@ -510,6 +512,18 @@ $allStudents = resultFetchAllAssoc($user->getStudents());
 $superusersArr = $user->getSuperUsers();
 $allSuperusers = resultFetchAllAssoc($superusersArr);
 
+// Build advisor id -> name map to resolve advisor names in student tables
+$advisorNames = [];
+if (is_array($allAdvisors)) {
+  foreach ($allAdvisors as $adv) {
+    $aid = (string)($adv['Advisor_ID'] ?? '');
+    $name = trim((string)($adv['First_name'] ?? '') . ' ' . (string)($adv['Last_Name'] ?? ''));
+    if ($aid !== '') {
+      $advisorNames[$aid] = $name;
+    }
+  }
+}
+
 //fetch assignment data and build mapping of student assignments for statistics and assignment tab
 $participants = new Participants_Processing();
 $assignmentMap = $participants->Get_Student_Advisor();
@@ -661,7 +675,7 @@ $YearOptions = [
 
 
 <!-- main -->
-<main class="container-fluid py-4 px-4" style="max-width: 1100px;">
+<main class="container-fluid py-4 px-4" style="max-width: 1400px;">
 
 
 <!-- advisors tab -->
@@ -722,7 +736,6 @@ $YearOptions = [
                 <th style="width:36px;"></th>
                 <th><?= htmlspecialchars($t('first_name')) ?></th>
                 <th><?= htmlspecialchars($t('last_name')) ?></th>
-                <th><?= htmlspecialchars($t('id')) ?></th>
                 <th><?= htmlspecialchars($t('email')) ?></th>
                 <th><?= htmlspecialchars($t('department')) ?></th>
                 <th><?= htmlspecialchars($t('phone_number')) ?></th>
@@ -749,7 +762,6 @@ $YearOptions = [
                   </td>
                   <td><?= htmlspecialchars($advisor['First_name']) ?></td>
                   <td><?= htmlspecialchars($advisor['Last_Name']) ?></td>
-                  <td><?= htmlspecialchars($advisor['Advisor_ID']) ?></td>
                   <td><?= htmlspecialchars($advisor['Email']) ?></td>
                   <td><?= htmlspecialchars((string)($advisor['DepartmentAcronym'] ?? '') ?: (string)($advisor['Department'] ?? '')) ?></td>
                   <td><?= htmlspecialchars($advisor['Phone'] ?? '') ?></td>
@@ -880,7 +892,7 @@ $YearOptions = [
                 <th><?= htmlspecialchars($t('department')) ?></th>
                 <th><?= htmlspecialchars($t('degree')) ?></th>
                 <th><?= htmlspecialchars($t('year')) ?></th>
-                <th><?= htmlspecialchars($t('advisor_id')) ?></th>
+                <th><?= htmlspecialchars($t('advisor_name')) ?></th>
               </tr>
             </thead>
             <tbody>
@@ -907,7 +919,7 @@ $YearOptions = [
                 <td><?= htmlspecialchars((string)($student['DepartmentAcronym'] ?? '') ?: (string)($student['Department'] ?? '')) ?></td>
                 <td><?= htmlspecialchars($student['Degree']) ?></td>
                 <td><?= 'Year ' . htmlspecialchars($student['Year'] ?? '') ?></td>
-                <td><?= htmlspecialchars($student['Advisor_ID'] ?? $t('unassigned')) ?></td>
+                <td><?= htmlspecialchars($advisorNames[(string)($student['Advisor_ID'] ?? '')] ?? (string)($student['Advisor_Name'] ?? $t('unassigned'))) ?></td>
               </tr>
               <?php endwhile; ?>
             </tbody>
@@ -1254,7 +1266,9 @@ $YearOptions = [
  
           <!-- Legend / breakdown table -->
           <div class="col-md-7">
-            <div id="advisorLegend"></div>
+            <div class="advisor-legend-scroll" style="max-height:360px; overflow:auto;">
+              <div id="advisorLegend"></div>
+            </div>
           </div>
         </div>
  
@@ -1495,10 +1509,10 @@ $YearOptions = [
             </div>
             <div class="col-12">
               <label class="form-label">Degree <span class="text-danger">*</span></label>
-              <select name="degree" id="editStudentDegree" class="form-select" required>
+              <select name="degree" id="editStudentDegree" class="form-select degree-select-filter" required>
                 <option value="">Select a degree</option>
                 <?php foreach ($degrees as $degree): ?>
-                  <option value="<?= htmlspecialchars($degree['DegreeID']) ?>">
+                  <option value="<?= htmlspecialchars($degree['DegreeID']) ?>" data-department-id="<?= htmlspecialchars((string)($degree['DepartmentID'] ?? '')) ?>">
                     <?= htmlspecialchars($degree['DegreeName']) ?>
                   </option>
                 <?php endforeach; ?>
@@ -1506,10 +1520,10 @@ $YearOptions = [
             </div>
             <div class="col-12">
               <label class="form-label">Assign Advisor <span class="text-muted">(optional)</span></label>
-              <select name="advisor_id" id="editStudentAdvisor" class="form-select">
+              <select name="advisor_id" id="editStudentAdvisor" class="form-select advisor-select-filtered">
                 <option value="">No advisor</option>
                 <?php foreach ($allAdvisors as $adv): ?>
-                <option value="<?= htmlspecialchars($adv['Advisor_ID']) ?>">
+                <option value="<?= htmlspecialchars($adv['Advisor_ID']) ?>" data-department-id="<?= htmlspecialchars((string)($adv['DepartmentID'] ?? '')) ?>">
                   <?= htmlspecialchars($adv['First_name'] . ' ' . $adv['Last_Name']) ?>
                 </option>
                 <?php endforeach; ?>
@@ -1570,10 +1584,10 @@ $YearOptions = [
             </div>
             <div class="col-12">
               <label class="form-label">Degree <span class="text-danger">*</span></label>
-              <select name="degree" class="form-select" required>
+              <select name="degree" class="form-select degree-select-filter" required>
                 <option value="" disabled selected>Select a degree…</option>
                 <?php foreach ($degrees as $degree): ?>
-                  <option value="<?= htmlspecialchars($degree['DegreeID']) ?>">
+                  <option value="<?= htmlspecialchars($degree['DegreeID']) ?>" data-department-id="<?= htmlspecialchars((string)($degree['DepartmentID'] ?? '')) ?>">
                     <?= htmlspecialchars($degree['DegreeName']) ?>
                   </option>
                 <?php endforeach; ?>
@@ -1581,10 +1595,10 @@ $YearOptions = [
             </div>
             <div class="col-12">
               <label class="form-label">Assign Advisor <span class="text-muted">(optional)</span></label>
-              <select name="advisor_id" class="form-select">
+              <select name="advisor_id" class="form-select advisor-select-filtered">
                 <option value="" selected>No advisor</option>
                 <?php foreach ($allAdvisors as $adv): ?>
-                <option value="<?= htmlspecialchars($adv['Advisor_ID']) ?>">
+                <option value="<?= htmlspecialchars($adv['Advisor_ID']) ?>" data-department-id="<?= htmlspecialchars((string)($adv['DepartmentID'] ?? '')) ?>">
                   <?= htmlspecialchars($adv['First_name'] . ' ' . $adv['Last_Name']) ?>
                 </option>
                 <?php endforeach; ?>
@@ -2019,6 +2033,73 @@ document.addEventListener('DOMContentLoaded', function () {
   });
   degreeSelect.addEventListener('change', function () {
     renderStudentDepartmentOptions();
+  });
+});
+
+//Filter advisor dropdown based on selected degree's department
+document.addEventListener('DOMContentLoaded', function () {
+  const degreeSelects = document.querySelectorAll('.degree-select-filter');
+  const advisorSelects = document.querySelectorAll('.advisor-select-filtered');
+
+  function filterAdvisorsForSelect(degreeSelect, advisorSelect) {
+    degreeSelect.addEventListener('change', function () {
+      const selectedDegreeOption = degreeSelect.options[degreeSelect.selectedIndex];
+      const departmentId = selectedDegreeOption ? selectedDegreeOption.getAttribute('data-department-id') : '';
+
+      //store all advisor options for filtering
+      if (!advisorSelect.dataset.originalOptions) {
+        advisorSelect.dataset.originalOptions = JSON.stringify(
+          Array.from(advisorSelect.options).map(opt => ({
+            value: opt.value,
+            text: opt.text,
+            departmentId: opt.getAttribute('data-department-id')
+          }))
+        );
+      }
+
+      const allOptions = JSON.parse(advisorSelect.dataset.originalOptions);
+      advisorSelect.innerHTML = '';
+
+      //Always add the "No advisor" option
+      const noAdvisorOpt = document.createElement('option');
+      noAdvisorOpt.value = '';
+      noAdvisorOpt.textContent = 'No advisor';
+      noAdvisorOpt.selected = true;
+      advisorSelect.appendChild(noAdvisorOpt);
+
+      //Add filtered options
+      if (departmentId !== '') {
+        allOptions.forEach(function (optData) {
+          if (optData.value !== '' && optData.departmentId === departmentId) {
+            const opt = document.createElement('option');
+            opt.value = optData.value;
+            opt.textContent = optData.text;
+            advisorSelect.appendChild(opt);
+          }
+        });
+      } else {
+        //if no degree selected, show all advisors
+        allOptions.forEach(function (optData) {
+          if (optData.value !== '') {
+            const opt = document.createElement('option');
+            opt.value = optData.value;
+            opt.textContent = optData.text;
+            advisorSelect.appendChild(opt);
+          }
+        });
+      }
+    });
+  }
+
+  //apply filtering for each degree-advisor select pair
+  degreeSelects.forEach(function (degreeSelect) {
+    const modal = degreeSelect.closest('.modal');
+    if (modal) {
+      const advisorSelect = modal.querySelector('.advisor-select-filtered');
+      if (advisorSelect) {
+        filterAdvisorsForSelect(degreeSelect, advisorSelect);
+      }
+    }
   });
 });
 </script>

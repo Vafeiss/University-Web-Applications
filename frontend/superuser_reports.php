@@ -137,6 +137,7 @@ $translations = [
     'advisor_student_counts' => 'Advisor Student Counts',
     'advisor_id' => 'Advisor ID',
     'advisor_name' => 'Advisor Name',
+    'all_advisors' => 'All Advisors',
     'no_advisor_data_found' => 'No advisor data found.',
     'students_subtitle' => 'Filtered students list with department, degree and year.',
     'filtered_students' => 'Filtered Students',
@@ -184,6 +185,7 @@ $translations = [
     'advisor_student_counts' => 'Σύνολα Φοιτητών ανά Σύμβουλο',
     'advisor_id' => 'Κωδικός Συμβούλου',
     'advisor_name' => 'Όνομα Συμβούλου',
+    'all_advisors' => 'Όλοι οι Σύμβουλοι',
     'no_advisor_data_found' => 'Δεν βρέθηκαν δεδομένα συμβούλων.',
     'students_subtitle' => 'Φιλτραρισμένη λίστα φοιτητών με τμήμα, πτυχίο και έτος.',
     'filtered_students' => 'Φιλτραρισμένοι Φοιτητές',
@@ -210,10 +212,12 @@ $activeSection = $_GET['section'] ?? 'statistics';
 $statsDepartment = isset($_GET['stats_department_id']) ? (int)$_GET['stats_department_id'] : 0;
 $statsDegree = isset($_GET['stats_degree_id']) ? (int)$_GET['stats_degree_id'] : 0;
 $statsYear = isset($_GET['stats_year']) ? (int)$_GET['stats_year'] : 0;
+$statsAdvisor = isset($_GET['stats_advisor_id']) ? (string)$_GET['stats_advisor_id'] : '';
 
 $selectedDepartment = isset($_GET['department_id']) ? (int)$_GET['department_id'] : 0;
 $selectedDegree = isset($_GET['degree_id']) ? (int)$_GET['degree_id'] : 0;
 $selectedYear = isset($_GET['year']) ? (int)$_GET['year'] : 0;
+$selectedAdvisor = isset($_GET['advisor_id']) ? (string)$_GET['advisor_id'] : '';
 
 $pdfQueryParams = [];
 if ($selectedDepartment > 0) {
@@ -254,20 +258,35 @@ $degrees = $reports->getDegrees($selectedDepartment > 0 ? $selectedDepartment : 
 $summary = $reports->getSummary(
   $statsDepartment > 0 ? $statsDepartment : null,
   $statsDegree > 0 ? $statsDegree : null,
-  $statsYear > 0 ? $statsYear : null
+  $statsYear > 0 ? $statsYear : null,
+  $statsAdvisor !== '' ? $statsAdvisor : null
 );
 
 $students = $reports->getFilteredStudents(
-    $selectedDepartment > 0 ? $selectedDepartment : null,
-    $selectedDegree > 0 ? $selectedDegree : null,
-    $selectedYear > 0 ? $selectedYear : null
+  $selectedDepartment > 0 ? $selectedDepartment : null,
+  $selectedDegree > 0 ? $selectedDegree : null,
+  $selectedYear > 0 ? $selectedYear : null,
+  $selectedAdvisor !== '' ? $selectedAdvisor : null
 );
 
 $advisorCounts = $reports->getAdvisorStudentCounts(
   $statsDepartment > 0 ? $statsDepartment : null,
   $statsDegree > 0 ? $statsDegree : null,
-  $statsYear > 0 ? $statsYear : null
+  $statsYear > 0 ? $statsYear : null,
+  $statsAdvisor !== '' ? $statsAdvisor : null
 );
+
+// Build advisor id -> name map to resolve advisor names when student records only have Advisor_ID
+$advisorNames = [];
+if (is_array($advisorCounts)) {
+  foreach ($advisorCounts as $adv) {
+    $aid = (string)($adv['Advisor_ID'] ?? '');
+    $name = trim((string)($adv['First_name'] ?? '') . ' ' . (string)($adv['Last_Name'] ?? ''));
+    if ($aid !== '') {
+      $advisorNames[$aid] = $name;
+    }
+  }
+}
 ?>
 <!DOCTYPE html>
 <html lang="<?= htmlspecialchars($lang) ?>">
@@ -361,7 +380,7 @@ $advisorCounts = $reports->getAdvisorStudentCounts(
   </button>
 </div>
 
-<main class="container-fluid py-4 px-4" style="max-width: 1100px;">
+<main class="container-fluid py-4 px-4" style="max-width: 1400px;">
 
   <div class="section-panel <?= $activeSection === 'statistics' ? 'active' : '' ?>" id="section-statistics">
 
@@ -387,6 +406,10 @@ $advisorCounts = $reports->getAdvisorStudentCounts(
 
           <button class="btn btn-outline-primary btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#statsYearFilter" aria-expanded="false" aria-controls="statsYearFilter">
             <i class="bi bi-calendar3 me-1"></i> <?= htmlspecialchars($t('year_filter')) ?>
+          </button>
+
+          <button class="btn btn-outline-primary btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#statsAdvisorFilterWrap" aria-expanded="false" aria-controls="statsAdvisorFilterWrap">
+            <i class="bi bi-person me-1"></i> <?= htmlspecialchars($t('advisor_name')) ?>
           </button>
 
           <button class="btn btn-primary btn-sm" type="submit">
@@ -435,6 +458,28 @@ $advisorCounts = $reports->getAdvisorStudentCounts(
               <option value="4" <?= $statsYear === 4 ? 'selected' : '' ?>><?= htmlspecialchars($yearLabel(4)) ?></option>
               <option value="5" <?= $statsYear === 5 ? 'selected' : '' ?>><?= htmlspecialchars($yearLabel(5)) ?></option>
               <option value="6" <?= $statsYear === 6 ? 'selected' : '' ?>><?= htmlspecialchars($yearLabel(6)) ?></option>
+            </select>
+          </div>
+
+          <div class="col-md-4 collapse" id="statsAdvisorFilterWrap">
+            <label class="form-label"><?= htmlspecialchars($t('advisor_name')) ?></label>
+            <select name="stats_advisor_id" class="form-select">
+              <option value=""><?= htmlspecialchars($t('all_advisors') ?? 'All Advisors') ?></option>
+              <?php
+                // Build unique advisor list from advisorCounts using Advisor_ID as value
+                $seenAdvisors = [];
+                if (is_array($advisorCounts)) {
+                  foreach ($advisorCounts as $adv) {
+                    $aid = (string)($adv['Advisor_ID'] ?? '');
+                    $name = trim((string)($adv['First_name'] ?? '') . ' ' . (string)($adv['Last_Name'] ?? ''));
+                    if ($aid !== '' && $name !== '' && !isset($seenAdvisors[$aid])) {
+                      $seenAdvisors[$aid] = true;
+                      $selected = $statsAdvisor === $aid ? ' selected' : '';
+                      echo '<option value="' . htmlspecialchars($aid) . '"' . $selected . '>' . htmlspecialchars($name) . '</option>' . "\n";
+                    }
+                  }
+                }
+              ?>
             </select>
           </div>
         </div>
@@ -490,30 +535,30 @@ $advisorCounts = $reports->getAdvisorStudentCounts(
         <div class="section-card h-100">
           <h5 class="fw-semibold mb-3"><?= htmlspecialchars($t('advisor_student_counts')) ?></h5>
           <div class="table-responsive">
-            <table class="table table-sm table-hover align-middle mb-0">
-              <thead class="table-light">
-                <tr>
-                  <th><?= htmlspecialchars($t('advisor_id')) ?></th>
-                  <th><?= htmlspecialchars($t('advisor_name')) ?></th>
-                  <th><?= htmlspecialchars($t('total_students')) ?></th>
-                </tr>
-              </thead>
-              <tbody>
-                <?php if (!empty($advisorCounts)): ?>
-                  <?php foreach ($advisorCounts as $advisor): ?>
-                    <tr>
-                      <td><?= htmlspecialchars((string)($advisor['Advisor_ID'] ?? '')) ?></td>
-                      <td><?= htmlspecialchars(trim(($advisor['First_name'] ?? '') . ' ' . ($advisor['Last_Name'] ?? ''))) ?></td>
-                      <td><?= htmlspecialchars((string)($advisor['Total_Students'] ?? 0)) ?></td>
-                    </tr>
-                  <?php endforeach; ?>
-                <?php else: ?>
+            <div class="advisor-counts-scroll" style="max-height:360px; overflow:auto;">
+              <table class="table table-sm table-hover align-middle mb-0">
+                <thead class="table-light">
                   <tr>
-                    <td colspan="3" class="text-center text-muted py-4"><?= htmlspecialchars($t('no_advisor_data_found')) ?></td>
+                    <th><?= htmlspecialchars($t('advisor_name')) ?></th>
+                    <th><?= htmlspecialchars($t('total_students')) ?></th>
                   </tr>
-                <?php endif; ?>
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  <?php if (!empty($advisorCounts)): ?>
+                    <?php foreach ($advisorCounts as $advisor): ?>
+                      <tr>
+                        <td><?= htmlspecialchars(trim(($advisor['First_name'] ?? '') . ' ' . ($advisor['Last_Name'] ?? ''))) ?></td>
+                        <td><?= htmlspecialchars((string)($advisor['Total_Students'] ?? 0)) ?></td>
+                      </tr>
+                    <?php endforeach; ?>
+                  <?php else: ?>
+                    <tr>
+                      <td colspan="3" class="text-center text-muted py-4"><?= htmlspecialchars($t('no_advisor_data_found')) ?></td>
+                    </tr>
+                  <?php endif; ?>
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       </div>
@@ -545,6 +590,10 @@ $advisorCounts = $reports->getAdvisorStudentCounts(
 
           <button class="btn btn-outline-primary btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#studentYearFilterWrap" aria-expanded="false" aria-controls="studentYearFilterWrap">
             <i class="bi bi-calendar3 me-1"></i> <?= htmlspecialchars($t('year_filter')) ?>
+          </button>
+
+          <button class="btn btn-outline-primary btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#studentAdvisorFilterWrap" aria-expanded="false" aria-controls="studentAdvisorFilterWrap">
+            <i class="bi bi-person me-1"></i> <?= htmlspecialchars($t('advisor_name')) ?>
           </button>
 
           <button class="btn btn-primary btn-sm" type="submit">
@@ -583,6 +632,40 @@ $advisorCounts = $reports->getAdvisorStudentCounts(
             </select>
           </div>
 
+          <div class="col-md-4 collapse" id="studentAdvisorFilterWrap">
+            <label class="form-label"><?= htmlspecialchars($t('advisor_name')) ?></label>
+            <select id="studentAdvisorFilter" name="advisor_id" class="form-select">
+              <option value=""><?= htmlspecialchars($t('all_advisors') ?? 'All Advisors') ?></option>
+              <?php
+                // Build unique advisor list using Advisor_ID as value so server can filter
+                $seenAdvisors = [];
+                if (is_array($advisorCounts)) {
+                  foreach ($advisorCounts as $adv) {
+                    $aid = (string)($adv['Advisor_ID'] ?? '');
+                    $name = trim((string)($adv['First_name'] ?? '') . ' ' . ($adv['Last_Name'] ?? ''));
+                    if ($aid !== '' && $name !== '' && !isset($seenAdvisors[$aid])) {
+                      $seenAdvisors[$aid] = true;
+                      $selected = $selectedAdvisor === $aid ? ' selected' : '';
+                      echo '<option value="' . htmlspecialchars($aid) . '"' . $selected . '>' . htmlspecialchars($name) . '</option>' . "\n";
+                    }
+                  }
+                }
+                // include advisor ids coming from student rows if present
+                if (is_array($students)) {
+                  foreach ($students as $st) {
+                    $aid = (string)($st['Advisor_ID'] ?? '');
+                    $an = trim((string)($st['Advisor_Name'] ?? ''));
+                    if ($aid !== '' && $an !== '' && !isset($seenAdvisors[$aid])) {
+                      $seenAdvisors[$aid] = true;
+                      $selected = $selectedAdvisor === $aid ? ' selected' : '';
+                      echo '<option value="' . htmlspecialchars($aid) . '"' . $selected . '>' . htmlspecialchars($an) . '</option>' . "\n";
+                    }
+                  }
+                }
+              ?>
+            </select>
+          </div>
+
           <div class="col-md-4 collapse <?= $selectedYear > 0 ? 'show' : '' ?>" id="studentYearFilterWrap">
             <label class="form-label"><?= htmlspecialchars($t('year')) ?></label>
             <select name="year" class="form-select">
@@ -612,7 +695,7 @@ $advisorCounts = $reports->getAdvisorStudentCounts(
               <th><?= htmlspecialchars($t('department')) ?></th>
               <th><?= htmlspecialchars($t('degree')) ?></th>
               <th><?= htmlspecialchars($t('year')) ?></th>
-              <th><?= htmlspecialchars($t('advisor_id')) ?></th>
+              <th><?= htmlspecialchars($t('advisor_name')) ?></th>
             </tr>
           </thead>
           <tbody>
@@ -625,8 +708,8 @@ $advisorCounts = $reports->getAdvisorStudentCounts(
                   <td><?= htmlspecialchars($student['Uni_Email'] ?? '') ?></td>
                   <td><?= htmlspecialchars($student['DepartmentAcronym'] ?? '') ?></td>
                   <td><?= htmlspecialchars($student['DegreeName'] ?? '') ?></td>
-                  <td><?= htmlspecialchars((string)($student['Year'] ?? '')) ?></td>
-                  <td><?= htmlspecialchars((string)($student['Advisor_ID'] ?? $t('unassigned'))) ?></td>
+                  <td><?= 'Year ' . htmlspecialchars((string)($student['Year'] ?? '')) ?></td>
+                  <td><?= htmlspecialchars($advisorNames[(string)($student['Advisor_ID'] ?? '')] ?? (string)($student['Advisor_Name'] ?? $t('unassigned'))) ?></td>
                 </tr>
               <?php endforeach; ?>
             <?php else: ?>
@@ -679,6 +762,8 @@ document.querySelectorAll('.manual-link').forEach(link => {
   });
 });
 </script>
+
+<!-- Advisor filter is server-side; no client-side auto-filter to match other filters -->
 
 </body>
 </html>

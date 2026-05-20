@@ -828,7 +828,7 @@ try {
     </button>
 </div>
 
-<main class="container-fluid py-4 px-4" style="max-width: 1100px;">
+<main class="container-fluid py-4 px-4" style="max-width: 1200px;">
     <!-- requests tab -->
     <div class="section-panel <?= $activeSection === 'requests' ? 'active' : '' ?>" id="section-requests">
         <div class="section-card">

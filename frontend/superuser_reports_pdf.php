@@ -15,6 +15,7 @@ $reports = new SuperUserReportsClass();
 $selectedDepartment = isset($_GET['department_id']) ? (int)$_GET['department_id'] : 0;
 $selectedDegree = isset($_GET['degree_id']) ? (int)$_GET['degree_id'] : 0;
 $selectedYear = isset($_GET['year']) ? (int)$_GET['year'] : 0;
+$selectedAdvisor = isset($_GET['advisor_id']) ? (string)$_GET['advisor_id'] : '';
 
 $summary = $reports->getSummary(
     $selectedDepartment > 0 ? $selectedDepartment : null,
@@ -25,7 +26,8 @@ $summary = $reports->getSummary(
 $students = $reports->getFilteredStudents(
     $selectedDepartment > 0 ? $selectedDepartment : null,
     $selectedDegree > 0 ? $selectedDegree : null,
-    $selectedYear > 0 ? $selectedYear : null
+    $selectedYear > 0 ? $selectedYear : null,
+    $selectedAdvisor !== '' ? $selectedAdvisor : null
 );
 
 $advisorCounts = $reports->getAdvisorStudentCounts(
@@ -33,6 +35,18 @@ $advisorCounts = $reports->getAdvisorStudentCounts(
     $selectedDegree > 0 ? $selectedDegree : null,
     $selectedYear > 0 ? $selectedYear : null
 );
+
+// Build advisor id -> name map to display advisor names in student list
+$advisorNames = [];
+if (is_array($advisorCounts)) {
+    foreach ($advisorCounts as $adv) {
+        $aid = (string)($adv['Advisor_ID'] ?? '');
+        $name = trim((string)($adv['First_name'] ?? '') . ' ' . (string)($adv['Last_Name'] ?? ''));
+        if ($aid !== '') {
+            $advisorNames[$aid] = $name;
+        }
+    }
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -89,7 +103,6 @@ $advisorCounts = $reports->getAdvisorStudentCounts(
     <table>
         <thead>
             <tr>
-                <th style="width: 18%;">Advisor ID</th>
                 <th class="name-cell" style="width: 52%;">Advisor Name</th>
                 <th style="width: 30%;">Total Students</th>
             </tr>
@@ -98,7 +111,6 @@ $advisorCounts = $reports->getAdvisorStudentCounts(
             <?php if (!empty($advisorCounts)): ?>
                 <?php foreach ($advisorCounts as $advisor): ?>
                     <tr>
-                        <td><?= htmlspecialchars((string)($advisor['Advisor_ID'] ?? '')) ?></td>
                         <td class="name-cell">
                             <?= htmlspecialchars(trim(($advisor['First_name'] ?? '') . ' ' . ($advisor['Last_Name'] ?? ''))) ?>
                         </td>
@@ -137,7 +149,7 @@ $advisorCounts = $reports->getAdvisorStudentCounts(
                         <td><?= htmlspecialchars($student['DepartmentAcronym'] ?? '') ?></td>
                         <td><?= htmlspecialchars($student['DegreeName'] ?? '') ?></td>
                         <td><?= htmlspecialchars((string)($student['Year'] ?? '')) ?></td>
-                        <td><?= htmlspecialchars((string)($student['Advisor_ID'] ?? 'Unassigned')) ?></td>
+                            <td><?= htmlspecialchars($advisorNames[(string)($student['Advisor_ID'] ?? '')] ?? (string)($student['Advisor_ID'] ?? 'Unassigned')) ?></td>
                     </tr>
                 <?php endforeach; ?>
             <?php else: ?>

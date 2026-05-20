@@ -882,7 +882,7 @@ try {
   </button>
 </div>
 
-<main class="container-fluid py-4 px-4" style="max-width: 1100px;">
+<main class="container-fluid py-4 px-4" style="max-width: 1200px;">
   <!-- Book Appointment tab -->
   <div class="section-panel <?= $activeSection === 'book' ? 'active' : '' ?>" id="section-book">
     <div class="section-card">
