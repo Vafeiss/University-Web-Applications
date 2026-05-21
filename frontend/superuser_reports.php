@@ -232,6 +232,7 @@ if ($selectedYear > 0) {
 $superUserPdfUrl = 'superuser_reports_pdf.php' . ($pdfQueryParams !== [] ? '?' . http_build_query($pdfQueryParams) : '');
 
 $departments = $reports->getDepartments();
+$allDegrees = $reports->getDegrees();
 $statsDegrees = $reports->getDegrees($statsDepartment > 0 ? $statsDepartment : null);
 $statsDepartmentName = $t('all_departments');
 if ($statsDepartment > 0) {
@@ -256,6 +257,13 @@ if ($statsDegree > 0) {
 $degrees = $reports->getDegrees($selectedDepartment > 0 ? $selectedDepartment : null);
 
 $summary = $reports->getSummary(
+  $statsDepartment > 0 ? $statsDepartment : null,
+  $statsDegree > 0 ? $statsDegree : null,
+  $statsYear > 0 ? $statsYear : null,
+  $statsAdvisor !== '' ? $statsAdvisor : null
+);
+
+$attendanceSummary = $reports->getAttendanceSummary(
   $statsDepartment > 0 ? $statsDepartment : null,
   $statsDegree > 0 ? $statsDegree : null,
   $statsYear > 0 ? $statsYear : null,
@@ -424,12 +432,12 @@ if (is_array($advisorCounts)) {
         <div class="row g-3 align-items-end">
           <div class="col-md-4 collapse <?= $statsDepartment > 0 ? 'show' : '' ?>" id="statsDepartmentFilter">
             <label class="form-label"><?= htmlspecialchars($t('department')) ?></label>
-            <select name="stats_department_id" class="form-select">
+            <select name="stats_department_id" class="form-select" id="statsDepartmentSelect">
               <option value="0"><?= htmlspecialchars($t('all_departments')) ?></option>
                 <?php foreach ($departments as $department): ?>
                   <option value="<?= htmlspecialchars((string)$department['DepartmentID']) ?>"
                     <?= $statsDepartment === (int)$department['DepartmentID'] ? 'selected' : '' ?>>
-                    <?= htmlspecialchars($department['DepartmentAcronym']) ?>
+                    <?= htmlspecialchars((string)($department['DepartmentAcronym'] ?? '') ?: (string)($department['DepartmentName'] ?? '')) ?>
                 </option>
               <?php endforeach; ?>
             </select>
@@ -437,10 +445,11 @@ if (is_array($advisorCounts)) {
 
           <div class="col-md-4 collapse <?= $statsDegree > 0 ? 'show' : '' ?>" id="statsDegreeFilter">
             <label class="form-label"><?= htmlspecialchars($t('degree')) ?></label>
-            <select name="stats_degree_id" class="form-select">
+            <select name="stats_degree_id" class="form-select" id="statsDegreeSelect">
               <option value="0"><?= htmlspecialchars($t('all_degrees')) ?></option>
-              <?php foreach ($statsDegrees as $degree): ?>
+              <?php foreach ($allDegrees as $degree): ?>
                 <option value="<?= htmlspecialchars((string)$degree['DegreeID']) ?>"
+                  data-department-id="<?= htmlspecialchars((string)($degree['DepartmentID'] ?? '')) ?>"
                   <?= $statsDegree === (int)$degree['DegreeID'] ? 'selected' : '' ?>>
                   <?= htmlspecialchars($degree['DegreeName']) ?>
                 </option>
@@ -512,6 +521,29 @@ if (is_array($advisorCounts)) {
         <div class="stat-card">
           <p class="stat-label"><?= htmlspecialchars($t('unassigned_students')) ?></p>
           <p class="stat-value text-danger"><?= htmlspecialchars((string)$summary['unassigned_students']) ?></p>
+        </div>
+      </div>
+    </div>
+
+    <div class="row g-3 mb-4">
+      <div class="col-6 col-md-4">
+        <div class="stat-card">
+          <p class="stat-label">Attended</p>
+          <p class="stat-value text-success"><?= htmlspecialchars((string)$attendanceSummary['attended']) ?></p>
+        </div>
+      </div>
+
+      <div class="col-6 col-md-4">
+        <div class="stat-card">
+          <p class="stat-label">No Show</p>
+          <p class="stat-value text-danger"><?= htmlspecialchars((string)$attendanceSummary['no_show']) ?></p>
+        </div>
+      </div>
+
+      <div class="col-6 col-md-4">
+        <div class="stat-card">
+          <p class="stat-label">Pending</p>
+          <p class="stat-value text-secondary"><?= htmlspecialchars((string)$attendanceSummary['pending']) ?></p>
         </div>
       </div>
     </div>
@@ -608,12 +640,12 @@ if (is_array($advisorCounts)) {
         <div class="row g-3 align-items-end">
           <div class="col-md-4 collapse <?= $selectedDepartment > 0 ? 'show' : '' ?>" id="studentDepartmentFilterWrap">
             <label class="form-label"><?= htmlspecialchars($t('department')) ?></label>
-            <select name="department_id" class="form-select">
+            <select name="department_id" class="form-select" id="studentDepartmentSelect">
               <option value="0"><?= htmlspecialchars($t('all_departments')) ?></option>
               <?php foreach ($departments as $department): ?>
                 <option value="<?= htmlspecialchars((string)$department['DepartmentID']) ?>"
                   <?= $selectedDepartment === (int)$department['DepartmentID'] ? 'selected' : '' ?>>
-                  <?= htmlspecialchars($department['DepartmentAcronym']) ?>
+                  <?= htmlspecialchars((string)($department['DepartmentAcronym'] ?? '') ?: (string)($department['DepartmentName'] ?? '')) ?>
                 </option>
               <?php endforeach; ?>
             </select>
@@ -621,10 +653,11 @@ if (is_array($advisorCounts)) {
 
           <div class="col-md-4 collapse <?= $selectedDegree > 0 ? 'show' : '' ?>" id="studentDegreeFilterWrap">
             <label class="form-label"><?= htmlspecialchars($t('degree')) ?></label>
-            <select name="degree_id" class="form-select">
+            <select name="degree_id" class="form-select" id="studentDegreeSelect">
               <option value="0"><?= htmlspecialchars($t('all_degrees')) ?></option>
-              <?php foreach ($degrees as $degree): ?>
+              <?php foreach ($allDegrees as $degree): ?>
                 <option value="<?= htmlspecialchars((string)$degree['DegreeID']) ?>"
+                  data-department-id="<?= htmlspecialchars((string)($degree['DepartmentID'] ?? '')) ?>"
                   <?= $selectedDegree === (int)$degree['DegreeID'] ? 'selected' : '' ?>>
                   <?= htmlspecialchars($degree['DegreeName']) ?>
                 </option>
@@ -729,7 +762,7 @@ if (is_array($advisorCounts)) {
 <?php require_once __DIR__ . '/footer/dashboard_footer.php'; ?>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-<script src="js/superuser-reports.js"></script>
+<script src="js/superuser-reports.js?v=department-degree-filter-fix"></script>
 
 <script>
 //link nav

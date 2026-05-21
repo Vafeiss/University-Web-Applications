@@ -59,8 +59,49 @@
     });
   }
 
+  function bindDepartmentDegreeFilters() {
+    [
+      ['statsDepartmentSelect', 'statsDegreeSelect'],
+      ['studentDepartmentSelect', 'studentDegreeSelect']
+    ].forEach(function (pair) {
+      const departmentSelect = document.getElementById(pair[0]);
+      const degreeSelect = document.getElementById(pair[1]);
+      if (!departmentSelect || !degreeSelect) {
+        return;
+      }
+
+      const allDegreeOptions = Array.from(degreeSelect.options).map(function (option) {
+        return option.cloneNode(true);
+      });
+
+      function renderDegreeOptions(resetDegree) {
+        const selectedDepartment = departmentSelect.value || '0';
+        const selectedDegree = resetDegree ? '0' : degreeSelect.value;
+
+        degreeSelect.innerHTML = '';
+        allDegreeOptions.forEach(function (option) {
+          const optionDepartment = option.getAttribute('data-department-id') || '';
+          if (option.value === '0' || selectedDepartment === '0' || selectedDepartment === '' || optionDepartment === selectedDepartment) {
+            degreeSelect.appendChild(option.cloneNode(true));
+          }
+        });
+
+        degreeSelect.value = selectedDegree;
+        if (degreeSelect.value !== selectedDegree) {
+          degreeSelect.value = '0';
+        }
+      }
+
+      renderDegreeOptions(false);
+      departmentSelect.addEventListener('change', function () {
+        renderDegreeOptions(true);
+      });
+    });
+  }
+
   document.addEventListener('DOMContentLoaded', function () {
     bindTabSwitching();
+    bindDepartmentDegreeFilters();
     renderAssignmentChart();
   });
 })();

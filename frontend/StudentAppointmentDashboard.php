@@ -232,7 +232,7 @@ $translations['en'] = array_merge($translations['en'], [
   'details' => 'Details',
   'no_history_loaded' => 'No history loaded yet',
   'declined' => 'Declined',
-  'view_details' => 'View details',
+  'view_details' => 'More',
   'calendar_title' => 'Appointment Calendar',
   'calendar_subtitle' => 'Track all your requests and appointment decisions by date',
   'communications_title' => 'Communications',
@@ -254,7 +254,7 @@ $translations['en'] = array_merge($translations['en'], [
   'appointment_details' => 'Appointment Details',
   'time' => 'Time',
   'your_reason' => 'Your Reason',
-  'view_reason' => 'View Reason',
+  'view_reason' => 'More',
   'advisor_reason' => 'Advisor Reason',
   'notifications_aria' => 'Notifications',
   'could_not_load_notifications' => 'Could not load notifications.',
@@ -300,7 +300,7 @@ $translations['el'] = array_merge($translations['el'], [
   'details' => 'Λεπτομέρειες',
   'no_history_loaded' => 'Δεν έχει φορτωθεί ιστορικό ακόμη',
   'declined' => 'Απορρίφθηκε',
-  'view_details' => 'Προβολή λεπτομερειών',
+  'view_details' => 'More',
   'calendar_title' => 'Ημερολόγιο Ραντεβού',
   'calendar_subtitle' => 'Παρακολουθήστε όλα τα αιτήματα και τις αποφάσεις ραντεβού ανά ημερομηνία',
   'communications_title' => 'Επικοινωνίες',
@@ -322,7 +322,7 @@ $translations['el'] = array_merge($translations['el'], [
   'appointment_details' => 'Λεπτομέρειες Ραντεβού',
   'time' => 'Ώρα',
   'your_reason' => 'Ο Δικός Σας Λόγος',
-  'view_reason' => 'Προβολή Λόγου',
+  'view_reason' => 'More',
   'advisor_reason' => 'Λόγος Συμβούλου'
 ]);
 
@@ -857,6 +857,10 @@ try {
 </div>
 
 <div class="tab-bar">
+  <span class="advisor-nav-item">
+    <i class="bi bi-person-circle"></i> <?= htmlspecialchars($advisorName) ?>
+  </span>
+
   <button type="button" class="tab-btn <?= $activeSection === 'calendar' ? 'active' : '' ?>" data-section="calendar">
     <i class="bi bi-calendar3"></i> <?= htmlspecialchars($t('tab_calendar')) ?>
   </button>
@@ -983,10 +987,10 @@ try {
                       <td><?= htmlspecialchars((string)$slot['day_of_week']) ?></td>
                       <td><?= htmlspecialchars(substr((string)$slot['start_time'], 0, 5)) ?></td>
                       <td><?= htmlspecialchars(substr((string)$slot['end_time'], 0, 5)) ?></td>
-                      <td><span class="badge bg-secondary"><?= htmlspecialchars($t('recurring')) ?></span></td>
+                      <td><span class="badge bg-secondary status-badge"><?= htmlspecialchars($t('recurring')) ?></span></td>
                       <td>
                         <button type="button"
-                                class="btn btn-primary btn-sm open-book-modal-btn"
+                                class="btn btn-primary btn-sm table-action-btn open-book-modal-btn"
                                 data-slot-source="recurring"
                                 data-slot-id="<?= (int)$slot['slot_id'] ?>"
                                 data-slot-day="<?= htmlspecialchars((string)$slot['day_of_week']) ?>"
@@ -1032,10 +1036,10 @@ try {
                       <td><?= htmlspecialchars($formatStudentDisplayDate((string)$slot['slot_date'])) ?></td>
                       <td><?= htmlspecialchars(substr((string)$slot['start_time'], 0, 5)) ?></td>
                       <td><?= htmlspecialchars(substr((string)$slot['end_time'], 0, 5)) ?></td>
-                      <td><span class="badge bg-info text-dark"><?= htmlspecialchars($t('additional')) ?></span></td>
+                      <td><span class="badge bg-info text-dark status-badge"><?= htmlspecialchars($t('additional')) ?></span></td>
                       <td>
                         <button type="button"
-                                class="btn btn-primary btn-sm open-book-modal-btn"
+                                class="btn btn-primary btn-sm table-action-btn open-book-modal-btn"
                                 data-slot-source="additional"
                                 data-slot-id="<?= (int)$slot['slot_id'] ?>"
                                 data-slot-date="<?= htmlspecialchars((string)$slot['slot_date']) ?>"
@@ -1104,6 +1108,16 @@ try {
                   $studentReason = trim((string)($request['Student_Reason'] ?? ''));
                   $declineReason = trim((string)($request['Advisor_Reason'] ?? ''));
                   $isOpenRequest = (string)($request['Request_Type'] ?? 'Slot') === 'Open';
+                  $requestMoreDetails = [
+                    'Request ID' => (string)($request['Request_ID'] ?? '-'),
+                    'Advisor' => $requestAdvisorName !== '' ? $requestAdvisorName : $t('advisor'),
+                    'Date' => $isOpenRequest ? $t('open_date_request_title') : $formatStudentDisplayDate((string)$request['Appointment_Date']),
+                    'Type' => (string)($request['Request_Type'] ?? 'Slot'),
+                    'Status' => $t('pending'),
+                    'Attendance' => 'Pending',
+                    'Student Reason' => $studentReason !== '' ? $studentReason : '-',
+                    'Advisor Reason' => $declineReason !== '' ? $declineReason : '-',
+                  ];
                 ?>
                 <tr class="student-request-row">
                   <td><?= htmlspecialchars($requestAdvisorName !== '' ? $requestAdvisorName : $t('advisor')) ?></td>
@@ -1111,22 +1125,24 @@ try {
                   <td>
                     <?php if ($studentReason !== ''): ?>
                             <button type="button"
-                              class="btn btn-outline-primary btn-sm calendar-reason-btn request-reason-btn"
+                              class="btn btn-outline-primary btn-sm table-action-btn calendar-reason-btn request-reason-btn"
                               data-reason-title="<?= htmlspecialchars($t('reason')) ?>"
-                              data-reason-content="<?= htmlspecialchars($studentReason) ?>">
+                              data-reason-content="<?= htmlspecialchars($studentReason) ?>"
+                              data-details="<?= htmlspecialchars(json_encode($requestMoreDetails, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), ENT_QUOTES, 'UTF-8') ?>">
                         <?= htmlspecialchars($t('view_details')) ?>
                       </button>
                     <?php else: ?>
                       <span class="text-muted">-</span>
                     <?php endif; ?>
                   </td>
-                  <td><span class="badge bg-secondary"><?= htmlspecialchars($t('pending')) ?></span></td>
+                  <td><span class="badge bg-secondary status-badge"><?= htmlspecialchars($t('pending')) ?></span></td>
                   <td>
                     <?php if ($declineReason !== ''): ?>
                             <button type="button"
-                              class="btn btn-outline-primary btn-sm calendar-reason-btn request-reason-btn"
+                              class="btn btn-outline-primary btn-sm table-action-btn calendar-reason-btn request-reason-btn"
                               data-reason-title="<?= htmlspecialchars($t('decline_reason')) ?>"
-                              data-reason-content="<?= htmlspecialchars($declineReason) ?>">
+                              data-reason-content="<?= htmlspecialchars($declineReason) ?>"
+                              data-details="<?= htmlspecialchars(json_encode($requestMoreDetails, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), ENT_QUOTES, 'UTF-8') ?>">
                         <?= htmlspecialchars($t('view_details')) ?>
                       </button>
                     <?php else: ?>
@@ -1169,15 +1185,31 @@ try {
               <th><?= htmlspecialchars($t('start_time')) ?></th>
               <th><?= htmlspecialchars($t('end_time')) ?></th>
               <th><?= htmlspecialchars($t('status')) ?></th>
+              <th><?= htmlspecialchars($t('details')) ?></th>
             </tr>
           </thead>
           <tbody>
             <?php if (count($studentAppointments) === 0): ?>
               <tr>
-                <td colspan="5" class="text-center text-muted"><?= htmlspecialchars($t('no_approved_appointments')) ?></td>
+                <td colspan="6" class="text-center text-muted"><?= htmlspecialchars($t('no_approved_appointments')) ?></td>
               </tr>
             <?php else: ?>
               <?php foreach ($studentAppointments as $appointment): ?>
+                <?php
+                  $appointmentStatus = strtolower(trim((string)$appointment['Status']));
+                  $appointmentAttendance = $appointmentStatus === 'completed'
+                    ? 'Attended'
+                    : ($appointmentStatus === 'cancelled' ? 'No Show' : 'Pending');
+                  $appointmentMoreDetails = [
+                    'Appointment ID' => (string)($appointment['Appointment_ID'] ?? '-'),
+                    'Request ID' => (string)($appointment['Request_ID'] ?? '-'),
+                    'Advisor' => trim((string)($appointment['Advisor_Last_Name'] ?? '')) !== '' ? (string)$appointment['Advisor_Last_Name'] : $t('advisor'),
+                    'Date' => $formatStudentDisplayDate((string)$appointment['Appointment_Date']),
+                    'Time' => ($appointment['Start_Time'] ? substr((string)$appointment['Start_Time'], 0, 5) : '-') . ' - ' . ($appointment['End_Time'] ? substr((string)$appointment['End_Time'], 0, 5) : '-'),
+                    'Status' => (string)($appointment['Status'] ?? '-'),
+                    'Attendance' => $appointmentAttendance,
+                  ];
+                ?>
                 <tr>
                   <td><?= htmlspecialchars(trim((string)($appointment['Advisor_Last_Name'] ?? '')) !== '' ? (string)$appointment['Advisor_Last_Name'] : $t('advisor')) ?></td>
                   <td><?= htmlspecialchars($formatStudentDisplayDate((string)$appointment['Appointment_Date'])) ?></td>
@@ -1185,16 +1217,25 @@ try {
                   <td><?= htmlspecialchars($appointment['End_Time'] ? substr((string)$appointment['End_Time'], 0, 5) : '-') ?></td>
                   <td>
                     <?php if (strtolower(trim((string)$appointment['Status'])) === 'scheduled'): ?>
-                      <span class="badge bg-primary"><?= htmlspecialchars($t('scheduled')) ?></span>
+                      <span class="badge bg-primary status-badge"><?= htmlspecialchars($t('scheduled')) ?></span>
                     <?php elseif (strtolower(trim((string)$appointment['Status'])) === 'completed'): ?>
-                      <span class="badge bg-success"><?= htmlspecialchars($t('completed')) ?></span>
+                      <span class="badge bg-success status-badge"><?= htmlspecialchars($t('completed')) ?></span>
                     <?php elseif (strtolower(trim((string)$appointment['Status'])) === 'cancelled'): ?>
-                      <span class="badge bg-danger"><?= htmlspecialchars($t('cancelled')) ?></span>
+                      <span class="badge bg-danger status-badge"><?= htmlspecialchars($t('cancelled')) ?></span>
                     <?php elseif (strtolower(trim((string)$appointment['Status'])) === 'approved'): ?>
-                      <span class="badge bg-success"><?= htmlspecialchars($t('approved')) ?></span>
+                      <span class="badge bg-success status-badge"><?= htmlspecialchars($t('approved')) ?></span>
                     <?php else: ?>
-                      <span class="badge bg-dark"><?= htmlspecialchars((string)$appointment['Status']) ?></span>
+                      <span class="badge bg-dark status-badge"><?= htmlspecialchars((string)$appointment['Status']) ?></span>
                     <?php endif; ?>
+                  </td>
+                  <td>
+                    <button type="button"
+                            class="btn btn-outline-primary btn-sm table-action-btn request-reason-btn"
+                            data-reason-title="<?= htmlspecialchars($t('appointment_details')) ?>"
+                            data-reason-content=""
+                            data-details="<?= htmlspecialchars(json_encode($appointmentMoreDetails, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), ENT_QUOTES, 'UTF-8') ?>">
+                      <?= htmlspecialchars($t('view_details')) ?>
+                    </button>
                   </td>
                 </tr>
               <?php endforeach; ?>
@@ -1243,28 +1284,41 @@ try {
               <?php foreach ($studentHistory as $history): ?>
                 <?php
                   $historyReason = trim((string)($history['Advisor_Reason'] ?? $history['Student_Reason'] ?? ''));
+                  $historyStudentReason = trim((string)($history['Student_Reason'] ?? ''));
+                  $historyAdvisorReason = trim((string)($history['Advisor_Reason'] ?? ''));
                   $historyAdvisorLastName = trim((string)($history['Advisor_Last_Name'] ?? ''));
+                  $historyAttendance = trim((string)($history['Student_Attendance'] ?? '')) !== '' ? (string)$history['Student_Attendance'] : 'Pending';
+                  $historyMoreDetails = [
+                    'Request ID' => (string)($history['Request_ID'] ?? '-'),
+                    'Advisor' => $historyAdvisorLastName !== '' ? $historyAdvisorLastName : $t('advisor'),
+                    'Date' => $formatStudentDisplayDate((string)$history['Appointment_Date']),
+                    'Status' => (string)($history['Status'] ?? '-'),
+                    'Attendance' => $historyAttendance,
+                    'Student Reason' => $historyStudentReason !== '' ? $historyStudentReason : '-',
+                    'Advisor Reason' => $historyAdvisorReason !== '' ? $historyAdvisorReason : '-',
+                  ];
                 ?>
                 <tr>
                   <td><?= htmlspecialchars($historyAdvisorLastName !== '' ? $historyAdvisorLastName : $t('advisor')) ?></td>
                   <td>
                     <?php if ($history['Status'] === 'Approved'): ?>
-                      <span class="badge bg-success"><?= htmlspecialchars($t('approved')) ?></span>
+                      <span class="badge bg-success status-badge"><?= htmlspecialchars($t('approved')) ?></span>
                     <?php elseif ($history['Status'] === 'Declined'): ?>
-                      <span class="badge bg-danger"><?= htmlspecialchars($t('declined')) ?></span>
+                      <span class="badge bg-danger status-badge"><?= htmlspecialchars($t('declined')) ?></span>
                     <?php elseif ($history['Status'] === 'Cancelled'): ?>
-                      <span class="badge bg-dark"><?= htmlspecialchars($t('cancelled')) ?></span>
+                      <span class="badge bg-dark status-badge"><?= htmlspecialchars($t('cancelled')) ?></span>
                     <?php else: ?>
-                      <span class="badge bg-primary"><?= htmlspecialchars((string)$history['Status']) ?></span>
+                      <span class="badge bg-primary status-badge"><?= htmlspecialchars((string)$history['Status']) ?></span>
                     <?php endif; ?>
                   </td>
-                  <td><?= htmlspecialchars(trim((string)($history['Student_Attendance'] ?? '')) !== '' ? (string)$history['Student_Attendance'] : 'Pending') ?></td>
+                  <td><?= htmlspecialchars($historyAttendance) ?></td>
                   <td><?= htmlspecialchars($formatStudentDisplayDate((string)$history['Appointment_Date'])) ?></td>
                   <td>
                     <?php if ($historyReason !== ''): ?>
                       <button type="button"
-                              class="btn btn-outline-primary btn-sm calendar-reason-btn history-details-btn"
-                              data-history-reason="<?= htmlspecialchars($historyReason) ?>">
+                              class="btn btn-outline-primary btn-sm table-action-btn calendar-reason-btn history-details-btn"
+                              data-history-reason="<?= htmlspecialchars($historyReason) ?>"
+                              data-details="<?= htmlspecialchars(json_encode($historyMoreDetails, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), ENT_QUOTES, 'UTF-8') ?>">
                         <?= htmlspecialchars($t('view_details')) ?>
                       </button>
                     <?php else: ?>
@@ -1523,23 +1577,57 @@ let studentCalendarInstance = null;
 let historyDetailsModal = null;
 let requestReasonModal = null;
 
-function openHistoryDetailsModal(reasonText) {
+function renderDetailsList(target, details, fallbackText = '-') {
+  if (!target) return;
+
+  if (!details || typeof details !== 'object') {
+    target.textContent = fallbackText;
+    return;
+  }
+
+  const rows = Object.entries(details);
+  if (rows.length === 0) {
+    target.textContent = fallbackText;
+    return;
+  }
+
+  target.innerHTML = rows.map(function ([label, value]) {
+    const safeLabel = String(label ?? '').replace(/[&<>"']/g, function (char) {
+      return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' })[char];
+    });
+    const safeValue = String(value ?? '-').replace(/[&<>"']/g, function (char) {
+      return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' })[char];
+    });
+    return '<div class="d-flex gap-3 py-2 border-bottom"><strong style="min-width:140px;">' + safeLabel + '</strong><span>' + safeValue + '</span></div>';
+  }).join('');
+}
+
+function parseDetailsAttribute(button) {
+  if (!button) return null;
+
+  try {
+    return JSON.parse(button.getAttribute('data-details') || 'null');
+  } catch (e) {
+    return null;
+  }
+}
+
+function openHistoryDetailsModal(reasonText, details = null) {
   const content = document.getElementById('historyDetailsText');
   if (!content || !historyDetailsModal) return;
 
-  const cleanReason = String(reasonText ?? '').trim();
-  content.textContent = cleanReason !== '' ? cleanReason : '-';
+  renderDetailsList(content, details, String(reasonText ?? '').trim() || '-');
   historyDetailsModal.show();
 }
 
-function openRequestReasonModal(titleText, reasonText) {
+function openRequestReasonModal(titleText, reasonText, details = null) {
   const titleEl = document.getElementById('requestReasonModalTitle');
   const textEl = document.getElementById('requestReasonModalText');
 
   if (!titleEl || !textEl || !requestReasonModal) return;
 
-  titleEl.textContent = String(titleText ?? '').trim() || <?= json_encode($t('reason')) ?>;
-  textEl.textContent = String(reasonText ?? '').trim() || '-';
+  titleEl.textContent = <?= json_encode($t('appointment_details')) ?>;
+  renderDetailsList(textEl, details, String(reasonText ?? '').trim() || '-');
   requestReasonModal.show();
 }
 
@@ -1547,6 +1635,33 @@ function formatStudentDisplayDate(dateValue) {
   const value = String(dateValue ?? '').trim();
   const match = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
   return match ? `${match[3]}/${match[2]}/${match[1]}` : value;
+}
+
+function formatDateInputValue(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function getNextDateForSlotDay(slotDay) {
+  const dayMap = {
+    sunday: 0,
+    monday: 1,
+    tuesday: 2,
+    wednesday: 3,
+    thursday: 4,
+    friday: 5,
+    saturday: 6
+  };
+  const targetDay = dayMap[String(slotDay ?? '').trim().toLowerCase()];
+  if (targetDay === undefined) return null;
+
+  const date = new Date();
+  date.setHours(0, 0, 0, 0);
+  const daysUntilTarget = (targetDay - date.getDay() + 7) % 7;
+  date.setDate(date.getDate() + daysUntilTarget);
+  return date;
 }
 
 const studentCalendarEvents = <?= json_encode($studentCalendarEvents, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
@@ -1772,7 +1887,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
   document.querySelectorAll('.history-details-btn').forEach(function (btn) {
     btn.addEventListener('click', function () {
-      openHistoryDetailsModal(btn.getAttribute('data-history-reason'));
+      openHistoryDetailsModal(btn.getAttribute('data-history-reason'), parseDetailsAttribute(btn));
     });
   });
 
@@ -1780,7 +1895,8 @@ document.addEventListener("DOMContentLoaded", function () {
     btn.addEventListener('click', function () {
       openRequestReasonModal(
         btn.getAttribute('data-reason-title'),
-        btn.getAttribute('data-reason-content')
+        btn.getAttribute('data-reason-content'),
+        parseDetailsAttribute(btn)
       );
     });
   });
@@ -1921,14 +2037,30 @@ document.addEventListener("DOMContentLoaded", function () {
 
       if (recurringDateWrap && recurringDateInput) {
         if (slotSource === 'recurring') {
+          const firstAllowedDate = getNextDateForSlotDay(slotDay);
           recurringDateWrap.classList.remove('d-none');
           recurringDateInput.required = true;
           recurringDateInput.value = '';
-          recurringDateInput.min = new Date().toISOString().split('T')[0];
+          recurringDateInput.min = firstAllowedDate ? formatDateInputValue(firstAllowedDate) : new Date().toISOString().split('T')[0];
+          recurringDateInput.step = firstAllowedDate ? '7' : '1';
+          recurringDateInput.setCustomValidity('');
+          recurringDateInput.onchange = function () {
+            const selectedDate = new Date(this.value + 'T00:00:00');
+            const expectedDate = getNextDateForSlotDay(slotDay);
+            if (!this.value || !expectedDate || selectedDate.getDay() === expectedDate.getDay()) {
+              this.setCustomValidity('');
+            } else {
+              this.setCustomValidity('Please select a ' + slotDay + ' date.');
+            }
+          };
         } else {
           recurringDateWrap.classList.add('d-none');
           recurringDateInput.required = false;
           recurringDateInput.value = '';
+          recurringDateInput.removeAttribute('min');
+          recurringDateInput.step = '1';
+          recurringDateInput.setCustomValidity('');
+          recurringDateInput.onchange = null;
         }
       }
 

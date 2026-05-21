@@ -73,6 +73,7 @@ require_once '../backend/modules/ParticipantsClass.php';
 require_once '../backend/modules/NotificationsClass.php';
 require_once '../backend/modules/SelectionClass.php';
 require_once '../backend/modules/PromotionClass.php';
+require_once '../backend/modules/AdminAppointmentReportsClass.php';
 require_once '../backend/modules/Csrf.php';
 
 if (session_status() === PHP_SESSION_NONE) {
@@ -551,6 +552,8 @@ $totalStudents   = count($allStudents);
 $totalAdvisors   = count($allAdvisors);
 $totalSuperusers = count($allSuperusers);
 $unassignedCount = $totalStudents - $assignedCount;
+$attendanceReports = new AdminAppointmentReportsClass();
+$attendanceSummary = $attendanceReports->getAttendanceSummary();
 
 // Active section (default: advisors)
 $activeSection = $_GET['tab'] ?? ($_GET['section'] ?? 'advisors');
@@ -1064,9 +1067,10 @@ $YearOptions = [
             <label for="assignDegreeFilter" class="form-label mb-1"><?= htmlspecialchars($t('filter_by_degree')) ?></label>
             <select class="form-select" id="assignDegreeFilter" name="assign_student_degree" autocomplete="off">
               <option value="0" <?= $selectedAssignDegree === 0 ? 'selected' : '' ?>><?= htmlspecialchars($t('all_degrees')) ?></option>
-              <?php foreach ($AssignDegreeOptions as $degreeValue => $degreeLabel): ?>
-              <option value="<?= htmlspecialchars($degreeValue) ?>" <?= (string)$selectedAssignDegree === (string)$degreeValue ? 'selected' : '' ?>>
-                <?= htmlspecialchars($degreeLabel) ?>
+              <?php foreach ($AllDegreeOptions as $degreeValue => $degreeData): ?>
+              <?php $degreeDepartment = (string)($degreeData['department_id'] ?? ''); ?>
+              <option value="<?= htmlspecialchars($degreeValue) ?>" data-department-id="<?= htmlspecialchars($degreeDepartment) ?>" <?= (string)$selectedAssignDegree === (string)$degreeValue ? 'selected' : '' ?>>
+                <?= htmlspecialchars((string)($degreeData['name'] ?? '')) ?>
               </option>
               <?php endforeach; ?>
             </select>
@@ -1204,6 +1208,27 @@ $YearOptions = [
         <div class="stat-card">
           <p class="stat-label">Unassigned</p>
           <p class="stat-value text-danger"><?= $unassignedCount ?></p>
+        </div>
+      </div>
+    </div>
+
+    <div class="row g-3 mb-4">
+      <div class="col-6 col-md-4">
+        <div class="stat-card">
+          <p class="stat-label">Attended</p>
+          <p class="stat-value text-success"><?= htmlspecialchars((string)$attendanceSummary['attended']) ?></p>
+        </div>
+      </div>
+      <div class="col-6 col-md-4">
+        <div class="stat-card">
+          <p class="stat-label">No Show</p>
+          <p class="stat-value text-danger"><?= htmlspecialchars((string)$attendanceSummary['no_show']) ?></p>
+        </div>
+      </div>
+      <div class="col-6 col-md-4">
+        <div class="stat-card">
+          <p class="stat-label">Pending</p>
+          <p class="stat-value text-secondary"><?= htmlspecialchars((string)$attendanceSummary['pending']) ?></p>
         </div>
       </div>
     </div>
@@ -1963,77 +1988,42 @@ $YearOptions = [
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-//student filter interdependencies
 document.addEventListener('DOMContentLoaded', function () {
-  var departmentSelect = document.getElementById('studentDepartmentFilter');
-  var degreeSelect = document.getElementById('studentDegreeFilter');
-  if (!departmentSelect || !degreeSelect) return;
+  function bindDepartmentDegreeFilter(departmentId, degreeId, emptyValue) {
+    var departmentSelect = document.getElementById(departmentId);
+    var degreeSelect = document.getElementById(degreeId);
+    if (!departmentSelect || !degreeSelect) return;
 
-  //clone all options for reseting latter
-  var allDegreeOptions = Array.prototype.map.call(degreeSelect.options, function (option) {
-    return option.cloneNode(true);
-  });
-  var allDepartmentOptions = Array.prototype.map.call(departmentSelect.options, function (option) {
-    return option.cloneNode(true);
-  });
-
-  //helper to get the department of the currently selected degree
-  function getSelectedDegreeDepartment() {
-    var selectedDegree = degreeSelect.value;
-    for (var i = 0; i < allDegreeOptions.length; i += 1) {
-      if (allDegreeOptions[i].value === selectedDegree) {
-        return allDegreeOptions[i].getAttribute('data-department-id') || '';
-      }
-    }
-    return '';
-  }
-
-  //based on department selection, reset degree if it doesn't belong to the department and hide non matching degrees
-  function renderStudentDegreeOptions(resetDegree) {
-    var selectedDepartment = departmentSelect.value || '';
-    var selectedDegree = resetDegree ? '' : degreeSelect.value;
-
-    degreeSelect.innerHTML = '';
-    allDegreeOptions.forEach(function (option) {
-      var optionDepartment = option.getAttribute('data-department-id') || '';
-      if (option.value === '' || selectedDepartment === '' || optionDepartment === selectedDepartment) {
-        degreeSelect.appendChild(option.cloneNode(true));
-      }
+    var allDegreeOptions = Array.prototype.map.call(degreeSelect.options, function (option) {
+      return option.cloneNode(true);
     });
 
-    degreeSelect.value = selectedDegree;
-    if (degreeSelect.value !== selectedDegree) {
-      degreeSelect.value = '';
-    }
-  }
+    function renderDegreeOptions(resetDegree) {
+      var selectedDepartment = departmentSelect.value || '';
+      var selectedDegree = resetDegree ? emptyValue : degreeSelect.value;
 
-  //based on degree selection, set department to the one of the degree and hide non matching departments
-  function renderStudentDepartmentOptions() {
-    var selectedDegreeDepartment = getSelectedDegreeDepartment();
-    var currentDepartment = departmentSelect.value || '';
+      degreeSelect.innerHTML = '';
+      allDegreeOptions.forEach(function (option) {
+        var optionDepartment = option.getAttribute('data-department-id') || '';
+        if (option.value === emptyValue || option.value === '' || selectedDepartment === '' || optionDepartment === selectedDepartment) {
+          degreeSelect.appendChild(option.cloneNode(true));
+        }
+      });
 
-    departmentSelect.innerHTML = '';
-    allDepartmentOptions.forEach(function (option) {
-      if (selectedDegreeDepartment === '' || option.value === selectedDegreeDepartment) {
-        departmentSelect.appendChild(option.cloneNode(true));
+      degreeSelect.value = selectedDegree;
+      if (degreeSelect.value !== selectedDegree) {
+        degreeSelect.value = emptyValue;
       }
-    });
-
-    departmentSelect.value = selectedDegreeDepartment !== '' ? selectedDegreeDepartment : currentDepartment;
-    if (departmentSelect.value !== (selectedDegreeDepartment !== '' ? selectedDegreeDepartment : currentDepartment)) {
-      departmentSelect.value = '';
     }
+
+    renderDegreeOptions(false);
+    departmentSelect.addEventListener('change', function () {
+      renderDegreeOptions(true);
+    });
   }
 
-  renderStudentDegreeOptions(false);
-  renderStudentDepartmentOptions();
-  departmentSelect.addEventListener('change', function () {
-    renderStudentDegreeOptions(true);
-    renderStudentDepartmentOptions();
-  });
-  degreeSelect.addEventListener('change', function () {
-    renderStudentDepartmentOptions();
-  });
+  bindDepartmentDegreeFilter('studentDepartmentFilter', 'studentDegreeFilter', '');
+  bindDepartmentDegreeFilter('assignDepartmentFilter', 'assignDegreeFilter', '0');
 });
 
 //Filter advisor dropdown based on selected degree's department

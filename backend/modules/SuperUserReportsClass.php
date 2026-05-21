@@ -135,6 +135,74 @@ class SuperUserReportsClass
         return $summary;
     }
 
+    public function getAttendanceSummary(?int $departmentId = null, ?int $degreeId = null, ?int $year = null, ?string $advisorId = null): array
+    {
+        $summary = [
+            'attended' => 0,
+            'no_show' => 0,
+            'pending' => 0
+        ];
+
+        try {
+            $where = ["u.Role = 'Student'"];
+            $params = [];
+
+            if ($departmentId !== null && $departmentId > 0) {
+                $where[] = "d.DepartmentID = :department_id";
+                $params[':department_id'] = $departmentId;
+            }
+
+            if ($degreeId !== null && $degreeId > 0) {
+                $where[] = "deg.DegreeID = :degree_id";
+                $params[':degree_id'] = $degreeId;
+            }
+
+            if ($year !== null && $year > 0) {
+                $where[] = "s.Year = :year";
+                $params[':year'] = $year;
+            }
+
+            if ($advisorId !== null && $advisorId !== '') {
+                $where[] = "sa.Advisor_ID = :advisor_id";
+                $params[':advisor_id'] = $advisorId;
+            }
+
+            $whereSql = implode(' AND ', $where);
+
+            $sql = "
+                SELECT
+                    SUM(CASE WHEN LOWER(TRIM(a.Status)) = 'completed' THEN 1 ELSE 0 END) AS attended,
+                    SUM(CASE WHEN LOWER(TRIM(a.Status)) = 'cancelled' THEN 1 ELSE 0 END) AS no_show,
+                    SUM(CASE WHEN LOWER(TRIM(a.Status)) = 'scheduled' THEN 1 ELSE 0 END) AS pending
+                FROM appointments a
+                INNER JOIN users u ON u.User_ID = a.Student_ID
+                INNER JOIN students s ON u.User_ID = s.User_ID
+                INNER JOIN studentdegree sd ON u.User_ID = sd.User_ID
+                INNER JOIN degree deg ON sd.DegreeID = deg.DegreeID
+                INNER JOIN departments d ON deg.DepartmentID = d.DepartmentID
+                LEFT JOIN student_advisors sa ON sa.Student_ID = u.External_ID
+                WHERE $whereSql
+            ";
+
+            $stmt = $this->conn->prepare($sql);
+            foreach ($params as $key => $value) {
+                $stmt->bindValue($key, $value, PDO::PARAM_INT);
+            }
+            $stmt->execute();
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if ($row) {
+                $summary['attended'] = (int)($row['attended'] ?? 0);
+                $summary['no_show'] = (int)($row['no_show'] ?? 0);
+                $summary['pending'] = (int)($row['pending'] ?? 0);
+            }
+        } catch (Throwable $e) {
+            return $summary;
+        }
+
+        return $summary;
+    }
+
     public function getFilteredStudents(?int $departmentId = null, ?int $degreeId = null, ?int $year = null, ?string $advisorId = null): array
     {
         try {

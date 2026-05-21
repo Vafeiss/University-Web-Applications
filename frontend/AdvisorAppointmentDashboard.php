@@ -266,10 +266,11 @@ $translations['en'] = array_merge($translations['en'], [
     'cancel' => 'Cancel',
     'save_additional_slot' => 'Save Additional Slot',
     'appointment_details' => 'Appointment Details',
+    'details' => 'Details',
     'student' => 'Student',
     'time' => 'Time',
-    'view_details' => 'View details',
-    'view_reason' => 'View Reason',
+    'view_details' => 'More',
+    'view_reason' => 'More',
     'advisor_note' => 'Advisor Note',
     'decline_request_title' => 'Decline Appointment Request',
     'reason_for_decline' => 'Reason for Decline',
@@ -366,10 +367,11 @@ $translations['el'] = array_merge($translations['el'], [
     'friday' => 'Παρασκευή',
     'cancel' => 'Ακύρωση',
     'appointment_details' => 'Λεπτομέρειες Ραντεβού',
+    'details' => 'Λεπτομέρειες',
     'student' => 'Φοιτητής',
     'time' => 'Ώρα',
-    'view_details' => 'Προβολή λεπτομερειών',
-    'view_reason' => 'Προβολή Λόγου',
+    'view_details' => 'More',
+    'view_reason' => 'More',
     'advisor_note' => 'Σημείωση Συμβούλου',
     'decline_request_title' => 'Απόρριψη Αιτήματος Ραντεβού',
     'reason_for_decline' => 'Λόγος Απόρριψης',
@@ -870,6 +872,16 @@ try {
                                     $requestStudentReason = trim((string)($request['Student_Reason'] ?? ''));
                                     $requestAdvisorReason = trim((string)($request['Advisor_Reason'] ?? ''));
                                     $isOpenRequest = (string)($request['Request_Type'] ?? 'Slot') === 'Open';
+                                    $requestMoreDetails = [
+                                        'Request ID' => (string)($request['Request_ID'] ?? '-'),
+                                        'Student ID' => (string)($request['Student_External_ID'] ?? '-'),
+                                        'Date' => $isOpenRequest ? $t('open_date_request') : (string)$request['Appointment_Date'],
+                                        'Type' => (string)($request['Request_Type'] ?? 'Slot'),
+                                        'Status' => $t('pending'),
+                                        'Attendance' => 'Pending',
+                                        'Student Reason' => $requestStudentReason !== '' ? $requestStudentReason : '-',
+                                        'Advisor Reason' => $requestAdvisorReason !== '' ? $requestAdvisorReason : '-',
+                                    ];
                                 ?>
                                 <tr class="request-row">
                                     <td><?= htmlspecialchars((string)($request['Student_External_ID'] ?? '-')) ?></td>
@@ -877,22 +889,24 @@ try {
                                     <td>
                                         <?php if ($requestStudentReason !== ''): ?>
                                             <button type="button"
-                                                    class="btn btn-outline-primary btn-sm advisor-reason-btn"
+                                                    class="btn btn-outline-primary btn-sm table-action-btn advisor-reason-btn"
                                                     data-reason-title="<?= htmlspecialchars($t('student_reason')) ?>"
-                                                    data-reason-content="<?= htmlspecialchars($requestStudentReason) ?>">
+                                                    data-reason-content="<?= htmlspecialchars($requestStudentReason) ?>"
+                                                    data-details="<?= htmlspecialchars(json_encode($requestMoreDetails, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), ENT_QUOTES, 'UTF-8') ?>">
                                                 <?= htmlspecialchars($t('view_reason')) ?>
                                             </button>
                                         <?php else: ?>
                                             <span class="text-muted">-</span>
                                         <?php endif; ?>
                                     </td>
-                                    <td><span class="badge bg-secondary"><?= htmlspecialchars($t('pending')) ?></span></td>
+                                    <td><span class="badge bg-secondary status-badge"><?= htmlspecialchars($t('pending')) ?></span></td>
                                     <td>
                                         <?php if ($requestAdvisorReason !== ''): ?>
                                             <button type="button"
-                                                    class="btn btn-outline-primary btn-sm advisor-reason-btn"
+                                                    class="btn btn-outline-primary btn-sm table-action-btn advisor-reason-btn"
                                                     data-reason-title="<?= htmlspecialchars($t('advisor_reason')) ?>"
-                                                    data-reason-content="<?= htmlspecialchars($requestAdvisorReason) ?>">
+                                                    data-reason-content="<?= htmlspecialchars($requestAdvisorReason) ?>"
+                                                    data-details="<?= htmlspecialchars(json_encode($requestMoreDetails, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), ENT_QUOTES, 'UTF-8') ?>">
                                                 <?= htmlspecialchars($t('view_reason')) ?>
                                             </button>
                                         <?php else: ?>
@@ -903,7 +917,7 @@ try {
                                         <div class="d-flex gap-2">
                                             <?php if ($isOpenRequest): ?>
                                             <button type="button"
-                                                    class="btn btn-success btn-sm open-schedule-modal-btn"
+                                                    class="btn btn-success btn-sm table-action-btn open-schedule-modal-btn"
                                                     data-request-id="<?= (int)$request['Request_ID'] ?>"
                                                     data-bs-toggle="modal"
                                                     data-bs-target="#scheduleOpenRequestModal">
@@ -916,14 +930,14 @@ try {
                                                 <input type="hidden" name="appointment_action" value="approve">
                                                 <input type="hidden" name="request_id" value="<?= (int)$request['Request_ID'] ?>">
                                                 <input type="hidden" name="redirect_target" value="advisor_dashboard_requests">
-                                                <button type="submit" class="btn btn-success btn-sm">
+                                                <button type="submit" class="btn btn-success btn-sm table-action-btn">
                                                     <?= htmlspecialchars($t('approve')) ?>
                                                 </button>
                                             </form>
                                             <?php endif; ?>
 
                                             <button type="button"
-                                                    class="btn btn-danger btn-sm open-decline-modal-btn"
+                                                    class="btn btn-danger btn-sm table-action-btn open-decline-modal-btn"
                                                     data-request-id="<?= (int)$request['Request_ID'] ?>"
                                                     data-bs-toggle="modal"
                                                     data-bs-target="#declineRequestModal">
@@ -985,10 +999,10 @@ try {
                                     <td><?= htmlspecialchars((string)$slot['Day_of_Week']) ?></td>
                                     <td><?= htmlspecialchars(substr((string)$slot['Start_Time'], 0, 5)) ?></td>
                                     <td><?= htmlspecialchars(substr((string)$slot['End_Time'], 0, 5)) ?></td>
-                                    <td><span class="badge bg-success"><?= htmlspecialchars($t('active')) ?></span></td>
+                                    <td><span class="badge bg-success status-badge"><?= htmlspecialchars($t('active')) ?></span></td>
                                     <td>
                                         <a href="../backend/controllers/AdvisorOfficeHours.php?delete=<?= (int)$slot['OfficeHour_ID'] ?>"
-                                            class="btn btn-outline-danger btn-sm"
+                                            class="btn btn-outline-danger btn-sm table-action-btn"
                                             onclick="event.preventDefault(); customConfirm('<?= htmlspecialchars($t('delete_office_hour_confirm')) ?>', function(ok) { if (ok) window.location.href = this.href; }.bind(this));">
                                             <i class="bi bi-trash"></i>
                                         </a>
@@ -1044,11 +1058,11 @@ try {
                                     <td><?= htmlspecialchars((string)$additionalSlot['Slot_Date']) ?></td>
                                     <td><?= htmlspecialchars(substr((string)$additionalSlot['Start_Time'], 0, 5)) ?></td>
                                     <td><?= htmlspecialchars(substr((string)$additionalSlot['End_Time'], 0, 5)) ?></td>
-                                    <td><span class="badge bg-info text-dark"><?= htmlspecialchars($t('additional')) ?></span></td>
-                                    <td><span class="badge bg-success"><?= htmlspecialchars($t('active')) ?></span></td>
+                                    <td><span class="badge bg-info text-dark status-badge"><?= htmlspecialchars($t('additional')) ?></span></td>
+                                    <td><span class="badge bg-success status-badge"><?= htmlspecialchars($t('active')) ?></span></td>
                                     <td>
                                         <a href="../backend/controllers/AdvisorOfficeHours.php?delete_additional=<?= (int)$additionalSlot['AdditionalSlot_ID'] ?>"
-                                           class="btn btn-outline-danger btn-sm"
+                                           class="btn btn-outline-danger btn-sm table-action-btn"
                                            onclick="event.preventDefault(); customConfirm('<?= htmlspecialchars($t('delete_additional_slot_confirm')) ?>', function(ok) { if (ok) window.location.href = this.href; }.bind(this));">
                                             <i class="bi bi-trash"></i>
                                         </a>
@@ -1089,17 +1103,29 @@ try {
                             <th><?= htmlspecialchars($t('end_time')) ?></th>
                             <th><?= htmlspecialchars($t('status')) ?></th>
                             <th><?= htmlspecialchars($t('attendance')) ?></th>
+                            <th><?= htmlspecialchars($t('details')) ?></th>
                         </tr>
                     </thead>
                     <tbody>
                         <?php if (count($appointments) === 0): ?>
                             <tr>
-                                <td colspan="7" class="text-center text-muted"><?= htmlspecialchars($t('no_appointments_found')) ?></td>
+                                <td colspan="8" class="text-center text-muted"><?= htmlspecialchars($t('no_appointments_found')) ?></td>
                             </tr>
                         <?php else: ?>
                             <?php foreach ($appointments as $appointment): ?>
                                 <?php $appointmentAttendance = trim((string)($appointment['Student_Attendance'] ?? 'Pending')); ?>
                                 <?php if ($appointmentAttendance === '') { $appointmentAttendance = 'Pending'; } ?>
+                                <?php
+                                    $appointmentMoreDetails = [
+                                        'Appointment ID' => (string)($appointment['Appointment_ID'] ?? '-'),
+                                        'Request ID' => (string)($appointment['Request_ID'] ?? '-'),
+                                        'Student ID' => (string)($appointment['Student_External_ID'] ?? $appointment['Student_ID'] ?? '-'),
+                                        'Date' => (string)($appointment['Appointment_Date'] ?? '-'),
+                                        'Time' => substr((string)$appointment['Start_Time'], 0, 5) . ' - ' . substr((string)$appointment['End_Time'], 0, 5),
+                                        'Status' => (string)($appointment['Status'] ?? '-'),
+                                        'Attendance' => $appointmentAttendance,
+                                    ];
+                                ?>
                                 <tr>
                                     <td><?= htmlspecialchars((string)($appointment['Appointment_ID'] ?? $appointment['Request_ID'])) ?></td>
                                     <td><?= htmlspecialchars((string)($appointment['Student_External_ID'] ?? $appointment['Student_ID'])) ?></td>
@@ -1108,20 +1134,20 @@ try {
                                     <td><?= htmlspecialchars(substr((string)$appointment['End_Time'], 0, 5)) ?></td>
                                     <td>
                                         <?php if ($appointment['Status'] === 'Scheduled'): ?>
-                                            <span class="badge bg-primary"><?= htmlspecialchars($t('scheduled')) ?></span>
+                                            <span class="badge bg-primary status-badge"><?= htmlspecialchars($t('scheduled')) ?></span>
                                         <?php elseif ($appointment['Status'] === 'Completed'): ?>
-                                            <span class="badge bg-success"><?= htmlspecialchars($t('completed')) ?></span>
+                                            <span class="badge bg-success status-badge"><?= htmlspecialchars($t('completed')) ?></span>
                                         <?php elseif ($appointment['Status'] === 'Cancelled'): ?>
-                                            <span class="badge bg-danger"><?= htmlspecialchars($t('cancelled')) ?></span>
+                                            <span class="badge bg-danger status-badge"><?= htmlspecialchars($t('cancelled')) ?></span>
                                         <?php else: ?>
-                                            <span class="badge bg-dark"><?= htmlspecialchars((string)$appointment['Status']) ?></span>
+                                            <span class="badge bg-dark status-badge"><?= htmlspecialchars((string)$appointment['Status']) ?></span>
                                         <?php endif; ?>
                                     </td>
                                     <td>
                                         <?php if ($appointmentAttendance === 'Attended'): ?>
-                                            <span class="badge bg-success"><?= htmlspecialchars($t('attended')) ?></span>
+                                            <span class="badge bg-success status-badge"><?= htmlspecialchars($t('attended')) ?></span>
                                         <?php elseif ($appointmentAttendance === 'No Show'): ?>
-                                            <span class="badge bg-danger"><?= htmlspecialchars($t('no_show')) ?></span>
+                                            <span class="badge bg-danger status-badge"><?= htmlspecialchars($t('no_show')) ?></span>
                                         <?php elseif ($appointmentAttendance === 'Pending'): ?>
                                             <form action="../backend/modules/dispatcher.php"
                                                   method="POST"
@@ -1137,13 +1163,22 @@ try {
                                                     <option value="Attended"><?= htmlspecialchars($t('attended')) ?></option>
                                                     <option value="No Show"><?= htmlspecialchars($t('no_show')) ?></option>
                                                 </select>
-                                                <button type="submit" class="btn btn-primary btn-sm text-nowrap">
+                                                <button type="submit" class="btn btn-primary btn-sm text-nowrap table-action-btn mark-attendance-btn">
                                                     <?= htmlspecialchars($t('mark_attendance')) ?>
                                                 </button>
                                             </form>
                                         <?php else: ?>
                                             <span class="text-muted"><?= htmlspecialchars($appointmentAttendance) ?></span>
                                         <?php endif; ?>
+                                    </td>
+                                    <td>
+                                        <button type="button"
+                                                class="btn btn-outline-primary btn-sm table-action-btn advisor-reason-btn"
+                                                data-reason-title="<?= htmlspecialchars($t('appointment_details')) ?>"
+                                                data-reason-content=""
+                                                data-details="<?= htmlspecialchars(json_encode($appointmentMoreDetails, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), ENT_QUOTES, 'UTF-8') ?>">
+                                            <?= htmlspecialchars($t('view_details')) ?>
+                                        </button>
                                     </td>
                                 </tr>
                             <?php endforeach; ?>
@@ -1198,20 +1233,20 @@ try {
                                     <td><?= htmlspecialchars((string)$history['Student_External_ID']) ?></td>
                                     <td>
                                         <?php if ($history['Status'] === 'Approved'): ?>
-                                            <span class="badge bg-success"><?= htmlspecialchars($t('approved')) ?></span>
+                                            <span class="badge bg-success status-badge"><?= htmlspecialchars($t('approved')) ?></span>
                                         <?php elseif ($history['Status'] === 'Declined'): ?>
-                                            <span class="badge bg-danger"><?= htmlspecialchars($t('declined')) ?></span>
+                                            <span class="badge bg-danger status-badge"><?= htmlspecialchars($t('declined')) ?></span>
                                         <?php elseif ($history['Status'] === 'Cancelled'): ?>
-                                            <span class="badge bg-dark"><?= htmlspecialchars($t('cancelled')) ?></span>
+                                            <span class="badge bg-dark status-badge"><?= htmlspecialchars($t('cancelled')) ?></span>
                                         <?php else: ?>
-                                            <span class="badge bg-primary"><?= htmlspecialchars((string)$history['Status']) ?></span>
+                                            <span class="badge bg-primary status-badge"><?= htmlspecialchars((string)$history['Status']) ?></span>
                                         <?php endif; ?>
                                     </td>
                                     <td>
                                         <?php if ($historyAttendance === 'Attended'): ?>
-                                            <span class="badge bg-success"><?= htmlspecialchars($t('attended')) ?></span>
+                                            <span class="badge bg-success status-badge"><?= htmlspecialchars($t('attended')) ?></span>
                                         <?php elseif ($historyAttendance === 'No Show'): ?>
-                                            <span class="badge bg-danger"><?= htmlspecialchars($t('no_show')) ?></span>
+                                            <span class="badge bg-danger status-badge"><?= htmlspecialchars($t('no_show')) ?></span>
                                         <?php else: ?>
                                             <span class="text-muted">Pending</span>
                                         <?php endif; ?>
@@ -1219,7 +1254,7 @@ try {
                                     <td>
                                         <?php if ($historyStudentReason !== ''): ?>
                                             <button type="button"
-                                                    class="btn btn-outline-primary btn-sm advisor-reason-btn"
+                                                    class="btn btn-outline-primary btn-sm table-action-btn advisor-reason-btn"
                                                     data-reason-title="<?= htmlspecialchars($t('student_reason')) ?>"
                                                     data-reason-content="<?= htmlspecialchars($historyStudentReason) ?>">
                                                 <?= htmlspecialchars($t('view_reason')) ?>
@@ -1231,7 +1266,7 @@ try {
                                     <td>
                                         <?php if ($historyAdvisorReason !== ''): ?>
                                             <button type="button"
-                                                    class="btn btn-outline-primary btn-sm advisor-reason-btn"
+                                                    class="btn btn-outline-primary btn-sm table-action-btn advisor-reason-btn"
                                                     data-reason-title="<?= htmlspecialchars($t('advisor_reason')) ?>"
                                                     data-reason-content="<?= htmlspecialchars($historyAdvisorReason) ?>">
                                                 <?= htmlspecialchars($t('view_reason')) ?>
@@ -1739,14 +1774,49 @@ function resetCalendarReasonState(wrapId) {
     collapse.hide();
 }
 
-function openAdvisorReasonModal(titleText, reasonText) {
+function renderDetailsList(target, details, fallbackText = '-') {
+    if (!target) return;
+
+    if (!details || typeof details !== 'object') {
+        target.textContent = fallbackText;
+        return;
+    }
+
+    const rows = Object.entries(details);
+    if (rows.length === 0) {
+        target.textContent = fallbackText;
+        return;
+    }
+
+    target.innerHTML = rows.map(function ([label, value]) {
+        const safeLabel = String(label ?? '').replace(/[&<>"']/g, function (char) {
+            return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' })[char];
+        });
+        const safeValue = String(value ?? '-').replace(/[&<>"']/g, function (char) {
+            return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' })[char];
+        });
+        return '<div class="d-flex gap-3 py-2 border-bottom"><strong style="min-width:140px;">' + safeLabel + '</strong><span>' + safeValue + '</span></div>';
+    }).join('');
+}
+
+function parseDetailsAttribute(button) {
+    if (!button) return null;
+
+    try {
+        return JSON.parse(button.getAttribute('data-details') || 'null');
+    } catch (e) {
+        return null;
+    }
+}
+
+function openAdvisorReasonModal(titleText, reasonText, details = null) {
     const titleEl = document.getElementById('advisorReasonModalTitle');
     const textEl = document.getElementById('advisorReasonModalText');
 
     if (!titleEl || !textEl || !advisorReasonModal) return;
 
-    titleEl.textContent = String(titleText ?? '').trim() || <?= json_encode($t('reason')) ?>;
-    textEl.textContent = String(reasonText ?? '').trim() || '-';
+    titleEl.textContent = <?= json_encode($t('appointment_details')) ?>;
+    renderDetailsList(textEl, details, String(reasonText ?? '').trim() || '-');
     advisorReasonModal.show();
 }
 
@@ -1986,7 +2056,8 @@ document.addEventListener("DOMContentLoaded", function () {
         btn.addEventListener('click', function () {
             openAdvisorReasonModal(
                 btn.getAttribute('data-reason-title'),
-                btn.getAttribute('data-reason-content')
+                btn.getAttribute('data-reason-content'),
+                parseDetailsAttribute(btn)
             );
         });
     });

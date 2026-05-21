@@ -87,4 +87,37 @@ class AdminAppointmentReportsClass
             return [];
         }
     }
+
+    public function getAttendanceSummary(): array
+    {
+        $summary = [
+            'attended' => 0,
+            'no_show' => 0,
+            'pending' => 0
+        ];
+
+        try {
+            $sql = "
+                SELECT
+                    SUM(CASE WHEN LOWER(TRIM(Status)) = 'completed' THEN 1 ELSE 0 END) AS attended,
+                    SUM(CASE WHEN LOWER(TRIM(Status)) = 'cancelled' THEN 1 ELSE 0 END) AS no_show,
+                    SUM(CASE WHEN LOWER(TRIM(Status)) = 'scheduled' THEN 1 ELSE 0 END) AS pending
+                FROM appointments
+            ";
+
+            $stmt = $this->conn->prepare($sql);
+            $stmt->execute();
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if ($row) {
+                $summary['attended'] = (int)($row['attended'] ?? 0);
+                $summary['no_show'] = (int)($row['no_show'] ?? 0);
+                $summary['pending'] = (int)($row['pending'] ?? 0);
+            }
+        } catch (Throwable $e) {
+            return $summary;
+        }
+
+        return $summary;
+    }
 }

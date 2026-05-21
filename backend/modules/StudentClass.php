@@ -208,16 +208,15 @@ class StudentClass{
     public function getAvailableAdditionalSlots(int $advisorUserId): array
     {
         try {
-            $todayDate = date('Y-m-d');
             $sql = "SELECT AdditionalSlot_ID, Slot_Date, Start_Time, End_Time
                     FROM advisor_additional_slots
                     WHERE Advisor_ID = ?
                       AND Is_Active = 1
-                      AND Slot_Date >= ?
+                      AND TIMESTAMP(Slot_Date, End_Time) > NOW()
                     ORDER BY Slot_Date ASC, Start_Time ASC";
 
             $stmt = $this->conn->prepare($sql);
-            $stmt->execute([$advisorUserId, $todayDate]);
+            $stmt->execute([$advisorUserId]);
             return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
         } catch (Throwable $e) {
             error_log('StudentClass::getAvailableAdditionalSlots error: ' . $e->getMessage());
