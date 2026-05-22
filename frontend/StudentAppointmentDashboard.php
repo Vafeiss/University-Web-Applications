@@ -726,7 +726,12 @@ try {
 ?>
 
 <header class="top-navbar">
-  <img src="../documents/tepaklogo.png" alt="Logo" class="logo">
+  <div class="navbar-brand-group">
+    <img src="../documents/tepaklogo.png" alt="Logo" class="logo">
+    <span class="advisor-nav-item advisor-nav-item-header">
+      <i class="bi bi-person-circle"></i> <b><?= htmlspecialchars($advisorName) ?></b>
+    </span>
+  </div>
 
   <div class="navbar-center">
     <span class="welcome-text"><?= htmlspecialchars(sprintf($t('welcome'), $studentName)) ?></span>
@@ -857,10 +862,6 @@ try {
 </div>
 
 <div class="tab-bar">
-  <span class="advisor-nav-item">
-    <i class="bi bi-person-circle"></i> <?= htmlspecialchars($advisorName) ?>
-  </span>
-
   <button type="button" class="tab-btn <?= $activeSection === 'calendar' ? 'active' : '' ?>" data-section="calendar">
     <i class="bi bi-calendar3"></i> <?= htmlspecialchars($t('tab_calendar')) ?>
   </button>
@@ -1109,7 +1110,6 @@ try {
                   $declineReason = trim((string)($request['Advisor_Reason'] ?? ''));
                   $isOpenRequest = (string)($request['Request_Type'] ?? 'Slot') === 'Open';
                   $requestMoreDetails = [
-                    'Request ID' => (string)($request['Request_ID'] ?? '-'),
                     'Advisor' => $requestAdvisorName !== '' ? $requestAdvisorName : $t('advisor'),
                     'Date' => $isOpenRequest ? $t('open_date_request_title') : $formatStudentDisplayDate((string)$request['Appointment_Date']),
                     'Type' => (string)($request['Request_Type'] ?? 'Slot'),
@@ -1201,8 +1201,6 @@ try {
                     ? 'Attended'
                     : ($appointmentStatus === 'cancelled' ? 'No Show' : 'Pending');
                   $appointmentMoreDetails = [
-                    'Appointment ID' => (string)($appointment['Appointment_ID'] ?? '-'),
-                    'Request ID' => (string)($appointment['Request_ID'] ?? '-'),
                     'Advisor' => trim((string)($appointment['Advisor_Last_Name'] ?? '')) !== '' ? (string)$appointment['Advisor_Last_Name'] : $t('advisor'),
                     'Date' => $formatStudentDisplayDate((string)$appointment['Appointment_Date']),
                     'Time' => ($appointment['Start_Time'] ? substr((string)$appointment['Start_Time'], 0, 5) : '-') . ' - ' . ($appointment['End_Time'] ? substr((string)$appointment['End_Time'], 0, 5) : '-'),
@@ -1497,37 +1495,15 @@ try {
         <div class="calendar-reason-group">
           <div class="d-flex align-items-center justify-content-between gap-3">
             <strong><?= htmlspecialchars($t('your_reason')) ?>:</strong>
-            <button type="button"
-                    class="btn btn-outline-primary btn-sm calendar-reason-btn"
-                    id="calendarModalStudentReasonBtn"
-                    data-bs-toggle="collapse"
-                    data-bs-target="#calendarModalStudentReasonWrap"
-                    aria-expanded="false"
-                    aria-controls="calendarModalStudentReasonWrap">
-              <?= htmlspecialchars($t('view_reason')) ?>
-            </button>
           </div>
-          <div class="collapse mt-2" id="calendarModalStudentReasonWrap">
-            <div class="calendar-reason-box" id="calendarModalStudentReason"></div>
-          </div>
+          <div class="calendar-reason-box mt-2" id="calendarModalStudentReason"></div>
         </div>
 
         <div class="calendar-reason-group mt-3">
           <div class="d-flex align-items-center justify-content-between gap-3">
             <strong><?= htmlspecialchars($t('advisor_reason')) ?>:</strong>
-            <button type="button"
-                    class="btn btn-outline-primary btn-sm calendar-reason-btn"
-                    id="calendarModalAdvisorReasonBtn"
-                    data-bs-toggle="collapse"
-                    data-bs-target="#calendarModalAdvisorReasonWrap"
-                    aria-expanded="false"
-                    aria-controls="calendarModalAdvisorReasonWrap">
-              <?= htmlspecialchars($t('view_reason')) ?>
-            </button>
           </div>
-          <div class="collapse mt-2" id="calendarModalAdvisorReasonWrap">
-            <div class="calendar-reason-box" id="calendarModalAdvisorReason"></div>
-          </div>
+          <div class="calendar-reason-box mt-2" id="calendarModalAdvisorReason"></div>
         </div>
       </div>
     </div>
@@ -1567,6 +1543,7 @@ try {
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/locales-all.global.min.js"></script>
+<script src="js/buffer.js"></script>
 
 <script>
 const COMM_MAX_WORDS = 200;
@@ -1667,22 +1644,15 @@ function getNextDateForSlotDay(slotDay) {
 const studentCalendarEvents = <?= json_encode($studentCalendarEvents, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
 
 function setCalendarReason(buttonId, wrapId, contentId, value) {
-  const button = document.getElementById(buttonId);
-  const wrap = document.getElementById(wrapId);
   const content = document.getElementById(contentId);
 
-  if (!button || !wrap || !content) return;
+  if (!content) return;
 
   const text = String(value ?? '').trim();
   const hasValue = text !== '' && text !== '-';
 
-  content.textContent = hasValue ? text : '';
-  button.style.display = hasValue ? 'inline-flex' : 'none';
-
-  if (!hasValue) {
-    const collapse = bootstrap.Collapse.getOrCreateInstance(wrap, { toggle: false });
-    collapse.hide();
-  }
+  content.textContent = hasValue ? text : '-';
+  content.classList.toggle('text-muted', !hasValue);
 }
 function showPageMessage(message, type = 'success') {
   const existing = document.getElementById('pageMessageToast');
@@ -1705,11 +1675,11 @@ function showPageMessage(message, type = 'success') {
 }
 
 function resetCalendarReasonState(wrapId) {
-  const wrap = document.getElementById(wrapId);
-  if (!wrap) return;
+  const content = document.getElementById(wrapId);
+  if (!content) return;
 
-  const collapse = bootstrap.Collapse.getOrCreateInstance(wrap, { toggle: false });
-  collapse.hide();
+  content.textContent = '-';
+  content.classList.add('text-muted');
 }
 
 function renderStudentCalendar() {
@@ -1735,10 +1705,8 @@ function renderStudentCalendar() {
       document.getElementById('calendarModalDate').textContent = props.date || '-';
       document.getElementById('calendarModalTime').textContent = props.time || '-';
       document.getElementById('calendarModalStatus').textContent = props.status || '-';
-      setCalendarReason('calendarModalStudentReasonBtn', 'calendarModalStudentReasonWrap', 'calendarModalStudentReason', props.student_reason);
-      setCalendarReason('calendarModalAdvisorReasonBtn', 'calendarModalAdvisorReasonWrap', 'calendarModalAdvisorReason', props.advisor_reason);
-      resetCalendarReasonState('calendarModalStudentReasonWrap');
-      resetCalendarReasonState('calendarModalAdvisorReasonWrap');
+      setCalendarReason(null, null, 'calendarModalStudentReason', props.student_reason);
+      setCalendarReason(null, null, 'calendarModalAdvisorReason', props.advisor_reason);
       detailsModal.show();
     }
   });

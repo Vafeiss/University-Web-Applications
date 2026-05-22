@@ -82,6 +82,7 @@ if ($loginError === 'invalid' || $loginError === 'invalid1') {
         </form>
         </div>
         </div>
+            <script src="js/buffer.js"></script>
         <script>
             document.addEventListener('DOMContentLoaded', function () {
                 const button = document.getElementById('toggleLoginPassword');

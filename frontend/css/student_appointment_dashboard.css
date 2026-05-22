@@ -14,7 +14,7 @@ body {
   background: #fff;
   border-bottom: 1px solid #e5e7eb;
   padding: 0 1.5rem;
-  height: 64px;
+  min-height: 64px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -34,6 +34,37 @@ body {
   height: 70px;
   width: auto;
   object-fit: contain;
+}
+
+.navbar-brand-group {
+  display: flex;
+  align-items: center;
+  gap: .65rem;
+  min-width: 0;
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.advisor-nav-item-header {
+  position: static !important;
+  left: auto !important;
+  top: auto !important;
+  transform: none !important;
+  padding: 0;
+  color: #4b5563;
+  font-size: .95rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.navbar-center {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: calc(100% - 24rem);
+  text-align: center;
+  pointer-events: none;
 }
 
 .user-avatar {
@@ -468,6 +499,18 @@ body {
 
   .top-navbar {
     padding: 0 1rem;
+  }
+
+  .navbar-brand-group {
+    gap: .45rem;
+  }
+
+  .logo {
+    height: 58px;
+  }
+
+  .advisor-nav-item-header {
+    font-size: .8rem;
   }
 
   .tab-bar {

@@ -196,7 +196,7 @@ $translations['en'] = array_merge($translations['en'], [
     'no_pending_requests_found' => 'No pending requests found',
     'pending' => 'Pending',
     'approve' => 'Approve',
-    'schedule_approve' => 'Schedule & Approve',
+    'schedule_approve' => 'Schedule',
     'open_date_request' => 'Open Date Request',
     'schedule_open_request_title' => 'Schedule Open Date Request',
     'appointment_date' => 'Appointment Date',
@@ -240,6 +240,10 @@ $translations['en'] = array_merge($translations['en'], [
     'name' => 'Name',
     'last_name' => 'Last Name',
     'year' => 'Year',
+    'attendance_summary_title' => 'Attendance Summary',
+    'total_meetings' => 'Total Meetings',
+    'attended_meetings' => 'Attended',
+    'no_show_meetings' => 'No Show',
     'no_assigned_students_found' => 'No assigned students found',
     'year_label' => 'Year %s',
     'communications_title' => 'Communications',
@@ -344,6 +348,10 @@ $translations['el'] = array_merge($translations['el'], [
     'name' => 'Όνομα',
     'last_name' => 'Επώνυμο',
     'year' => 'Έτος',
+    'attendance_summary_title' => 'Σύνοψη Παρουσιών',
+    'total_meetings' => 'Σύνολο Συναντήσεων',
+    'attended_meetings' => 'Παρών',
+    'no_show_meetings' => 'Απουσία',
     'no_assigned_students_found' => 'Δεν βρέθηκαν ανατεθειμένοι φοιτητές',
     'year_label' => 'Έτος %s',
     'communications_title' => 'Επικοινωνίες',
@@ -370,6 +378,7 @@ $translations['el'] = array_merge($translations['el'], [
     'details' => 'Λεπτομέρειες',
     'student' => 'Φοιτητής',
     'time' => 'Ώρα',
+    'schedule_approve' => 'Προγραμμάτιση',
     'view_details' => 'More',
     'view_reason' => 'More',
     'advisor_note' => 'Σημείωση Συμβούλου',
@@ -873,7 +882,6 @@ try {
                                     $requestAdvisorReason = trim((string)($request['Advisor_Reason'] ?? ''));
                                     $isOpenRequest = (string)($request['Request_Type'] ?? 'Slot') === 'Open';
                                     $requestMoreDetails = [
-                                        'Request ID' => (string)($request['Request_ID'] ?? '-'),
                                         'Student ID' => (string)($request['Student_External_ID'] ?? '-'),
                                         'Date' => $isOpenRequest ? $t('open_date_request') : (string)$request['Appointment_Date'],
                                         'Type' => (string)($request['Request_Type'] ?? 'Slot'),
@@ -1096,7 +1104,7 @@ try {
                 <table class="table table-sm table-hover align-middle mb-0">
                     <thead class="table-light">
                         <tr>
-                            <th><?= htmlspecialchars($t('appointment_id')) ?></th>
+    
                             <th><?= htmlspecialchars($t('student_id')) ?></th>
                             <th><?= htmlspecialchars($t('date')) ?></th>
                             <th><?= htmlspecialchars($t('start_time')) ?></th>
@@ -1117,8 +1125,6 @@ try {
                                 <?php if ($appointmentAttendance === '') { $appointmentAttendance = 'Pending'; } ?>
                                 <?php
                                     $appointmentMoreDetails = [
-                                        'Appointment ID' => (string)($appointment['Appointment_ID'] ?? '-'),
-                                        'Request ID' => (string)($appointment['Request_ID'] ?? '-'),
                                         'Student ID' => (string)($appointment['Student_External_ID'] ?? $appointment['Student_ID'] ?? '-'),
                                         'Date' => (string)($appointment['Appointment_Date'] ?? '-'),
                                         'Time' => substr((string)$appointment['Start_Time'], 0, 5) . ' - ' . substr((string)$appointment['End_Time'], 0, 5),
@@ -1127,7 +1133,6 @@ try {
                                     ];
                                 ?>
                                 <tr>
-                                    <td><?= htmlspecialchars((string)($appointment['Appointment_ID'] ?? $appointment['Request_ID'])) ?></td>
                                     <td><?= htmlspecialchars((string)($appointment['Student_External_ID'] ?? $appointment['Student_ID'])) ?></td>
                                     <td><?= htmlspecialchars((string)$appointment['Appointment_Date']) ?></td>
                                     <td><?= htmlspecialchars(substr((string)$appointment['Start_Time'], 0, 5)) ?></td>
@@ -1140,7 +1145,7 @@ try {
                                         <?php elseif ($appointment['Status'] === 'Cancelled'): ?>
                                             <span class="badge bg-danger status-badge"><?= htmlspecialchars($t('cancelled')) ?></span>
                                         <?php else: ?>
-                                            <span class="badge bg-dark status-badge"><?= htmlspecialchars((string)$appointment['Status']) ?></span>
+                                            <span class="badge bg-success status-badge"><?= htmlspecialchars((string)$appointment['Status']) ?></span>
                                         <?php endif; ?>
                                     </td>
                                     <td>
@@ -1341,12 +1346,13 @@ try {
                             <th><?= htmlspecialchars($t('name')) ?></th>
                             <th><?= htmlspecialchars($t('last_name')) ?></th>
                             <th><?= htmlspecialchars($t('year')) ?></th>
+                            <th>Attedance</th>
                         </tr>
                     </thead>
                     <tbody>
                         <?php if (count($assignedStudents) === 0): ?>
                             <tr>
-                                <td colspan="4" class="text-center text-muted"><?= htmlspecialchars($t('no_assigned_students_found')) ?></td>
+                                <td colspan="5" class="text-center text-muted"><?= htmlspecialchars($t('no_assigned_students_found')) ?></td>
                             </tr>
                         <?php else: ?>
                             <?php foreach ($assignedStudents as $student): ?>
@@ -1355,11 +1361,69 @@ try {
                                     <td><?= htmlspecialchars((string)($student['First_name'] ?? '-')) ?></td>
                                     <td><?= htmlspecialchars((string)($student['Last_Name'] ?? '-')) ?></td>
                                     <td><?= htmlspecialchars(sprintf($t('year_label'), (string)($student['StuYear'] ?? '-'))) ?></td>
+                                    <?php
+                                        $studentAttendanceName = trim((string)($student['First_name'] ?? '') . ' ' . (string)($student['Last_Name'] ?? ''));
+                                        $studentTotalMeetings = (int)($student['total_meetings'] ?? 0);
+                                        $studentAttendedMeetings = (int)($student['attended_meetings'] ?? 0);
+                                        $studentNoShowMeetings = (int)($student['no_show_meetings'] ?? 0);
+                                    ?>
+                                    <td class="text-nowrap">
+                                        <button
+                                            type="button"
+                                            class="btn btn-outline-primary btn-sm text-nowrap table-action-btn student-attendance-btn"
+                                            data-bs-toggle="modal"
+                                            data-bs-target="#studentAttendanceModal"
+                                            data-student-name="<?= htmlspecialchars($studentAttendanceName) ?>"
+                                            data-total-meetings="<?= $studentTotalMeetings ?>"
+                                            data-attended-meetings="<?= $studentAttendedMeetings ?>"
+                                            data-no-show-meetings="<?= $studentNoShowMeetings ?>">
+                                            <?= htmlspecialchars($t('view_details')) ?>
+                                        </button>
+                                    </td>
                                 </tr>
                             <?php endforeach; ?>
                         <?php endif; ?>
                     </tbody>
                 </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="studentAttendanceModal" tabindex="-1" aria-labelledby="studentAttendanceModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow">
+                <div class="modal-header border-0 pb-0">
+                    <div>
+                        <h5 class="modal-title fw-semibold" id="studentAttendanceModalLabel"><?= htmlspecialchars($t('attendance_summary_title')) ?></h5>
+                        <p class="text-muted mb-0 small" id="studentAttendanceModalStudent"></p>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="<?= htmlspecialchars($t('close')) ?>"></button>
+                </div>
+                <div class="modal-body pt-2">
+                    <div class="row g-3">
+                        <div class="col-12 col-md-4">
+                            <div class="border rounded-3 p-3 h-100 bg-light">
+                                <div class="text-muted small"><?= htmlspecialchars($t('total_meetings')) ?></div>
+                                <div class="fs-4 fw-semibold" id="studentAttendanceTotal">0</div>
+                            </div>
+                        </div>
+                        <div class="col-12 col-md-4">
+                            <div class="border rounded-3 p-3 h-100 bg-light">
+                                <div class="text-muted small"><?= htmlspecialchars($t('attended_meetings')) ?></div>
+                                <div class="fs-4 fw-semibold text-success" id="studentAttendanceAttended">0</div>
+                            </div>
+                        </div>
+                        <div class="col-12 col-md-4">
+                            <div class="border rounded-3 p-3 h-100 bg-light">
+                                <div class="text-muted small"><?= htmlspecialchars($t('no_show_meetings')) ?></div>
+                                <div class="fs-4 fw-semibold text-danger" id="studentAttendanceNoShow">0</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer border-0 pt-0">
+                    <button type="button" class="btn btn-primary" data-bs-dismiss="modal"><?= htmlspecialchars($t('close')) ?></button>
+                </div>
             </div>
         </div>
     </div>
@@ -1569,8 +1633,6 @@ try {
             </div>
             <div class="modal-body">
                 <p><strong><?= htmlspecialchars($t('student')) ?>:</strong> <span id="advisorCalendarModalStudent"></span></p>
-                <p><strong><?= htmlspecialchars($t('request_id')) ?>:</strong> <span id="advisorCalendarModalRequestId"></span></p>
-                <p><strong><?= htmlspecialchars($t('appointment_id')) ?>:</strong> <span id="advisorCalendarModalAppointmentId"></span></p>
                 <p><strong><?= htmlspecialchars($t('student_id')) ?>:</strong> <span id="advisorCalendarModalStudentId"></span></p>
                 <p><strong><?= htmlspecialchars($t('date')) ?>:</strong> <span id="advisorCalendarModalDate"></span></p>
                 <p><strong><?= htmlspecialchars($t('time')) ?>:</strong> <span id="advisorCalendarModalTime"></span></p>
@@ -1580,37 +1642,15 @@ try {
                 <div class="calendar-reason-group">
                     <div class="d-flex align-items-center justify-content-between gap-3">
                         <strong><?= htmlspecialchars($t('student_reason')) ?>:</strong>
-                        <button type="button"
-                                class="btn btn-outline-primary btn-sm calendar-reason-btn"
-                                id="advisorCalendarModalStudentReasonBtn"
-                                data-bs-toggle="collapse"
-                                data-bs-target="#advisorCalendarModalStudentReasonWrap"
-                                aria-expanded="false"
-                                aria-controls="advisorCalendarModalStudentReasonWrap">
-                            <?= htmlspecialchars($t('view_reason')) ?>
-                        </button>
                     </div>
-                    <div class="collapse mt-2" id="advisorCalendarModalStudentReasonWrap">
-                        <div class="calendar-reason-box" id="advisorCalendarModalStudentReason"></div>
-                    </div>
+                    <div class="calendar-reason-box mt-2" id="advisorCalendarModalStudentReason"></div>
                 </div>
 
                 <div class="calendar-reason-group mt-3">
                     <div class="d-flex align-items-center justify-content-between gap-3">
-                        <strong><?= htmlspecialchars($t('advisor_note')) ?>:</strong>
-                        <button type="button"
-                                class="btn btn-outline-primary btn-sm calendar-reason-btn"
-                                id="advisorCalendarModalAdvisorReasonBtn"
-                                data-bs-toggle="collapse"
-                                data-bs-target="#advisorCalendarModalAdvisorReasonWrap"
-                                aria-expanded="false"
-                                aria-controls="advisorCalendarModalAdvisorReasonWrap">
-                            <?= htmlspecialchars($t('view_reason')) ?>
-                        </button>
+                        <strong><?= htmlspecialchars($t('advisor_reason')) ?>:</strong>
                     </div>
-                    <div class="collapse mt-2" id="advisorCalendarModalAdvisorReasonWrap">
-                        <div class="calendar-reason-box" id="advisorCalendarModalAdvisorReason"></div>
-                    </div>
+                    <div class="calendar-reason-box mt-2" id="advisorCalendarModalAdvisorReason"></div>
                 </div>
             </div>
         </div>
@@ -1733,6 +1773,7 @@ try {
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/locales-all.global.min.js"></script>
+<script src="js/buffer.js"></script>
 
 <script>
 const COMM_MAX_WORDS = 200;
@@ -1748,30 +1789,23 @@ let pendingAdvisorConfirmCallback = null;
 const advisorCalendarEvents = <?= json_encode($advisorCalendarEvents, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
 
 function setCalendarReason(buttonId, wrapId, contentId, value) {
-    const button = document.getElementById(buttonId);
-    const wrap = document.getElementById(wrapId);
     const content = document.getElementById(contentId);
 
-    if (!button || !wrap || !content) return;
+    if (!content) return;
 
     const text = String(value ?? '').trim();
     const hasValue = text !== '' && text !== '-';
 
-    content.textContent = hasValue ? text : '';
-    button.style.display = hasValue ? 'inline-flex' : 'none';
-
-    if (!hasValue) {
-        const collapse = bootstrap.Collapse.getOrCreateInstance(wrap, { toggle: false });
-        collapse.hide();
-    }
+    content.textContent = hasValue ? text : '-';
+    content.classList.toggle('text-muted', !hasValue);
 }
 
 function resetCalendarReasonState(wrapId) {
-    const wrap = document.getElementById(wrapId);
-    if (!wrap) return;
+    const content = document.getElementById(wrapId);
+    if (!content) return;
 
-    const collapse = bootstrap.Collapse.getOrCreateInstance(wrap, { toggle: false });
-    collapse.hide();
+    content.textContent = '-';
+    content.classList.add('text-muted');
 }
 
 function renderDetailsList(target, details, fallbackText = '-') {
@@ -1840,17 +1874,13 @@ function renderAdvisorCalendar() {
         eventClick: function (info) {
             const props = info.event.extendedProps || {};
             document.getElementById('advisorCalendarModalStudent').textContent = props.student || '-';
-            document.getElementById('advisorCalendarModalRequestId').textContent = props.request_id || '-';
-            document.getElementById('advisorCalendarModalAppointmentId').textContent = props.appointment_id || '-';
             document.getElementById('advisorCalendarModalStudentId').textContent = props.student_id || '-';
             document.getElementById('advisorCalendarModalDate').textContent = props.date || '-';
             document.getElementById('advisorCalendarModalTime').textContent = props.time || '-';
             document.getElementById('advisorCalendarModalStatus').textContent = props.status || '-';
             document.getElementById('advisorCalendarModalAttendance').textContent = props.attendance || 'Pending';
-            setCalendarReason('advisorCalendarModalStudentReasonBtn', 'advisorCalendarModalStudentReasonWrap', 'advisorCalendarModalStudentReason', props.student_reason);
-            setCalendarReason('advisorCalendarModalAdvisorReasonBtn', 'advisorCalendarModalAdvisorReasonWrap', 'advisorCalendarModalAdvisorReason', props.advisor_reason);
-            resetCalendarReasonState('advisorCalendarModalStudentReasonWrap');
-            resetCalendarReasonState('advisorCalendarModalAdvisorReasonWrap');
+            setCalendarReason(null, null, 'advisorCalendarModalStudentReason', props.student_reason);
+            setCalendarReason(null, null, 'advisorCalendarModalAdvisorReason', props.advisor_reason);
             detailsModal.show();
         }
     });
@@ -2166,6 +2196,29 @@ document.addEventListener("DOMContentLoaded", function () {
         });
     }
 
+    const studentAttendanceModal = document.getElementById('studentAttendanceModal');
+    if (studentAttendanceModal) {
+        studentAttendanceModal.addEventListener('show.bs.modal', function (event) {
+            const trigger = event.relatedTarget;
+            if (!trigger) return;
+
+            const studentName = trigger.getAttribute('data-student-name') || '';
+            const totalMeetings = trigger.getAttribute('data-total-meetings') || '0';
+            const attendedMeetings = trigger.getAttribute('data-attended-meetings') || '0';
+            const noShowMeetings = trigger.getAttribute('data-no-show-meetings') || '0';
+
+            const studentNameElement = document.getElementById('studentAttendanceModalStudent');
+            const totalMeetingsElement = document.getElementById('studentAttendanceTotal');
+            const attendedMeetingsElement = document.getElementById('studentAttendanceAttended');
+            const noShowMeetingsElement = document.getElementById('studentAttendanceNoShow');
+
+            if (studentNameElement) studentNameElement.textContent = studentName;
+            if (totalMeetingsElement) totalMeetingsElement.textContent = totalMeetings;
+            if (attendedMeetingsElement) attendedMeetingsElement.textContent = attendedMeetings;
+            if (noShowMeetingsElement) noShowMeetingsElement.textContent = noShowMeetings;
+        });
+    }
+
     document.querySelectorAll('.comm-student-item').forEach(function (item) {
         item.addEventListener('click', function () {
             const studentId = parseInt(item.getAttribute('data-student-id') || '0', 10);
@@ -2189,6 +2242,21 @@ document.addEventListener("DOMContentLoaded", function () {
             }
         });
     });
+
+    const declineRequestForm = document.querySelector('#declineRequestModal form');
+    if (declineRequestForm) {
+        declineRequestForm.addEventListener('submit', function (event) {
+            if (declineRequestForm.dataset.directSubmit === '1') {
+                declineRequestForm.dataset.directSubmit = '0';
+                return;
+            }
+
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            declineRequestForm.dataset.directSubmit = '1';
+            declineRequestForm.submit();
+        }, true);
+    }
 
     document.querySelectorAll('.open-schedule-modal-btn').forEach(function(btn) {
         btn.addEventListener('click', function() {

@@ -72,6 +72,7 @@ $csrfToken = Csrf::ensureToken();
         </div>
     </div>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+    <script src="js/buffer.js"></script>
     <script src="js/reset-password-toggle.js"></script>
 </body>
 </html>

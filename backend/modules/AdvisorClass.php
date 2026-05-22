@@ -81,18 +81,32 @@ class AdvisorClass
                         s.First_name,
                         s.Last_Name,
                         st.year AS StuYear,
-                        COALESCE(SUM(CASE WHEN m.Sender_ID != ? AND m.Is_Read = 0 THEN 1 ELSE 0 END), 0) AS unread_count
+                        COALESCE(SUM(CASE WHEN m.Sender_ID != ? AND m.Is_Read = 0 THEN 1 ELSE 0 END), 0) AS unread_count,
+                        COALESCE(mc.total_meetings, 0) AS total_meetings,
+                        COALESCE(mc.attended_meetings, 0) AS attended_meetings,
+                        COALESCE(mc.no_show_meetings, 0) AS no_show_meetings
                     FROM student_advisors sa
                     JOIN users s ON s.External_ID = sa.Student_ID AND s.Role = 'Student'
                     LEFT JOIN students st ON st.User_ID = s.User_ID
                     LEFT JOIN conversations c ON c.Student_ID = s.User_ID AND c.Advisor_ID = ?
                     LEFT JOIN messages m ON m.Conversation_ID = c.Conversation_ID
+                    LEFT JOIN (
+                        SELECT
+                            ar.Student_ID,
+                            SUM(CASE WHEN ap.Status = 'Completed' THEN 1 ELSE 0 END) AS attended_meetings,
+                            SUM(CASE WHEN ap.Status = 'Cancelled' THEN 1 ELSE 0 END) AS no_show_meetings,
+                            SUM(CASE WHEN ap.Status IN ('Completed', 'Cancelled') THEN 1 ELSE 0 END) AS total_meetings
+                        FROM appointment_requests ar
+                        LEFT JOIN appointments ap ON ap.Request_ID = ar.Request_ID
+                        WHERE ar.Advisor_ID = ?
+                        GROUP BY ar.Student_ID
+                    ) mc ON mc.Student_ID = s.User_ID
                     WHERE sa.Advisor_ID = ?
-                    GROUP BY s.User_ID, s.External_ID, s.First_name, s.Last_Name, st.year
+                    GROUP BY s.User_ID, s.External_ID, s.First_name, s.Last_Name, st.year, mc.total_meetings, mc.attended_meetings, mc.no_show_meetings
                     ORDER BY st.year ASC, s.First_name ASC, s.Last_Name ASC";
 
             $stmt = $this->conn->prepare($sql);
-            $stmt->execute([$advisorUserId, $advisorUserId, $advisorExternalId]);
+            $stmt->execute([$advisorUserId, $advisorUserId, $advisorUserId, $advisorExternalId]);
 
             return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
         } catch (Throwable $e) {

@@ -39,6 +39,7 @@ declare(strict_types=1);
 session_start();
 
 require_once __DIR__ . '/../modules/NotificationsClass.php';
+require_once __DIR__ . '/../modules/AppointmentEmail.php';
 require_once __DIR__ . '/../modules/databaseconnect.php';
 require_once __DIR__ . '/../modules/UsersClass.php';
 require_once __DIR__ . '/../modules/Csrf.php';
@@ -390,6 +391,13 @@ try {
         ]);
     } catch (Throwable $e) {
         error_log('StudentBookAppointment notification insert error: ' . $e->getMessage());
+    }
+
+    try {
+        $appointmentEmail = new AppointmentEmail($pdo);
+        $appointmentEmail->sendAdvisorRequestEmail($requestId);
+    } catch (Throwable $e) {
+        error_log('StudentBookAppointment advisor email error: ' . $e->getMessage());
     }
 
     Notifications::success("Appointment request submitted successfully.");

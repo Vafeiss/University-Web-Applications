@@ -104,9 +104,11 @@
     fd.append('action', '/student/message/thread');
     fd.append('student_id', String(commStudentId));
 
-    fetch('../backend/modules/dispatcher.php', { method: 'POST', body: fd })
-      .then(function (r) { return r.json(); })
-      .then(function (payload) {
+    const runWithoutBuffer = window.__advicutRequestBufferRunWithoutBuffer;
+    const loadThread = function () {
+      return fetch('../backend/modules/dispatcher.php', { method: 'POST', body: fd })
+        .then(function (r) { return r.json(); })
+        .then(function (payload) {
         const messages = Array.isArray(payload)
           ? payload
           : (payload && Array.isArray(payload.data) ? payload.data : []);
@@ -140,7 +142,15 @@
         const markReadFd = new FormData();
         markReadFd.append('action', '/student/message/read');
         markReadFd.append('student_id', String(commStudentId));
-        fetch('../backend/modules/dispatcher.php', { method: 'POST', body: markReadFd }).catch(function () {});
+        const markRead = function () {
+          return fetch('../backend/modules/dispatcher.php', { method: 'POST', body: markReadFd }).catch(function () {});
+        };
+
+        if (typeof runWithoutBuffer === 'function') {
+          runWithoutBuffer(markRead);
+        } else {
+          markRead();
+        }
       })
       .catch(function () {
         box.innerHTML = [
@@ -150,6 +160,13 @@
           '</div>'
         ].join('');
       });
+    };
+
+    if (typeof runWithoutBuffer === 'function') {
+      runWithoutBuffer(loadThread);
+    } else {
+      loadThread();
+    }
   }
 
   function commBubble(m) {

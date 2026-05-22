@@ -91,6 +91,7 @@ if ($role === 'student') {
 </div>
 
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+<script src="js/buffer.js"></script>
 <script src="js/change-password-toggle.js"></script>
 </body>
 </html>

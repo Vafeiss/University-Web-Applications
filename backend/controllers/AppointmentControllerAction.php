@@ -49,7 +49,10 @@ if (session_status() === PHP_SESSION_NONE) {
 }
 
 require_once __DIR__ . '/../modules/AppointmentApprovalClass.php';
+require_once __DIR__ . '/../modules/AppointmentEmail.php';
 require_once __DIR__ . '/../modules/NotificationsClass.php';
+require_once __DIR__ . '/../modules/UsersClass.php';
+require_once __DIR__ . '/../modules/Csrf.php';
 require_once __DIR__ . '/../config/app.php';
 
 class AppointmentControllerAction
@@ -68,11 +71,29 @@ class AppointmentControllerAction
 
     public function handle(): void
     {
+        $user = new Users();
+        $user->Check_Session('Advisor');
+
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            Notifications::error("Invalid request method.");
+            $this->redirectToAdvisorRequests();
+        }
+
+        if (!Csrf::validateRequestToken()) {
+            Notifications::error("Request validation failed.");
+            $this->redirectToAdvisorRequests();
+        }
+
         $appointmentAction = trim((string)($_POST['appointment_action'] ?? $_GET['action'] ?? ''));
         $requestId = (int)($_POST['request_id'] ?? $_GET['id'] ?? 0);
         $appointmentId = (int)($_POST['appointment_id'] ?? $_GET['appointment_id'] ?? 0);
         $studentAttendance = trim((string)($_POST['student_attendance'] ?? $_GET['student_attendance'] ?? ''));
-        $advisorId = isset($_SESSION['UserID']) && is_numeric($_SESSION['UserID']) ? (int)$_SESSION['UserID'] : 2;
+        $advisorId = isset($_SESSION['UserID']) && is_numeric($_SESSION['UserID']) ? (int)$_SESSION['UserID'] : 0;
+
+        if ($advisorId <= 0) {
+            Notifications::error("Unauthorized advisor session.");
+            $this->redirectToAdvisorRequests();
+        }
 
         if ($appointmentAction === 'mark_attendance' && $appointmentId <= 0 && $requestId <= 0) {
             Notifications::error("Invalid appointment ID.");
@@ -279,6 +300,13 @@ class AppointmentControllerAction
                 error_log('AppointmentControllerAction approve notification insert error: ' . $e->getMessage());
             }
 
+            try {
+                $appointmentEmail = new AppointmentEmail($pdo);
+                $appointmentEmail->sendStudentDecisionEmail($requestId, 'Approved');
+            } catch (Throwable $e) {
+                error_log('AppointmentControllerAction approve email error: ' . $e->getMessage());
+            }
+
             Notifications::success("Appointment approved successfully.");
             $this->redirectToAdvisorRequests();
         }
@@ -324,6 +352,13 @@ class AppointmentControllerAction
                 }
             } catch (Throwable $e) {
                 error_log('AppointmentControllerAction decline notification insert error: ' . $e->getMessage());
+            }
+
+            try {
+                $appointmentEmail = new AppointmentEmail($pdo);
+                $appointmentEmail->sendStudentDecisionEmail($requestId, 'Declined');
+            } catch (Throwable $e) {
+                error_log('AppointmentControllerAction decline email error: ' . $e->getMessage());
             }
 
             Notifications::success("Appointment declined successfully.");

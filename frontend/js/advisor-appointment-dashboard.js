@@ -119,9 +119,11 @@
     fd.append('action', '/message/thread');
     fd.append('student_id', String(studentId));
 
-    fetch('../backend/modules/dispatcher.php', { method: 'POST', body: fd })
-      .then(function (r) { return r.json(); })
-      .then(function (payload) {
+    const runWithoutBuffer = window.__advicutRequestBufferRunWithoutBuffer;
+    const loadThread = function () {
+      return fetch('../backend/modules/dispatcher.php', { method: 'POST', body: fd })
+        .then(function (r) { return r.json(); })
+        .then(function (payload) {
         const messages = Array.isArray(payload)
           ? payload
           : (payload && Array.isArray(payload.data) ? payload.data : []);
@@ -158,7 +160,15 @@
         const readFd = new FormData();
         readFd.append('action', '/message/read');
         readFd.append('student_id', String(studentId));
-        fetch('../backend/modules/dispatcher.php', { method: 'POST', body: readFd }).catch(function () {});
+        const markRead = function () {
+          return fetch('../backend/modules/dispatcher.php', { method: 'POST', body: readFd }).catch(function () {});
+        };
+
+        if (typeof runWithoutBuffer === 'function') {
+          runWithoutBuffer(markRead);
+        } else {
+          markRead();
+        }
 
         const activeItem = document.querySelector('.comm-student-item.active .comm-unread');
         if (activeItem) {
@@ -168,6 +178,13 @@
       .catch(function () {
         box.innerHTML = '<div class="comm-placeholder" style="color:#ef4444"><i class="bi bi-exclamation-circle"></i><p>Failed to load messages. Please try again.</p></div>';
       });
+    };
+
+    if (typeof runWithoutBuffer === 'function') {
+      runWithoutBuffer(loadThread);
+    } else {
+      loadThread();
+    }
   }
 
   function commWordCount(textarea) {
