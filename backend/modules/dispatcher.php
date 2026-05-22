@@ -21,7 +21,7 @@ require_once __DIR__ . '/Csrf.php';
 
 //route verification endpoint for diagnostics
 if ((string)($_GET['route_diag'] ?? '') === '1') {
-    $diagRouter = new Router();
+    $router = new Router();
     require __DIR__ . '/../core/routes.php';
 
     header('Content-Type: application/json');
@@ -29,7 +29,7 @@ if ((string)($_GET['route_diag'] ?? '') === '1') {
         'ok' => true,
         'request_method' => $_SERVER['REQUEST_METHOD'] ?? null,
         'request_uri' => $_SERVER['REQUEST_URI'] ?? null,
-        'post_login_route_exists' => $diagRouter->hasRoute('POST', '/login'),
+        'post_login_route_exists' => $router->hasRoute('POST', '/login'),
     ], JSON_PRETTY_PRINT);
     exit();
 }

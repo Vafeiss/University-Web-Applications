@@ -24,7 +24,11 @@ if (!defined('APP_TIMEZONE')) {
 }
 
 if (!defined('BASE_URL')) {
-    $configuredBase = (string)(getenv('APP_BASE_PATH') ?: '/University-Web-Applications-System-A');
+    $configuredBase = (string)(getenv('APP_BASE_URL') ?: getenv('APP_BASE_PATH') ?: '/academic/University-Web-Applications-System-A');
+    // If a full URL was given, extract just the path component.
+    if (str_starts_with($configuredBase, 'http')) {
+        $configuredBase = (string)(parse_url($configuredBase, PHP_URL_PATH) ?: '/');
+    }
     $configuredBase = '/' . trim($configuredBase, '/');
     define('BASE_URL', $configuredBase);
 }
